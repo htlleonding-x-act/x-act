@@ -1,0 +1,75 @@
+@startuml x-act-erd
+
+!define primary_key(x) <b><color:#b8861b><&key></color> x</b>
+!define foreign_key(x) <color:#aaaaaa><&key></color> x
+!define column(x) <color:#262626><&media-record></color> x
+!define table(x) entity x << (T, white) >>
+
+table(Users) {
+    primary_key(user_id) : UUID
+    --
+    column(username) : VARCHAR(50)
+    column(email) : VARCHAR(100)
+    column(password_hash) : VARCHAR(255)
+    column(total_wins) : INTEGER
+    column(total_games_played) : INTEGER
+}
+
+table(Game_Sessions) {
+    primary_key(session_id) : UUID
+    --
+    foreign_key(host_user_id) : UUID
+    --
+    column(join_code) : VARCHAR(6)
+    column(status) : ENUM('WAITING', 'ACTIVE', 'FINISHED')
+    column(start_time) : TIMESTAMP
+    column(end_time) : TIMESTAMP
+    column(mr_x_reveal_interval) : INTEGER
+    column(geofence_polygon) : GEOMETRY(POLYGON)
+}
+
+table(Teams) {
+    primary_key(team_id) : UUID
+    --
+    foreign_key(session_id) : UUID
+    --
+    column(team_name) : VARCHAR(50)
+    column(role) : ENUM('MR_X', 'DETECTIVE', 'SPECTATOR')
+    column(color_code) : VARCHAR(7)
+    column(is_caught) : BOOLEAN
+}
+
+table(Team_Members) {
+    primary_key(member_id) : UUID
+    --
+    foreign_key(team_id) : UUID
+    foreign_key(user_id) : UUID
+    --
+    column(is_team_leader) : BOOLEAN
+    column(current_latitude) : DOUBLE
+    column(current_longitude) : DOUBLE
+    column(last_updated) : TIMESTAMP
+}
+
+table(Location_Logs) {
+    primary_key(log_id) : UUID
+    --
+    foreign_key(member_id) : UUID
+    --
+    column(timestamp) : TIMESTAMP
+    column(latitude) : DOUBLE
+    column(longitude) : DOUBLE
+    column(transport_mode) : ENUM('FOOT', 'BUS', 'TRAM', 'TRAIN')
+    column(is_revealed_position) : BOOLEAN
+}
+
+Users ||..o{ Team_Members : "joins as member"
+Users ||..o{ Game_Sessions : "hosts"
+
+Game_Sessions ||--|{ Teams : "consists of"
+
+Teams ||--|{ Team_Members : "has members"
+
+Team_Members ||--o{ Location_Logs : "tracks individual movement"
+
+@enduml
