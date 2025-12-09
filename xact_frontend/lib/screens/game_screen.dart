@@ -15,15 +15,20 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = const [TeamScreen(), AllChatScreen(), TeamChatScreen(), ReportScreen()];
+  final List<Widget> _screens = const [
+    TeamScreen(),
+    AllChatScreen(),
+    TeamChatScreen(),
+    ReportScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(
         children: [
-          const Expanded(flex: 2, child: MapArea()),
-          Expanded(flex: 3, child: _screens[_selectedIndex]),
+          const Expanded(flex: 5, child: MapArea()),
+          Expanded(flex: 4, child: _screens[_selectedIndex]),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
