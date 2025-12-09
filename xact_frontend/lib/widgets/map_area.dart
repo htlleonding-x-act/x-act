@@ -10,7 +10,7 @@ class MapArea extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
-        border: Border.all(color: Colors.blue.shade700, width: 2),
+        border: Border(bottom: BorderSide(color: Colors.blue.shade700, width: 2)),
       ),
       child: Stack(
         children: [
