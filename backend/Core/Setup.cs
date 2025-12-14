@@ -12,12 +12,12 @@ using XAct.Core.Users;
 namespace XAct.Core;
 
 public static class Setup
-{    
+{
     public static void RegisterServices(this IServiceCollection services)
     {
         services.AddSingleton<IClock>(SystemClock.Instance);
         services.AddSingleton<IDataStorage, DataStorage>();
-        
+
         services.AddScoped<IGameSessionService, GameSessionService>();
         services.AddScoped<IGeofencePointService, GeofencePointService>();
         services.AddScoped<ILocationLogService, LocationLogService>();
@@ -38,13 +38,31 @@ public static class Setup
             options.SerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
         });
     }
-    
-    public static void ConfigureCors(this IServiceCollection services)
+
+    public static void ConfigureCors(this IServiceCollection services, bool isDevelopment)
     {
         services.AddCors(options =>
         {
             options.AddPolicy(Const.CorsPolicyName, policy =>
             {
+                if (isDevelopment)
+                {
+                    policy
+                        .SetIsOriginAllowed(origin =>
+                        {
+                            if (string.IsNullOrWhiteSpace(origin))
+                            {
+                                return false;
+                            }
+
+                            return Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback;
+                        })
+                        .AllowAnyMethod()
+                        .AllowAnyHeader();
+
+                    return;
+                }
+
                 policy.WithOrigins("http://localhost:4200")
                       .AllowAnyMethod()
                       .AllowAnyHeader();
