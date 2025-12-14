@@ -42,8 +42,8 @@ class _ReportScreenState extends State<ReportScreen> {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
+            padding: EdgeInsets.zero,
             children: [
               const Padding(
                 padding: EdgeInsets.only(left: 8.0, bottom: 12.0),
@@ -93,7 +93,6 @@ class _ReportScreenState extends State<ReportScreen> {
                         ),
                       ],
                     ),
-                    // const SizedBox(height: 8),
                     const Text(
                       'Reported by Detectives Alpha',
                       style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
