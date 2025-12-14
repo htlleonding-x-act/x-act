@@ -1,59 +1,94 @@
 import 'package:flutter/material.dart';
 import '../widgets/chat_input_bar.dart';
 
-class TeamChatScreen extends StatelessWidget {
+import '../api/api_service.dart';
+
+class TeamChatScreen extends StatefulWidget {
   const TeamChatScreen({super.key});
 
   @override
+  State<TeamChatScreen> createState() => _TeamChatScreenState();
+}
+
+class _TeamChatScreenState extends State<TeamChatScreen> {
+  late final Future<TeamChatHeaderData> _loadHeader;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHeader = ApiService.instance.loadTeamChatHeader();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      color: const Color(0xFF1E293B),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  'Detectives Alpha',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+    return FutureBuilder<TeamChatHeaderData>(
+      future: _loadHeader,
+      builder: (context, snapshot) {
+        final header = snapshot.data;
+        final hasError = snapshot.hasError;
+
+        final teamName =
+            header?.teamName ?? (hasError ? 'Team Chat' : 'Loading...');
+
+        final memberCountText = header == null
+            ? (hasError ? 'Failed to load team info' : 'Loading team info...')
+            : 'Private team chat • ${header.memberCount} members';
+
+        final teamColor = header?.teamColor;
+
+        return Container(
+          color: const Color(0xFF1E293B),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      teamName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      memberCountText,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Private team chat • 3 members',
-                  style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    const SizedBox(height: 12),
+                    _ChatMessage(
+                      senderName: 'Mike',
+                      message: 'Keep your eyes open for any movement',
+                      timeAgo: 6,
+                      senderColor: teamColor,
+                    ),
+                    const SizedBox(height: 12),
+                    _ChatMessage(
+                      message: "Sounds good, I'll head east",
+                      timeAgo: 3,
+                      isCurrentUser: true,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              ChatInputBar(hintText: 'Message your team...', onSend: () {}),
+            ],
           ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                const SizedBox(height: 12),
-                _ChatMessage(
-                  senderName: 'Mike',
-                  message: 'Keep your eyes open for any movement',
-                  timeAgo: 6,
-                  senderColor: Colors.blue,
-                ),
-                const SizedBox(height: 12),
-                _ChatMessage(
-                  message: "Sounds good, I'll head east",
-                  timeAgo: 3,
-                  isCurrentUser: true,
-                ),
-              ],
-            ),
-          ),
-          ChatInputBar(hintText: 'Message your team...', onSend: () {}),
-        ],
-      ),
+        );
+      },
     );
   }
 }

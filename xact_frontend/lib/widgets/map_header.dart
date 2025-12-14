@@ -1,7 +1,22 @@
 import 'package:flutter/material.dart';
 
-class MapHeader extends StatelessWidget {
+import '../api/api_service.dart';
+
+class MapHeader extends StatefulWidget {
   const MapHeader({super.key});
+
+  @override
+  State<MapHeader> createState() => _MapHeaderState();
+}
+
+class _MapHeaderState extends State<MapHeader> {
+  late final Future<MapHeaderData> _load;
+
+  @override
+  void initState() {
+    super.initState();
+    _load = ApiService.instance.loadMapHeader();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,7 +28,10 @@ class MapHeader extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A),
-          borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
+          borderRadius: const BorderRadius.only(
+            bottomLeft: Radius.circular(12),
+            bottomRight: Radius.circular(12),
+          ),
         ),
         child: SafeArea(
           bottom: false,
@@ -22,14 +40,36 @@ class MapHeader extends StatelessWidget {
             children: [
               const Text(
                 'X-ACT',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-              Row(
-                children: [
-                  Icon(Icons.access_time, color: Colors.orange.shade400, size: 20),
-                  const SizedBox(width: 6),
-                  Text('Next ping: 2m', style: TextStyle(color: Colors.orange.shade400, fontSize: 16)),
-                ],
+              FutureBuilder<MapHeaderData>(
+                future: _load,
+                builder: (context, snapshot) {
+                  final text = snapshot.hasError
+                      ? 'Next ping: unavailable'
+                      : (snapshot.data?.nextPingText ?? 'Next ping: ...');
+                  return Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        color: Colors.orange.shade400,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        text,
+                        style: TextStyle(
+                          color: Colors.orange.shade400,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
