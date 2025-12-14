@@ -12,7 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.RegisterServices();
 builder.Services.ConfigureServices(builder.Environment.IsDevelopment());
-builder.Services.ConfigureCors();
+builder.Services.ConfigureCors(builder.Environment.IsDevelopment());
 
 var app = builder.Build();
 
@@ -23,7 +23,7 @@ app.MapUserEndpoint();
 app.MapGeofencePointEndpoint();
 app.MapTeamEndpoint();
 app.MapTeamMemberEndpoint();
-app.MapLocationLogEndpoint();  
+app.MapLocationLogEndpoint();
 app.MapPowerUpUsageEndpoint();
 
 await app.RunAsync();
