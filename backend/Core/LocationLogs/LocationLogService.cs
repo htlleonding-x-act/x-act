@@ -6,13 +6,13 @@ namespace XAct.Core.LocationLogs;
 public interface ILocationLogService
 {
     public ValueTask<IReadOnlyCollection<LocationLog>> GetAllLocationLogsAsync();
-    public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(Guid logId);
+    public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int logId);
     public ValueTask<OneOf<LocationLog, Error>> AddLocationLogAsync(LocationLogData newLocationLog);
-    public ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(Guid logId, LocationLogData locationLogData);
-    public ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(Guid logId);
+    public ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(int logId, LocationLogData locationLogData);
+    public ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int logId);
 
     public sealed record LocationLogData(
-        Guid MemberId,
+        int MemberId,
         Instant Timestamp,
         double Latitude,
         double Longitude,
@@ -24,6 +24,7 @@ public interface ILocationLogService
 
 public sealed class LocationLogService(IDataStorage dataStorage) : ILocationLogService
 {
+    private static int _nextLogId = 6;
     private readonly IDataStorage _dataStorage = dataStorage;
 
     public async ValueTask<IReadOnlyCollection<LocationLog>> GetAllLocationLogsAsync()
@@ -33,7 +34,7 @@ public sealed class LocationLogService(IDataStorage dataStorage) : ILocationLogS
         return [.. locationLogs];
     }
 
-    public async ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(Guid logId)
+    public async ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int logId)
     {
         var locationLog = await GetLocationLogById(logId);
 
@@ -46,7 +47,7 @@ public sealed class LocationLogService(IDataStorage dataStorage) : ILocationLogS
         {
             var locationLog = new LocationLog
             {
-                LogId = Guid.NewGuid(),
+                LogId = _nextLogId++,
                 MemberId = newLocationLog.MemberId,
                 Timestamp = newLocationLog.Timestamp,
                 Latitude = newLocationLog.Latitude,
@@ -66,7 +67,7 @@ public sealed class LocationLogService(IDataStorage dataStorage) : ILocationLogS
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(Guid logId, ILocationLogService.LocationLogData locationLogData)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(int logId, ILocationLogService.LocationLogData locationLogData)
     {
         var locationLog = await GetLocationLogById(logId);
 
@@ -86,7 +87,7 @@ public sealed class LocationLogService(IDataStorage dataStorage) : ILocationLogS
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(Guid logId)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int logId)
     {
         var locationLog = await GetLocationLogById(logId);
 
@@ -100,7 +101,7 @@ public sealed class LocationLogService(IDataStorage dataStorage) : ILocationLogS
         return new Success();
     }
 
-    private async ValueTask<LocationLog?> GetLocationLogById(Guid logId)
+    private async ValueTask<LocationLog?> GetLocationLogById(int logId)
     {
         IEnumerable<LocationLog> locationLogs = await _dataStorage.GetLocationLogsAsync();
 

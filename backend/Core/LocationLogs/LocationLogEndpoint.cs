@@ -24,8 +24,8 @@ public static class LocationLogEndpoint
             })
             .Produces<LocationLogListResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("{logId:guid}", async (
-            [FromRoute] Guid logId,
+        group.MapGet("{logId:int}", async (
+            [FromRoute] int logId,
             [FromServices] ILocationLogService service) =>
             {
                 OneOf<LocationLog, NotFound> locationLogResult = await service.GetLocationLogByIdAsync(logId);
@@ -63,8 +63,8 @@ public static class LocationLogEndpoint
             .Produces<LocationLogDetailsDto>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest);
 
-        group.MapPut("{logId:guid}", async (
-            [FromRoute] Guid logId,
+        group.MapPut("{logId:int}", async (
+            [FromRoute] int logId,
             [FromBody] LocationLogUpdateRequest locationLogUpdate,
             [FromServices] ILocationLogService service) =>
             {
@@ -90,8 +90,8 @@ public static class LocationLogEndpoint
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("{logId:guid}", async (
-            [FromRoute] Guid logId,
+        group.MapDelete("{logId:int}", async (
+            [FromRoute] int logId,
             [FromServices] ILocationLogService service) =>
             {
                 OneOf<Success, NotFound> deleteResult = await service.DeleteLocationLogAsync(logId);
@@ -111,8 +111,8 @@ public static class LocationLogEndpoint
     }
 
     private sealed record LocationLogInformationDto(
-        Guid LogId,
-        Guid MemberId,
+        int LogId,
+        int MemberId,
         Instant Timestamp,
         double Latitude,
         double Longitude
@@ -129,8 +129,8 @@ public static class LocationLogEndpoint
     }
 
     private sealed record LocationLogDetailsDto(
-        Guid LogId,
-        Guid MemberId,
+        int LogId,
+        int MemberId,
         Instant Timestamp,
         double Latitude,
         double Longitude,
@@ -153,7 +153,7 @@ public static class LocationLogEndpoint
     }
 
     private sealed record LocationLogAddRequest(
-        Guid MemberId,
+        int MemberId,
         Instant Timestamp,
         double Latitude,
         double Longitude,
@@ -163,7 +163,7 @@ public static class LocationLogEndpoint
     );
 
     private sealed record LocationLogUpdateRequest(
-        Guid MemberId,
+        int MemberId,
         Instant Timestamp,
         double Latitude,
         double Longitude,

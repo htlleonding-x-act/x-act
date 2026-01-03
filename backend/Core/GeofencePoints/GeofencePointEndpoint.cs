@@ -24,8 +24,8 @@ public static class GeofencePointEndpoint
             })
             .Produces<GeofencePointListResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("{pointId:guid}", async (
-            [FromRoute] Guid pointId,
+        group.MapGet("{pointId:int}", async (
+            [FromRoute] int pointId,
             [FromServices] IGeofencePointService service) =>
             {
                 OneOf<GeofencePoint, NotFound> geofencePointResult = await service.GetGeofencePointByIdAsync(pointId);
@@ -60,8 +60,8 @@ public static class GeofencePointEndpoint
             .Produces<GeofencePointDetailsDto>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest);
 
-        group.MapPut("{pointId:guid}", async (
-            [FromRoute] Guid pointId,
+        group.MapPut("{pointId:int}", async (
+            [FromRoute] int pointId,
             [FromBody] GeofencePointUpdateRequest geofencePointUpdate,
             [FromServices] IGeofencePointService service) =>
             {
@@ -84,8 +84,8 @@ public static class GeofencePointEndpoint
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("{pointId:guid}", async (
-            [FromRoute] Guid pointId,
+        group.MapDelete("{pointId:int}", async (
+            [FromRoute] int pointId,
             [FromServices] IGeofencePointService service) =>
             {
                 OneOf<Success, NotFound> deleteResult = await service.DeleteGeofencePointAsync(pointId);
@@ -105,8 +105,8 @@ public static class GeofencePointEndpoint
     }
 
     private sealed record GeofencePointInformationDto(
-        Guid PointId,
-        Guid SessionId,
+        int PointId,
+        int SessionId,
         double Latitude,
         double Longitude
     )
@@ -121,8 +121,8 @@ public static class GeofencePointEndpoint
     }
 
     private sealed record GeofencePointDetailsDto(
-        Guid PointId,
-        Guid SessionId,
+        int PointId,
+        int SessionId,
         double Latitude,
         double Longitude,
         int SequenceOrder
@@ -139,14 +139,14 @@ public static class GeofencePointEndpoint
     }
 
     private sealed record GeofencePointAddRequest(
-        Guid SessionId,
+        int SessionId,
         double Latitude,
         double Longitude,
         int SequenceOrder
     );
 
     private sealed record GeofencePointUpdateRequest(
-        Guid SessionId,
+        int SessionId,
         double Latitude,
         double Longitude,
         int SequenceOrder

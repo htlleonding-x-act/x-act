@@ -10,8 +10,8 @@ public enum TransportMode
 
 public class LocationLog
 {
-    public Guid LogId { get; init; }
-    public Guid MemberId { get; set; }
+    public int LogId { get; init; }
+    public int MemberId { get; set; }
     public Instant Timestamp { get; set; }
     public double Latitude { get; set; }
     public double Longitude { get; set; }
