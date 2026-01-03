@@ -6,13 +6,13 @@ namespace XAct.Core.GameSessions;
 public interface IGameSessionService
 {
     public ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync();
-    public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(Guid sessionId);
+    public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(int sessionId);
     public ValueTask<OneOf<GameSession, Error>> AddGameSessionAsync(GameSessionData newGameSession);
-    public ValueTask<OneOf<Success, NotFound>> UpdateGameSessionAsync(Guid sessionId, GameSessionData gameSessionData);
-    public ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(Guid sessionId);
+    public ValueTask<OneOf<Success, NotFound>> UpdateGameSessionAsync(int sessionId, GameSessionData gameSessionData);
+    public ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(int sessionId);
 
     public sealed record GameSessionData(
-        Guid HostUserId,
+        int HostUserId,
         string JoinCode,
         SessionStatus Status = SessionStatus.WAITING,
         Instant? StartTime = null,
@@ -24,6 +24,7 @@ public interface IGameSessionService
 
 public sealed class GameSessionService(IDataStorage dataStorage) : IGameSessionService
 {
+    private static int _nextSessionId = 6;
     private readonly IDataStorage _dataStorage = dataStorage;
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync()
@@ -33,7 +34,7 @@ public sealed class GameSessionService(IDataStorage dataStorage) : IGameSessionS
         return [.. gameSessions];
     }
 
-    public async ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(Guid sessionId)
+    public async ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(int sessionId)
     {
         var gameSession = await GetGameSessionById(sessionId);
 
@@ -46,7 +47,7 @@ public sealed class GameSessionService(IDataStorage dataStorage) : IGameSessionS
         {
             var gameSession = new GameSession
             {
-                SessionId = Guid.NewGuid(),
+                SessionId = _nextSessionId++,
                 HostUserId = newGameSession.HostUserId,
                 JoinCode = newGameSession.JoinCode,
                 Status = newGameSession.Status,
@@ -66,7 +67,7 @@ public sealed class GameSessionService(IDataStorage dataStorage) : IGameSessionS
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateGameSessionAsync(Guid sessionId, IGameSessionService.GameSessionData gameSessionData)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateGameSessionAsync(int sessionId, IGameSessionService.GameSessionData gameSessionData)
     {
         var gameSession = await GetGameSessionById(sessionId);
 
@@ -86,7 +87,7 @@ public sealed class GameSessionService(IDataStorage dataStorage) : IGameSessionS
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(Guid sessionId)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(int sessionId)
     {
         var gameSession = await GetGameSessionById(sessionId);
 
@@ -100,7 +101,7 @@ public sealed class GameSessionService(IDataStorage dataStorage) : IGameSessionS
         return new Success();
     }
 
-    private async ValueTask<GameSession?> GetGameSessionById(Guid sessionId)
+    private async ValueTask<GameSession?> GetGameSessionById(int sessionId)
     {
         IEnumerable<GameSession> gameSessions = await _dataStorage.GetGameSessionsAsync();
 

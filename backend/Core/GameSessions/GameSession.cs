@@ -9,8 +9,8 @@ public enum SessionStatus
 
 public class GameSession
 {
-    public Guid SessionId { get; init; }
-    public Guid HostUserId { get; set; }
+    public int SessionId { get; init; }
+    public int HostUserId { get; set; }
     public required string JoinCode { get; set; }
     public SessionStatus Status { get; set; }
     public Instant? StartTime { get; set; }

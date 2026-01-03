@@ -24,8 +24,8 @@ public static class GameSessionEndpoint
             })
             .Produces<GameSessionListResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("{sessionId:guid}", async (
-            [FromRoute] Guid sessionId,
+        group.MapGet("{sessionId:int}", async (
+            [FromRoute] int sessionId,
             [FromServices] IGameSessionService service) =>
             {
                 OneOf<GameSession, NotFound> gameSessionResult = await service.GetGameSessionByIdAsync(sessionId);
@@ -63,8 +63,8 @@ public static class GameSessionEndpoint
             .Produces<GameSessionDetailsDto>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest);
 
-        group.MapPut("{sessionId:guid}", async (
-            [FromRoute] Guid sessionId,
+        group.MapPut("{sessionId:int}", async (
+            [FromRoute] int sessionId,
             [FromBody] GameSessionUpdateRequest gameSessionUpdate,
             [FromServices] IGameSessionService service) =>
             {
@@ -90,8 +90,8 @@ public static class GameSessionEndpoint
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("{sessionId:guid}", async (
-            [FromRoute] Guid sessionId,
+        group.MapDelete("{sessionId:int}", async (
+            [FromRoute] int sessionId,
             [FromServices] IGameSessionService service) =>
             {
                 OneOf<Success, NotFound> deleteResult = await service.DeleteGameSessionAsync(sessionId);
@@ -111,7 +111,7 @@ public static class GameSessionEndpoint
     }
 
     private sealed record GameSessionInformationDto(
-        Guid SessionId,
+        int SessionId,
         string JoinCode,
         SessionStatus Status,
         Instant? StartTime,
@@ -129,8 +129,8 @@ public static class GameSessionEndpoint
     }
 
     private sealed record GameSessionDetailsDto(
-        Guid SessionId,
-        Guid HostUserId,
+        int SessionId,
+        int HostUserId,
         string JoinCode,
         SessionStatus Status,
         Instant? StartTime,
@@ -153,7 +153,7 @@ public static class GameSessionEndpoint
     }
 
     private sealed record GameSessionAddRequest(
-        Guid HostUserId,
+        int HostUserId,
         string JoinCode,
         SessionStatus Status = SessionStatus.WAITING,
         Instant? StartTime = null,
@@ -163,7 +163,7 @@ public static class GameSessionEndpoint
     );
 
     private sealed record GameSessionUpdateRequest(
-        Guid HostUserId,
+        int HostUserId,
         string JoinCode,
         SessionStatus Status,
         Instant? StartTime,
