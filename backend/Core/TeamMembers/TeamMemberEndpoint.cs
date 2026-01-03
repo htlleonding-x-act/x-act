@@ -24,8 +24,8 @@ public static class TeamMemberEndpoint
             })
             .Produces<TeamMemberListResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("{memberId:guid}", async (
-            [FromRoute] Guid memberId,
+        group.MapGet("{memberId:int}", async (
+            [FromRoute] int memberId,
             [FromServices] ITeamMemberService service) =>
             {
                 OneOf<TeamMember, NotFound> teamMemberResult = await service.GetTeamMemberByIdAsync(memberId);
@@ -62,8 +62,8 @@ public static class TeamMemberEndpoint
             .Produces<TeamMemberDetailsDto>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest);
 
-        group.MapPut("{memberId:guid}", async (
-            [FromRoute] Guid memberId,
+        group.MapPut("{memberId:int}", async (
+            [FromRoute] int memberId,
             [FromBody] TeamMemberUpdateRequest teamMemberUpdate,
             [FromServices] ITeamMemberService service) =>
             {
@@ -88,8 +88,8 @@ public static class TeamMemberEndpoint
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("{memberId:guid}", async (
-            [FromRoute] Guid memberId,
+        group.MapDelete("{memberId:int}", async (
+            [FromRoute] int memberId,
             [FromServices] ITeamMemberService service) =>
             {
                 OneOf<Success, NotFound> deleteResult = await service.DeleteTeamMemberAsync(memberId);
@@ -109,9 +109,9 @@ public static class TeamMemberEndpoint
     }
 
     private sealed record TeamMemberInformationDto(
-        Guid MemberId,
-        Guid TeamId,
-        Guid UserId,
+        int MemberId,
+        int TeamId,
+        int UserId,
         bool IsTeamLeader
     )
     {
@@ -125,9 +125,9 @@ public static class TeamMemberEndpoint
     }
 
     private sealed record TeamMemberDetailsDto(
-        Guid MemberId,
-        Guid TeamId,
-        Guid UserId,
+        int MemberId,
+        int TeamId,
+        int UserId,
         bool IsTeamLeader,
         double? CurrentLatitude,
         double? CurrentLongitude,
@@ -147,8 +147,8 @@ public static class TeamMemberEndpoint
     }
 
     private sealed record TeamMemberAddRequest(
-        Guid TeamId,
-        Guid UserId,
+        int TeamId,
+        int UserId,
         bool IsTeamLeader = false,
         double? CurrentLatitude = null,
         double? CurrentLongitude = null,
@@ -156,8 +156,8 @@ public static class TeamMemberEndpoint
     );
 
     private sealed record TeamMemberUpdateRequest(
-        Guid TeamId,
-        Guid UserId,
+        int TeamId,
+        int UserId,
         bool IsTeamLeader,
         double? CurrentLatitude,
         double? CurrentLongitude,

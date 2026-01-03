@@ -9,7 +9,7 @@ public enum AccountType
 
 public class User
 {
-    public Guid UserId { get; init; }
+    public int UserId { get; init; }
     public required string Username { get; set; }
     public required string Email { get; set; }
     public required string PasswordHash { get; set; }

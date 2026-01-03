@@ -24,8 +24,8 @@ public static class UserEndpoint
             })
             .Produces<UserListResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("{userId:guid}", async (
-            [FromRoute] Guid userId,
+        group.MapGet("{userId:int}", async (
+            [FromRoute] int userId,
             [FromServices] IUserService service) =>
             {
                 OneOf<User, NotFound> userResult = await service.GetUserByIdAsync(userId);
@@ -63,8 +63,8 @@ public static class UserEndpoint
             .Produces<UserDetailsDto>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest);
 
-        group.MapPut("{userId:guid}", async (
-            [FromRoute] Guid userId,
+        group.MapPut("{userId:int}", async (
+            [FromRoute] int userId,
             [FromBody] UserUpdateRequest userUpdate,
             [FromServices] IUserService service) =>
             {
@@ -90,8 +90,8 @@ public static class UserEndpoint
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("{userId:guid}", async (
-            [FromRoute] Guid userId,
+        group.MapDelete("{userId:int}", async (
+            [FromRoute] int userId,
             [FromServices] IUserService service) =>
             {
                 OneOf<Success, NotFound> deleteResult = await service.DeleteUserAsync(userId);
@@ -111,7 +111,7 @@ public static class UserEndpoint
     }
 
     private sealed record UserInformationDto(
-        Guid UserId,
+        int UserId,
         string Username,
         string Email,
         AccountType AccountType
@@ -127,7 +127,7 @@ public static class UserEndpoint
     }
 
     private sealed record UserDetailsDto(
-        Guid UserId,
+        int UserId,
         string Username,
         string Email,
         string PasswordHash,

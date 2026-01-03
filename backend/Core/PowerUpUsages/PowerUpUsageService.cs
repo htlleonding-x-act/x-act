@@ -6,13 +6,13 @@ namespace XAct.Core.PowerUpUsages;
 public interface IPowerUpUsageService
 {
     public ValueTask<IReadOnlyCollection<PowerUpUsage>> GetAllPowerUpUsagesAsync();
-    public ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(Guid usageId);
+    public ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int usageId);
     public ValueTask<OneOf<PowerUpUsage, Error>> AddPowerUpUsageAsync(PowerUpUsageData newPowerUpUsage);
-    public ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(Guid usageId, PowerUpUsageData powerUpUsageData);
-    public ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(Guid usageId);
+    public ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(int usageId, PowerUpUsageData powerUpUsageData);
+    public ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int usageId);
 
     public sealed record PowerUpUsageData(
-        Guid MemberId,
+        int MemberId,
         PowerUpType PowerUpType,
         Instant UsedAt
     );
@@ -20,6 +20,7 @@ public interface IPowerUpUsageService
 
 public sealed class PowerUpUsageService(IDataStorage dataStorage) : IPowerUpUsageService
 {
+    private static int _nextUsageId = 6;
     private readonly IDataStorage _dataStorage = dataStorage;
 
     public async ValueTask<IReadOnlyCollection<PowerUpUsage>> GetAllPowerUpUsagesAsync()
@@ -29,7 +30,7 @@ public sealed class PowerUpUsageService(IDataStorage dataStorage) : IPowerUpUsag
         return [.. powerUpUsages];
     }
 
-    public async ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(Guid usageId)
+    public async ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int usageId)
     {
         var powerUpUsage = await GetPowerUpUsageById(usageId);
 
@@ -42,7 +43,7 @@ public sealed class PowerUpUsageService(IDataStorage dataStorage) : IPowerUpUsag
         {
             var powerUpUsage = new PowerUpUsage
             {
-                UsageId = Guid.NewGuid(),
+                UsageId = _nextUsageId++,
                 MemberId = newPowerUpUsage.MemberId,
                 PowerUpType = newPowerUpUsage.PowerUpType,
                 UsedAt = newPowerUpUsage.UsedAt
@@ -58,7 +59,7 @@ public sealed class PowerUpUsageService(IDataStorage dataStorage) : IPowerUpUsag
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(Guid usageId, IPowerUpUsageService.PowerUpUsageData powerUpUsageData)
+    public async ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(int usageId, IPowerUpUsageService.PowerUpUsageData powerUpUsageData)
     {
         var powerUpUsage = await GetPowerUpUsageById(usageId);
 
@@ -74,7 +75,7 @@ public sealed class PowerUpUsageService(IDataStorage dataStorage) : IPowerUpUsag
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(Guid usageId)
+    public async ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int usageId)
     {
         var powerUpUsage = await GetPowerUpUsageById(usageId);
 
@@ -88,7 +89,7 @@ public sealed class PowerUpUsageService(IDataStorage dataStorage) : IPowerUpUsag
         return new Success();
     }
 
-    private async ValueTask<PowerUpUsage?> GetPowerUpUsageById(Guid usageId)
+    private async ValueTask<PowerUpUsage?> GetPowerUpUsageById(int usageId)
     {
         IEnumerable<PowerUpUsage> powerUpUsages = await _dataStorage.GetPowerUpUsagesAsync();
 
