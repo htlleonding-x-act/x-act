@@ -20,6 +20,8 @@ class MapLegend extends StatelessWidget {
           children: [
             _LegendItem(color: Colors.blue, label: 'Your Location'),
             const SizedBox(height: 8),
+            _LegendItem(color: Colors.green, label: 'Team Members'),
+            const SizedBox(height: 8),
             _LegendItem(color: Colors.red, label: 'Mister X Ping'),
           ],
         ),
