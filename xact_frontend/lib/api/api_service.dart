@@ -56,7 +56,7 @@ final class ApiService {
     final users = await _listUsers();
 
     final usersById = {for (final u in users) u.userId: u};
-    final membersByTeamId = <String, List<TeamMemberInfo>>{};
+    final membersByTeamId = <int, List<TeamMemberInfo>>{};
     for (final member in teamMembers) {
       membersByTeamId.putIfAbsent(member.teamId, () => []).add(member);
     }
@@ -67,7 +67,7 @@ final class ApiService {
         .map((team) {
           final color = tryParseHexColor(team.colorCode) ?? Colors.white;
           final memberNames = (membersByTeamId[team.teamId] ?? const [])
-              .map((m) => usersById[m.userId]?.username ?? m.userId)
+              .map((m) => usersById[m.userId]?.username ?? m.userId.toString())
               .toList(growable: false);
 
           return TeamCardData(
@@ -131,7 +131,7 @@ final class ApiService {
     return MapHeaderData(nextPingText: 'Next ping: ${display}m');
   }
 
-  Future<String?> _getActiveSessionId() async {
+  Future<int?> _getActiveSessionId() async {
     final sessions = await _listGameSessions();
     final active = sessions
         .where((s) => s.status == SessionStatus.active)
@@ -144,7 +144,7 @@ final class ApiService {
 
   Future<List<TeamInfo>> _filterTeamsForSession(
     List<TeamInfo> teams,
-    String? sessionId,
+    int? sessionId,
   ) async {
     if (sessionId == null) {
       return teams;
@@ -168,7 +168,7 @@ final class ApiService {
     return ApiListResponse.fromJson(json, GameSessionInfo.fromJson).items;
   }
 
-  Future<GameSessionDetails> _getGameSession(String sessionId) async {
+  Future<GameSessionDetails> _getGameSession(int sessionId) async {
     final json = await _getJsonObject('/api/gamesessions/$sessionId');
     return GameSessionDetails.fromJson(json);
   }
@@ -178,7 +178,7 @@ final class ApiService {
     return ApiListResponse.fromJson(json, TeamInfo.fromJson).items;
   }
 
-  Future<TeamDetails> _getTeam(String teamId) async {
+  Future<TeamDetails> _getTeam(int teamId) async {
     final json = await _getJsonObject('/api/teams/$teamId');
     return TeamDetails.fromJson(json);
   }
