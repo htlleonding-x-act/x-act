@@ -144,7 +144,7 @@ public sealed class DataStorage : IDataStorage
     [
         new User
         {
-            UserId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            UserId = 1,
             Username = "alice_detective",
             Email = "alice@example.com",
             PasswordHash = "hash_alice_123",
@@ -155,7 +155,7 @@ public sealed class DataStorage : IDataStorage
         },
         new User
         {
-            UserId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            UserId = 2,
             Username = "bob_runner",
             Email = "bob@example.com",
             PasswordHash = "hash_bob_456",
@@ -166,7 +166,7 @@ public sealed class DataStorage : IDataStorage
         },
         new User
         {
-            UserId = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            UserId = 3,
             Username = "charlie_host",
             Email = "charlie@example.com",
             PasswordHash = "hash_charlie_789",
@@ -177,7 +177,7 @@ public sealed class DataStorage : IDataStorage
         },
         new User
         {
-            UserId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            UserId = 4,
             Username = "diana_tracker",
             Email = "diana@example.com",
             PasswordHash = "hash_diana_012",
@@ -188,7 +188,7 @@ public sealed class DataStorage : IDataStorage
         },
         new User
         {
-            UserId = Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            UserId = 5,
             Username = "eve_mystery",
             Email = "eve@example.com",
             PasswordHash = "hash_eve_345",
@@ -203,8 +203,8 @@ public sealed class DataStorage : IDataStorage
     [
         new GameSession
         {
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
-            HostUserId = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            SessionId = 1,
+            HostUserId = 3,
             JoinCode = "ABC123",
             Status = SessionStatus.ACTIVE,
             StartTime = Instant.FromUtc(2025, 12, 14, 10, 0),
@@ -214,8 +214,8 @@ public sealed class DataStorage : IDataStorage
         },
         new GameSession
         {
-            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
-            HostUserId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            SessionId = 2,
+            HostUserId = 1,
             JoinCode = "XYZ789",
             Status = SessionStatus.FINISHED,
             StartTime = Instant.FromUtc(2025, 12, 13, 14, 30),
@@ -229,64 +229,64 @@ public sealed class DataStorage : IDataStorage
     [
         new GeofencePoint
         {
-            PointId = Guid.Parse("f1111111-1111-1111-1111-111111111111"),
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            PointId = 1,
+            SessionId = 1,
             Latitude = 52.5200,
             Longitude = 13.4050,
             SequenceOrder = 1
         },
         new GeofencePoint
         {
-            PointId = Guid.Parse("f2222222-2222-2222-2222-222222222222"),
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            PointId = 2,
+            SessionId = 1,
             Latitude = 52.5300,
             Longitude = 13.4050,
             SequenceOrder = 2
         },
         new GeofencePoint
         {
-            PointId = Guid.Parse("f3333333-3333-3333-3333-333333333333"),
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            PointId = 3,
+            SessionId = 1,
             Latitude = 52.5300,
             Longitude = 13.3800,
             SequenceOrder = 3
         },
         new GeofencePoint
         {
-            PointId = Guid.Parse("f4444444-4444-4444-4444-444444444444"),
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            PointId = 4,
+            SessionId = 1,
             Latitude = 52.5200,
             Longitude = 13.3800,
             SequenceOrder = 4
         },
         new GeofencePoint
         {
-            PointId = Guid.Parse("f5555555-5555-5555-5555-555555555555"),
-            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            PointId = 5,
+            SessionId = 2,
             Latitude = 51.5074,
             Longitude = -0.1278,
             SequenceOrder = 1
         },
         new GeofencePoint
         {
-            PointId = Guid.Parse("f6666666-6666-6666-6666-666666666666"),
-            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            PointId = 6,
+            SessionId = 2,
             Latitude = 51.5174,
             Longitude = -0.1278,
             SequenceOrder = 2
         },
         new GeofencePoint
         {
-            PointId = Guid.Parse("f7777777-7777-7777-7777-777777777777"),
-            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            PointId = 7,
+            SessionId = 2,
             Latitude = 51.5174,
             Longitude = -0.1400,
             SequenceOrder = 3
         },
         new GeofencePoint
         {
-            PointId = Guid.Parse("f8888888-8888-8888-8888-888888888888"),
-            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            PointId = 8,
+            SessionId = 2,
             Latitude = 51.5074,
             Longitude = -0.1400,
             SequenceOrder = 4
@@ -297,8 +297,8 @@ public sealed class DataStorage : IDataStorage
     [
         new Team
         {
-            TeamId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            TeamId = 1,
+            SessionId = 1,
             TeamName = "Mr. X",
             Role = TeamRole.MR_X,
             ColorCode = "#000000",
@@ -306,8 +306,8 @@ public sealed class DataStorage : IDataStorage
         },
         new Team
         {
-            TeamId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            TeamId = 2,
+            SessionId = 1,
             TeamName = "Blue Detectives",
             Role = TeamRole.DETECTIVE,
             ColorCode = "#0000FF",
@@ -315,8 +315,8 @@ public sealed class DataStorage : IDataStorage
         },
         new Team
         {
-            TeamId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
-            SessionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            TeamId = 3,
+            SessionId = 1,
             TeamName = "Red Hunters",
             Role = TeamRole.DETECTIVE,
             ColorCode = "#FF0000",
@@ -324,8 +324,8 @@ public sealed class DataStorage : IDataStorage
         },
         new Team
         {
-            TeamId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"),
-            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            TeamId = 4,
+            SessionId = 2,
             TeamName = "Mr. X",
             Role = TeamRole.MR_X,
             ColorCode = "#000000",
@@ -333,8 +333,8 @@ public sealed class DataStorage : IDataStorage
         },
         new Team
         {
-            TeamId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
-            SessionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            TeamId = 5,
+            SessionId = 2,
             TeamName = "Green Squad",
             Role = TeamRole.DETECTIVE,
             ColorCode = "#00FF00",
@@ -346,9 +346,9 @@ public sealed class DataStorage : IDataStorage
     [
         new TeamMember
         {
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000001"),
-            TeamId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
-            UserId = Guid.Parse("55555555-5555-5555-5555-555555555555"),
+            MemberId = 1,
+            TeamId = 1,
+            UserId = 5,
             IsTeamLeader = true,
             CurrentLatitude = 52.5250,
             CurrentLongitude = 13.3950,
@@ -356,9 +356,9 @@ public sealed class DataStorage : IDataStorage
         },
         new TeamMember
         {
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000002"),
-            TeamId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-            UserId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            MemberId = 2,
+            TeamId = 2,
+            UserId = 1,
             IsTeamLeader = true,
             CurrentLatitude = 52.5210,
             CurrentLongitude = 13.4000,
@@ -366,9 +366,9 @@ public sealed class DataStorage : IDataStorage
         },
         new TeamMember
         {
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000003"),
-            TeamId = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
-            UserId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            MemberId = 3,
+            TeamId = 2,
+            UserId = 4,
             IsTeamLeader = false,
             CurrentLatitude = 52.5215,
             CurrentLongitude = 13.3995,
@@ -376,9 +376,9 @@ public sealed class DataStorage : IDataStorage
         },
         new TeamMember
         {
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000004"),
-            TeamId = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"),
-            UserId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            MemberId = 4,
+            TeamId = 3,
+            UserId = 2,
             IsTeamLeader = true,
             CurrentLatitude = 52.5280,
             CurrentLongitude = 13.3850,
@@ -386,9 +386,9 @@ public sealed class DataStorage : IDataStorage
         },
         new TeamMember
         {
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000005"),
-            TeamId = Guid.Parse("ffffffff-ffff-ffff-ffff-ffffffffffff"),
-            UserId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            MemberId = 5,
+            TeamId = 4,
+            UserId = 2,
             IsTeamLeader = true,
             CurrentLatitude = 51.5120,
             CurrentLongitude = -0.1320,
@@ -396,9 +396,9 @@ public sealed class DataStorage : IDataStorage
         },
         new TeamMember
         {
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000006"),
-            TeamId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
-            UserId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
+            MemberId = 6,
+            TeamId = 5,
+            UserId = 4,
             IsTeamLeader = true,
             CurrentLatitude = 51.5115,
             CurrentLongitude = -0.1325,
@@ -410,8 +410,8 @@ public sealed class DataStorage : IDataStorage
     [
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000001"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000001"),
+            LogId = 1,
+            MemberId = 1,
             Timestamp = Instant.FromUtc(2025, 12, 14, 10, 15),
             Latitude = 52.5200,
             Longitude = 13.4000,
@@ -421,8 +421,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000002"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000001"),
+            LogId = 2,
+            MemberId = 1,
             Timestamp = Instant.FromUtc(2025, 12, 14, 10, 30),
             Latitude = 52.5220,
             Longitude = 13.3980,
@@ -432,8 +432,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000003"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000001"),
+            LogId = 3,
+            MemberId = 1,
             Timestamp = Instant.FromUtc(2025, 12, 14, 11, 0),
             Latitude = 52.5240,
             Longitude = 13.3960,
@@ -443,8 +443,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000004"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000001"),
+            LogId = 4,
+            MemberId = 1,
             Timestamp = Instant.FromUtc(2025, 12, 14, 11, 30),
             Latitude = 52.5250,
             Longitude = 13.3950,
@@ -454,8 +454,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000005"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000002"),
+            LogId = 5,
+            MemberId = 2,
             Timestamp = Instant.FromUtc(2025, 12, 14, 10, 20),
             Latitude = 52.5205,
             Longitude = 13.4020,
@@ -465,8 +465,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000006"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000002"),
+            LogId = 6,
+            MemberId = 2,
             Timestamp = Instant.FromUtc(2025, 12, 14, 11, 0),
             Latitude = 52.5210,
             Longitude = 13.4005,
@@ -476,8 +476,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000007"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000002"),
+            LogId = 7,
+            MemberId = 2,
             Timestamp = Instant.FromUtc(2025, 12, 14, 11, 32),
             Latitude = 52.5210,
             Longitude = 13.4000,
@@ -487,8 +487,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000008"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000005"),
+            LogId = 8,
+            MemberId = 5,
             Timestamp = Instant.FromUtc(2025, 12, 13, 15, 30),
             Latitude = 51.5100,
             Longitude = -0.1300,
@@ -498,8 +498,8 @@ public sealed class DataStorage : IDataStorage
         },
         new LocationLog
         {
-            LogId = Guid.Parse("22000000-0000-0000-0000-000000000009"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000005"),
+            LogId = 9,
+            MemberId = 5,
             Timestamp = Instant.FromUtc(2025, 12, 13, 16, 15),
             Latitude = 51.5120,
             Longitude = -0.1320,
@@ -513,22 +513,22 @@ public sealed class DataStorage : IDataStorage
     [
         new PowerUpUsage
         {
-            UsageId = Guid.Parse("33000000-0000-0000-0000-000000000001"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000001"),
+            UsageId = 1,
+            MemberId = 1,
             PowerUpType = PowerUpType.BLACK_TICKET,
             UsedAt = Instant.FromUtc(2025, 12, 14, 10, 45)
         },
         new PowerUpUsage
         {
-            UsageId = Guid.Parse("33000000-0000-0000-0000-000000000002"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000001"),
+            UsageId = 2,
+            MemberId = 1,
             PowerUpType = PowerUpType.DOUBLE_MOVE,
             UsedAt = Instant.FromUtc(2025, 12, 14, 11, 15)
         },
         new PowerUpUsage
         {
-            UsageId = Guid.Parse("33000000-0000-0000-0000-000000000003"),
-            MemberId = Guid.Parse("11000000-0000-0000-0000-000000000005"),
+            UsageId = 3,
+            MemberId = 5,
             PowerUpType = PowerUpType.BLACK_TICKET,
             UsedAt = Instant.FromUtc(2025, 12, 13, 15, 45)
         }

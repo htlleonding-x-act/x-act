@@ -24,8 +24,8 @@ public static class PowerUpUsageEndpoint
             })
             .Produces<PowerUpUsageListResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("{usageId:guid}", async (
-            [FromRoute] Guid usageId,
+        group.MapGet("{usageId:int}", async (
+            [FromRoute] int usageId,
             [FromServices] IPowerUpUsageService service) =>
             {
                 OneOf<PowerUpUsage, NotFound> powerUpUsageResult = await service.GetPowerUpUsageByIdAsync(usageId);
@@ -59,8 +59,8 @@ public static class PowerUpUsageEndpoint
             .Produces<PowerUpUsageDetailsDto>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest);
 
-        group.MapPut("{usageId:guid}", async (
-            [FromRoute] Guid usageId,
+        group.MapPut("{usageId:int}", async (
+            [FromRoute] int usageId,
             [FromBody] PowerUpUsageUpdateRequest powerUpUsageUpdate,
             [FromServices] IPowerUpUsageService service) =>
             {
@@ -82,8 +82,8 @@ public static class PowerUpUsageEndpoint
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("{usageId:guid}", async (
-            [FromRoute] Guid usageId,
+        group.MapDelete("{usageId:int}", async (
+            [FromRoute] int usageId,
             [FromServices] IPowerUpUsageService service) =>
             {
                 OneOf<Success, NotFound> deleteResult = await service.DeletePowerUpUsageAsync(usageId);
@@ -103,8 +103,8 @@ public static class PowerUpUsageEndpoint
     }
 
     private sealed record PowerUpUsageInformationDto(
-        Guid UsageId,
-        Guid MemberId,
+        int UsageId,
+        int MemberId,
         PowerUpType PowerUpType,
         Instant UsedAt
     )
@@ -119,8 +119,8 @@ public static class PowerUpUsageEndpoint
     }
 
     private sealed record PowerUpUsageDetailsDto(
-        Guid UsageId,
-        Guid MemberId,
+        int UsageId,
+        int MemberId,
         PowerUpType PowerUpType,
         Instant UsedAt
     )
@@ -135,13 +135,13 @@ public static class PowerUpUsageEndpoint
     }
 
     private sealed record PowerUpUsageAddRequest(
-        Guid MemberId,
+        int MemberId,
         PowerUpType PowerUpType,
         Instant UsedAt
     );
 
     private sealed record PowerUpUsageUpdateRequest(
-        Guid MemberId,
+        int MemberId,
         PowerUpType PowerUpType,
         Instant UsedAt
     );

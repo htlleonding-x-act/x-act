@@ -6,7 +6,7 @@
 !define table(x) entity x << (T, white) >>
 
 table(Users) {
-    primary_key(user_id) : UUID
+    primary_key(user_id) : INTEGER
     --
     column(username) : VARCHAR(50)
     column(email) : VARCHAR(100)
@@ -18,9 +18,9 @@ table(Users) {
 }
 
 table(Game_Sessions) {
-    primary_key(session_id) : UUID
+    primary_key(session_id) : INTEGER
     --
-    foreign_key(host_user_id) : UUID
+    foreign_key(host_user_id) : INTEGER
     --
     column(join_code) : VARCHAR(6)
     column(status) : ENUM('WAITING', 'ACTIVE', 'FINISHED')
@@ -31,9 +31,9 @@ table(Game_Sessions) {
 }
 
 table(Geofence_Points) {
-    primary_key(point_id) : UUID
+    primary_key(point_id) : INTEGER
     --
-    foreign_key(session_id) : UUID
+    foreign_key(session_id) : INTEGER
     --
     column(latitude) : DOUBLE
     column(longitude) : DOUBLE
@@ -41,9 +41,9 @@ table(Geofence_Points) {
 }
 
 table(Teams) {
-    primary_key(team_id) : UUID
+    primary_key(team_id) : INTEGER
     --
-    foreign_key(session_id) : UUID
+    foreign_key(session_id) : INTEGER
     --
     column(team_name) : VARCHAR(50)
     column(role) : ENUM('MR_X', 'DETECTIVE', 'SPECTATOR')
@@ -52,10 +52,10 @@ table(Teams) {
 }
 
 table(Team_Members) {
-    primary_key(member_id) : UUID
+    primary_key(member_id) : INTEGER
     --
-    foreign_key(team_id) : UUID
-    foreign_key(user_id) : UUID
+    foreign_key(team_id) : INTEGER
+    foreign_key(user_id) : INTEGER
     --
     column(is_team_leader) : BOOLEAN
     column(current_latitude) : DOUBLE
@@ -64,9 +64,9 @@ table(Team_Members) {
 }
 
 table(Location_Logs) {
-    primary_key(log_id) : UUID
+    primary_key(log_id) : INTEGER
     --
-    foreign_key(member_id) : UUID
+    foreign_key(member_id) : INTEGER
     --
     column(timestamp) : TIMESTAMP
     column(latitude) : DOUBLE
@@ -77,9 +77,9 @@ table(Location_Logs) {
 }
 
 table(Power_Up_Usage) {
-    primary_key(usage_id) : UUID
+    primary_key(usage_id) : INTEGER
     --
-    foreign_key(member_id) : UUID
+    foreign_key(member_id) : INTEGER
     --
     column(power_up_type) : ENUM('BLACK_TICKET', 'DOUBLE_MOVE')
     column(used_at) : TIMESTAMP

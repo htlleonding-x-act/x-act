@@ -6,14 +6,14 @@ namespace XAct.Core.TeamMembers;
 public interface ITeamMemberService
 {
     public ValueTask<IReadOnlyCollection<TeamMember>> GetAllTeamMembersAsync();
-    public ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(Guid memberId);
+    public ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(int memberId);
     public ValueTask<OneOf<TeamMember, Error>> AddTeamMemberAsync(TeamMemberData newTeamMember);
-    public ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(Guid memberId, TeamMemberData teamMemberData);
-    public ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(Guid memberId);
+    public ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(int memberId, TeamMemberData teamMemberData);
+    public ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int memberId);
 
     public sealed record TeamMemberData(
-        Guid TeamId,
-        Guid UserId,
+        int TeamId,
+        int UserId,
         bool IsTeamLeader = false,
         double? CurrentLatitude = null,
         double? CurrentLongitude = null,
@@ -23,6 +23,7 @@ public interface ITeamMemberService
 
 public sealed class TeamMemberService(IDataStorage dataStorage, IClock clock) : ITeamMemberService
 {
+    private static int _nextMemberId = 6;
     private readonly IDataStorage _dataStorage = dataStorage;
     private readonly IClock _clock = clock;
 
@@ -33,7 +34,7 @@ public sealed class TeamMemberService(IDataStorage dataStorage, IClock clock) : 
         return [.. teamMembers];
     }
 
-    public async ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(Guid memberId)
+    public async ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(int memberId)
     {
         var teamMember = await GetTeamMemberById(memberId);
 
@@ -46,7 +47,7 @@ public sealed class TeamMemberService(IDataStorage dataStorage, IClock clock) : 
         {
             var teamMember = new TeamMember
             {
-                MemberId = Guid.NewGuid(),
+                MemberId = _nextMemberId++,
                 TeamId = newTeamMember.TeamId,
                 UserId = newTeamMember.UserId,
                 IsTeamLeader = newTeamMember.IsTeamLeader,
@@ -65,7 +66,7 @@ public sealed class TeamMemberService(IDataStorage dataStorage, IClock clock) : 
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(Guid memberId, ITeamMemberService.TeamMemberData teamMemberData)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(int memberId, ITeamMemberService.TeamMemberData teamMemberData)
     {
         var teamMember = await GetTeamMemberById(memberId);
 
@@ -84,7 +85,7 @@ public sealed class TeamMemberService(IDataStorage dataStorage, IClock clock) : 
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(Guid memberId)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int memberId)
     {
         var teamMember = await GetTeamMemberById(memberId);
 
@@ -98,7 +99,7 @@ public sealed class TeamMemberService(IDataStorage dataStorage, IClock clock) : 
         return new Success();
     }
 
-    private async ValueTask<TeamMember?> GetTeamMemberById(Guid memberId)
+    private async ValueTask<TeamMember?> GetTeamMemberById(int memberId)
     {
         IEnumerable<TeamMember> teamMembers = await _dataStorage.GetTeamMembersAsync();
 

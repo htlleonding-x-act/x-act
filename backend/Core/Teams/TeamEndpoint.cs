@@ -24,8 +24,8 @@ public static class TeamEndpoint
             })
             .Produces<TeamListResponse>(StatusCodes.Status200OK);
 
-        group.MapGet("{teamId:guid}", async (
-            [FromRoute] Guid teamId,
+        group.MapGet("{teamId:int}", async (
+            [FromRoute] int teamId,
             [FromServices] ITeamService service) =>
             {
                 OneOf<Team, NotFound> teamResult = await service.GetTeamByIdAsync(teamId);
@@ -61,8 +61,8 @@ public static class TeamEndpoint
             .Produces<TeamDetailsDto>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest);
 
-        group.MapPut("{teamId:guid}", async (
-            [FromRoute] Guid teamId,
+        group.MapPut("{teamId:int}", async (
+            [FromRoute] int teamId,
             [FromBody] TeamUpdateRequest teamUpdate,
             [FromServices] ITeamService service) =>
             {
@@ -86,8 +86,8 @@ public static class TeamEndpoint
             .Produces(StatusCodes.Status204NoContent)
             .Produces(StatusCodes.Status404NotFound);
 
-        group.MapDelete("{teamId:guid}", async (
-            [FromRoute] Guid teamId,
+        group.MapDelete("{teamId:int}", async (
+            [FromRoute] int teamId,
             [FromServices] ITeamService service) =>
             {
                 OneOf<Success, NotFound> deleteResult = await service.DeleteTeamAsync(teamId);
@@ -107,7 +107,7 @@ public static class TeamEndpoint
     }
 
     private sealed record TeamInformationDto(
-        Guid TeamId,
+        int TeamId,
         string TeamName,
         TeamRole Role,
         string ColorCode
@@ -123,8 +123,8 @@ public static class TeamEndpoint
     }
 
     private sealed record TeamDetailsDto(
-        Guid TeamId,
-        Guid SessionId,
+        int TeamId,
+        int SessionId,
         string TeamName,
         TeamRole Role,
         string ColorCode,
@@ -143,7 +143,7 @@ public static class TeamEndpoint
     }
 
     private sealed record TeamAddRequest(
-        Guid SessionId,
+        int SessionId,
         string TeamName,
         TeamRole Role,
         string ColorCode,
@@ -151,7 +151,7 @@ public static class TeamEndpoint
     );
 
     private sealed record TeamUpdateRequest(
-        Guid SessionId,
+        int SessionId,
         string TeamName,
         TeamRole Role,
         string ColorCode,

@@ -6,13 +6,13 @@ namespace XAct.Core.GeofencePoints;
 public interface IGeofencePointService
 {
     public ValueTask<IReadOnlyCollection<GeofencePoint>> GetAllGeofencePointsAsync();
-    public ValueTask<OneOf<GeofencePoint, NotFound>> GetGeofencePointByIdAsync(Guid pointId);
+    public ValueTask<OneOf<GeofencePoint, NotFound>> GetGeofencePointByIdAsync(int pointId);
     public ValueTask<OneOf<GeofencePoint, Error>> AddGeofencePointAsync(GeofencePointData newGeofencePoint);
-    public ValueTask<OneOf<Success, NotFound>> UpdateGeofencePointAsync(Guid pointId, GeofencePointData geofencePointData);
-    public ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(Guid pointId);
+    public ValueTask<OneOf<Success, NotFound>> UpdateGeofencePointAsync(int pointId, GeofencePointData geofencePointData);
+    public ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(int pointId);
 
     public sealed record GeofencePointData(
-        Guid SessionId,
+        int SessionId,
         double Latitude,
         double Longitude,
         int SequenceOrder
@@ -21,6 +21,7 @@ public interface IGeofencePointService
 
 public sealed class GeofencePointService(IDataStorage dataStorage) : IGeofencePointService
 {
+    private static int _nextPointId = 6;
     private readonly IDataStorage _dataStorage = dataStorage;
 
     public async ValueTask<IReadOnlyCollection<GeofencePoint>> GetAllGeofencePointsAsync()
@@ -30,7 +31,7 @@ public sealed class GeofencePointService(IDataStorage dataStorage) : IGeofencePo
         return [.. geofencePoints];
     }
 
-    public async ValueTask<OneOf<GeofencePoint, NotFound>> GetGeofencePointByIdAsync(Guid pointId)
+    public async ValueTask<OneOf<GeofencePoint, NotFound>> GetGeofencePointByIdAsync(int pointId)
     {
         var geofencePoint = await GetGeofencePointById(pointId);
 
@@ -43,7 +44,7 @@ public sealed class GeofencePointService(IDataStorage dataStorage) : IGeofencePo
         {
             var geofencePoint = new GeofencePoint
             {
-                PointId = Guid.NewGuid(),
+                PointId = _nextPointId++,
                 SessionId = newGeofencePoint.SessionId,
                 Latitude = newGeofencePoint.Latitude,
                 Longitude = newGeofencePoint.Longitude,
@@ -60,7 +61,7 @@ public sealed class GeofencePointService(IDataStorage dataStorage) : IGeofencePo
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateGeofencePointAsync(Guid pointId, IGeofencePointService.GeofencePointData geofencePointData)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateGeofencePointAsync(int pointId, IGeofencePointService.GeofencePointData geofencePointData)
     {
         var geofencePoint = await GetGeofencePointById(pointId);
 
@@ -77,7 +78,7 @@ public sealed class GeofencePointService(IDataStorage dataStorage) : IGeofencePo
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(Guid pointId)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(int pointId)
     {
         var geofencePoint = await GetGeofencePointById(pointId);
 
@@ -91,7 +92,7 @@ public sealed class GeofencePointService(IDataStorage dataStorage) : IGeofencePo
         return new Success();
     }
 
-    private async ValueTask<GeofencePoint?> GetGeofencePointById(Guid pointId)
+    private async ValueTask<GeofencePoint?> GetGeofencePointById(int pointId)
     {
         IEnumerable<GeofencePoint> geofencePoints = await _dataStorage.GetGeofencePointsAsync();
 

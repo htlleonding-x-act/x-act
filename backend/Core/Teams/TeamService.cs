@@ -6,13 +6,13 @@ namespace XAct.Core.Teams;
 public interface ITeamService
 {
     public ValueTask<IReadOnlyCollection<Team>> GetAllTeamsAsync();
-    public ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(Guid teamId);
+    public ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(int teamId);
     public ValueTask<OneOf<Team, Error>> AddTeamAsync(TeamData newTeam);
-    public ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(Guid teamId, TeamData teamData);
-    public ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(Guid teamId);
+    public ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(int teamId, TeamData teamData);
+    public ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(int teamId);
 
     public sealed record TeamData(
-        Guid SessionId,
+        int SessionId,
         string TeamName,
         TeamRole Role,
         string ColorCode,
@@ -22,6 +22,7 @@ public interface ITeamService
 
 public sealed class TeamService(IDataStorage dataStorage) : ITeamService
 {
+    private static int _nextTeamId = 6;
     private readonly IDataStorage _dataStorage = dataStorage;
 
     public async ValueTask<IReadOnlyCollection<Team>> GetAllTeamsAsync()
@@ -31,7 +32,7 @@ public sealed class TeamService(IDataStorage dataStorage) : ITeamService
         return [.. teams];
     }
 
-    public async ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(Guid teamId)
+    public async ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(int teamId)
     {
         var team = await GetTeamById(teamId);
 
@@ -44,7 +45,7 @@ public sealed class TeamService(IDataStorage dataStorage) : ITeamService
         {
             var team = new Team
             {
-                TeamId = Guid.NewGuid(),
+                TeamId = _nextTeamId++,
                 SessionId = newTeam.SessionId,
                 TeamName = newTeam.TeamName,
                 Role = newTeam.Role,
@@ -62,7 +63,7 @@ public sealed class TeamService(IDataStorage dataStorage) : ITeamService
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(Guid teamId, ITeamService.TeamData teamData)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(int teamId, ITeamService.TeamData teamData)
     {
         var team = await GetTeamById(teamId);
 
@@ -80,7 +81,7 @@ public sealed class TeamService(IDataStorage dataStorage) : ITeamService
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(Guid teamId)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(int teamId)
     {
         var team = await GetTeamById(teamId);
 
@@ -94,7 +95,7 @@ public sealed class TeamService(IDataStorage dataStorage) : ITeamService
         return new Success();
     }
 
-    private async ValueTask<Team?> GetTeamById(Guid teamId)
+    private async ValueTask<Team?> GetTeamById(int teamId)
     {
         IEnumerable<Team> teams = await _dataStorage.GetTeamsAsync();
 

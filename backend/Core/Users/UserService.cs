@@ -6,10 +6,10 @@ namespace XAct.Core.Users;
 public interface IUserService
 {
     public ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync();
-    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(Guid userId);
+    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId);
     public ValueTask<OneOf<User, Error>> AddUserAsync(UserData newUser);
-    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(Guid userId, UserData userData);
-    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(Guid userId);
+    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, UserData userData);
+    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId);
 
     public sealed record UserData(
         string Username,
@@ -24,6 +24,7 @@ public interface IUserService
 
 public sealed class UserService(IDataStorage dataStorage) : IUserService
 {
+    private static int _nextUserId = 6;
     private readonly IDataStorage _dataStorage = dataStorage;
 
     public async ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync()
@@ -33,7 +34,7 @@ public sealed class UserService(IDataStorage dataStorage) : IUserService
         return [.. users];
     }
 
-    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(Guid userId)
+    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId)
     {
         var user = await GetUserById(userId);
 
@@ -46,7 +47,7 @@ public sealed class UserService(IDataStorage dataStorage) : IUserService
         {
             var user = new User
             {
-                UserId = Guid.NewGuid(),
+                UserId = _nextUserId++,
                 Username = newUser.Username,
                 Email = newUser.Email,
                 PasswordHash = newUser.PasswordHash,
@@ -66,7 +67,7 @@ public sealed class UserService(IDataStorage dataStorage) : IUserService
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(Guid userId, IUserService.UserData userData)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, IUserService.UserData userData)
     {
         var user = await GetUserById(userId);
 
@@ -86,7 +87,7 @@ public sealed class UserService(IDataStorage dataStorage) : IUserService
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(Guid userId)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId)
     {
         var user = await GetUserById(userId);
 
@@ -100,7 +101,7 @@ public sealed class UserService(IDataStorage dataStorage) : IUserService
         return new Success();
     }
 
-    private async ValueTask<User?> GetUserById(Guid userId)
+    private async ValueTask<User?> GetUserById(int userId)
     {
         IEnumerable<User> users = await _dataStorage.GetUsersAsync();
 

@@ -9,8 +9,8 @@ public enum TeamRole
 
 public class Team
 {
-    public Guid TeamId { get; init; }
-    public Guid SessionId { get; set; }
+    public int TeamId { get; init; }
+    public int SessionId { get; set; }
     public required string TeamName { get; set; }
     public TeamRole Role { get; set; }
     public required string ColorCode { get; set; }
