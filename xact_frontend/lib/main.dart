@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:xact_frontend/screens/start_screen.dart';
+import 'package:xact_frontend/screens/startscreen/start_screen.dart';
 import 'screens/game_screen.dart';
 
 void main() {
