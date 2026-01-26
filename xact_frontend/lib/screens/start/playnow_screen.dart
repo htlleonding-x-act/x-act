@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/screens/lobby/create_lobby.dart';
+import 'package:xact_frontend/screens/lobby/join_lobby.dart';
+import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class PlayNowScreen extends StatelessWidget {
   const PlayNowScreen({super.key});
@@ -6,39 +9,14 @@ class PlayNowScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1F2E),
+      backgroundColor: XActBranding.backgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             children: [
               const SizedBox(height: 40),
-              _buildLogo(),
-              const SizedBox(height: 16),
-              const Text(
-                'X-ACT',
-                style: TextStyle(
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Digital Scotland Yard',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white70,
-                  letterSpacing: 1,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Hunt down Mister X in this real-world chase game',
-                style: TextStyle(fontSize: 14, color: Colors.white54),
-                textAlign: TextAlign.center,
-              ),
+              XActBranding.buildHeader(),
               const SizedBox(height: 32),
               // Start a New Game Card
               _buildStartNewGameCard(context),
@@ -49,10 +27,7 @@ class PlayNowScreen extends StatelessWidget {
               // Back Button
               _buildBackButton(context),
               const SizedBox(height: 24),
-              const Text(
-                'Play responsibly • Stay safe • Follow local laws',
-                style: TextStyle(fontSize: 12, color: Colors.white38),
-              ),
+              XActBranding.buildFooter(),
               const SizedBox(height: 16),
             ],
           ),
@@ -61,32 +36,23 @@ class PlayNowScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLogo() {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFE53935), width: 3),
-      ),
-      child: const Center(
-        child: Icon(Icons.location_on, color: Color(0xFFE53935), size: 40),
-      ),
-    );
-  }
-
   Widget _buildStartNewGameCard(BuildContext context) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF3D5AFE),
+        color: XActBranding.primaryBlue,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // TODO: Navigate to create game screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const CreateLobbyScreen(),
+              ),
+            );
           },
           borderRadius: BorderRadius.circular(12),
           child: Padding(
@@ -128,14 +94,17 @@ class PlayNowScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF252A3A),
+        color: XActBranding.cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // TODO: Navigate to join game screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const JoinLobbyScreen()),
+            );
           },
           borderRadius: BorderRadius.circular(12),
           child: Padding(
