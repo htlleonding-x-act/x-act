@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/screens/start_screen.dart';
 import 'screens/game_screen.dart';
 
 void main() {
@@ -16,7 +17,7 @@ class MainApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, brightness: Brightness.dark),
         useMaterial3: true,
       ),
-      home: const GameScreen(),
+      home: const StartScreen(),
     );
   }
 }
