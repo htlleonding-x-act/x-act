@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Common branding widgets used across the X-ACT app
 class XActBranding {
   XActBranding._();
 
@@ -9,7 +8,6 @@ class XActBranding {
   static const Color cardColor = Color(0xFF252A3A);
   static const Color primaryBlue = Color(0xFF3D5AFE);
 
-  /// Builds the X-ACT logo icon
   static Widget buildLogo({double size = 80}) {
     return Container(
       width: size,
@@ -24,7 +22,6 @@ class XActBranding {
     );
   }
 
-  /// Builds the full header section with logo, title, subtitle, and description
   static Widget buildHeader({bool compact = false}) {
     return Column(
       children: [
@@ -58,7 +55,6 @@ class XActBranding {
     );
   }
 
-  /// Builds the footer text
   static Widget buildFooter() {
     return const Text(
       'Play responsibly • Stay safe • Follow local laws',
@@ -66,7 +62,6 @@ class XActBranding {
     );
   }
 
-  /// Builds a primary action button (red)
   static Widget buildPrimaryButton({
     required String text,
     required VoidCallback? onPressed,
@@ -93,7 +88,6 @@ class XActBranding {
     );
   }
 
-  /// Builds a secondary action button (blue)
   static Widget buildSecondaryButton({
     required String text,
     required VoidCallback? onPressed,
@@ -120,7 +114,6 @@ class XActBranding {
     );
   }
 
-  /// Builds a cancel/secondary outlined button
   static Widget buildCancelButton({
     required String text,
     required VoidCallback? onPressed,
@@ -147,7 +140,6 @@ class XActBranding {
     );
   }
 
-  /// Builds a styled text input field
   static Widget buildTextField({
     required String label,
     required String hintText,
@@ -196,7 +188,6 @@ class XActBranding {
     );
   }
 
-  /// Builds a form card container
   static Widget buildFormCard({required Widget child}) {
     return Container(
       width: double.infinity,
