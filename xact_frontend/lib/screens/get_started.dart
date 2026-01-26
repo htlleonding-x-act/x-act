@@ -7,19 +7,12 @@ class GetStartedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1A1F2E),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1F2E),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             children: [
+              const SizedBox(height: 24),
               _buildLogo(),
               const SizedBox(height: 16),
               const Text(
@@ -48,7 +41,10 @@ class GetStartedScreen extends StatelessWidget {
                 style: TextStyle(fontSize: 14, color: Colors.white54),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+              // Hide Help Button
+              _buildHideHelpButton(context),
+              const SizedBox(height: 16),
               // Steps Card
               _buildStepsCard(),
               const Spacer(),
@@ -78,6 +74,30 @@ class GetStartedScreen extends StatelessWidget {
       ),
       child: const Center(
         child: Icon(Icons.location_on, color: Color(0xFFE53935), size: 40),
+      ),
+    );
+  }
+
+  Widget _buildHideHelpButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton.icon(
+        onPressed: () {
+          Navigator.of(context).pop();
+        },
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(color: Colors.white24),
+          backgroundColor: const Color(0xFF252A3A),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        icon: const Icon(Icons.help_outline, color: Colors.white70),
+        label: const Text(
+          'Hide Help',
+          style: TextStyle(color: Colors.white, fontSize: 16),
+        ),
       ),
     );
   }
