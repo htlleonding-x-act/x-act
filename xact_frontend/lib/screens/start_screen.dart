@@ -79,7 +79,7 @@ class StartScreen extends StatelessWidget {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const HelpScreen()),
+            MaterialPageRoute(builder: (context) => const GetStartedScreen()),
           );
         },
         style: OutlinedButton.styleFrom(
