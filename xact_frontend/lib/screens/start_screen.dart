@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/screens/get_started.dart';
+import 'package:xact_frontend/screens/playnow_screen.dart';
 
 class StartScreen extends StatelessWidget {
   const StartScreen({super.key});
@@ -104,7 +105,10 @@ class StartScreen extends StatelessWidget {
       height: 64,
       child: ElevatedButton(
         onPressed: () {
-          // TODO: Navigate to game
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const PlayNowScreen()),
+          );
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFE53935),
