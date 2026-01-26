@@ -17,16 +17,16 @@ class GetStartedScreen extends StatelessWidget {
               const SizedBox(height: 24),
               XActBranding.buildHeader(),
               const SizedBox(height: 24),
-              // Hide Help Button
+
               _buildHideHelpButton(context),
               const SizedBox(height: 16),
-              // Steps Card
+
               _buildStepsCard(),
               const Spacer(),
-              // Play Now Button
+
               _buildPlayNowButton(context),
               const SizedBox(height: 24),
-              // Footer text
+
               XActBranding.buildFooter(),
               const SizedBox(height: 16),
             ],

@@ -18,13 +18,10 @@ class PlayNowScreen extends StatelessWidget {
               const SizedBox(height: 40),
               XActBranding.buildHeader(),
               const SizedBox(height: 32),
-              // Start a New Game Card
               _buildStartNewGameCard(context),
               const SizedBox(height: 16),
-              // Join a Friend's Game Card
               _buildJoinGameCard(context),
               const Spacer(),
-              // Back Button
               _buildBackButton(context),
               const SizedBox(height: 24),
               XActBranding.buildFooter(),
