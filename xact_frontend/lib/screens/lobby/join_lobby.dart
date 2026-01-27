@@ -36,7 +36,6 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
       MaterialPageRoute(builder: (context) => const GameScreen()),
     );
 
-    // TODO: Implement join lobby logic
   }
 
   @override
