@@ -2,30 +2,30 @@ name: Flutter Build
 
 on:
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "dev", "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.19.0" 
+          flutter-version: "3.38.7"
           channel: "stable"
 
-      - name: Install Dependencies
+      - name: Get dependencies
         working-directory: xact_frontend
         run: flutter pub get
 
-      - name: Flutter Analyze
+      - name: Analyze
         working-directory: xact_frontend
         run: flutter analyze
 
-      - name: Flutter Web Build
+      - name: Build Web
         working-directory: xact_frontend
         run: flutter build web
