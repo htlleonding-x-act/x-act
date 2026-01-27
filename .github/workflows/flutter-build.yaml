@@ -9,20 +9,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Repository auschecken
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Flutter installieren
+      - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.85.5" 
           channel: "stable"
 
-      - name: Abhängigkeiten installieren
+      - name: Install Dependencies
         working-directory: xact_frontend
         run: flutter pub get
 
-      - name: Flutter Analyze (optional, aber empfohlen)
+      - name: Flutter Analyze
         working-directory: xact_frontend
         run: flutter analyze
 
