@@ -1,0 +1,180 @@
+@BaseUrl = http://localhost:5200
+
+###############################################
+# Users
+###############################################
+
+### Get all users
+GET {{BaseUrl}}/api/users
+
+### Get user by ID (Alice)
+GET {{BaseUrl}}/api/users/11111111-1111-1111-1111-111111111111
+
+### Create new user
+POST {{BaseUrl}}/api/users
+Content-Type: application/json
+
+{
+  "username": "frank_new",
+  "email": "frank@example.com",
+  "passwordHash": "hash_frank_678",
+  "accountType": 0,
+  "subscriptionEndDate": null,
+  "totalWins": 0,
+  "totalGamesPlayed": 0
+}
+
+### Delete user (use a valid user ID)
+DELETE {{BaseUrl}}/api/users/55555555-5555-5555-5555-555555555555
+
+###############################################
+# Game Sessions
+###############################################
+
+### Get all game sessions
+GET {{BaseUrl}}/api/gamesessions
+
+### Get game session by ID (Active game)
+GET {{BaseUrl}}/api/gamesessions/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+
+### Create new game session
+POST {{BaseUrl}}/api/gamesessions
+Content-Type: application/json
+
+{
+  "hostUserId": "11111111-1111-1111-1111-111111111111",
+  "joinCode": "DEF456",
+  "status": 0,
+  "startTime": null,
+  "endTime": null,
+  "plannedDurationMinutes": 60,
+  "mrXRevealInterval": 12
+}
+
+### Delete game session
+DELETE {{BaseUrl}}/api/gamesessions/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
+
+###############################################
+# Teams
+###############################################
+
+### Get all teams
+GET {{BaseUrl}}/api/teams
+
+### Get team by ID (Mr. X team)
+GET {{BaseUrl}}/api/teams/cccccccc-cccc-cccc-cccc-cccccccccccc
+
+### Create new team
+POST {{BaseUrl}}/api/teams
+Content-Type: application/json
+
+{
+  "sessionId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "teamName": "Yellow Trackers",
+  "role": 1,
+  "colorCode": "#FFFF00",
+  "isCaught": false
+}
+
+### Delete team
+DELETE {{BaseUrl}}/api/teams/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee
+
+###############################################
+# Team Members
+###############################################
+
+### Get all team members
+GET {{BaseUrl}}/api/teammembers
+
+### Get team member by ID
+GET {{BaseUrl}}/api/teammembers/11000000-0000-0000-0000-000000000001
+
+### Create new team member
+POST {{BaseUrl}}/api/teammembers
+Content-Type: application/json
+
+{
+  "teamId": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+  "userId": "33333333-3333-3333-3333-333333333333",
+  "isTeamLeader": false,
+  "currentLatitude": 52.5230,
+  "currentLongitude": 13.3920,
+  "lastUpdated": "2025-12-14T11:35:00Z"
+}
+
+### Delete team member
+DELETE {{BaseUrl}}/api/teammembers/11000000-0000-0000-0000-000000000006
+
+###############################################
+# Geofence Points
+###############################################
+
+### Get all geofence points
+GET {{BaseUrl}}/api/geofencepoints
+
+### Get geofence point by ID
+GET {{BaseUrl}}/api/geofencepoints/f1111111-1111-1111-1111-111111111111
+
+### Create new geofence point
+POST {{BaseUrl}}/api/geofencepoints
+Content-Type: application/json
+
+{
+  "sessionId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "latitude": 52.5150,
+  "longitude": 13.3900,
+  "sequenceOrder": 5
+}
+
+### Delete geofence point
+DELETE {{BaseUrl}}/api/geofencepoints/f8888888-8888-8888-8888-888888888888
+
+###############################################
+# Location Logs
+###############################################
+
+### Get all location logs
+GET {{BaseUrl}}/api/locationlogs
+
+### Get location log by ID
+GET {{BaseUrl}}/api/locationlogs/22000000-0000-0000-0000-000000000001
+
+### Create new location log
+POST {{BaseUrl}}/api/locationlogs
+Content-Type: application/json
+
+{
+  "memberId": "11000000-0000-0000-0000-000000000002",
+  "timestamp": "2025-12-14T12:00:00Z",
+  "latitude": 52.5220,
+  "longitude": 13.4010,
+  "accuracyMeters": 4.2,
+  "transportMode": 0,
+  "isRevealedPosition": false
+}
+
+### Delete location log
+DELETE {{BaseUrl}}/api/locationlogs/22000000-0000-0000-0000-000000000009
+
+###############################################
+# Power-Up Usages
+###############################################
+
+### Get all power-up usages
+GET {{BaseUrl}}/api/powerupusages
+
+### Get power-up usage by ID
+GET {{BaseUrl}}/api/powerupusages/33000000-0000-0000-0000-000000000001
+
+### Create new power-up usage
+POST {{BaseUrl}}/api/powerupusages
+Content-Type: application/json
+
+{
+  "memberId": "11000000-0000-0000-0000-000000000001",
+  "powerUpType": 0,
+  "usedAt": "2025-12-14T12:30:00Z"
+}
+
+### Delete power-up usage
+DELETE {{BaseUrl}}/api/powerupusages/33000000-0000-0000-0000-000000000003
