@@ -1,0 +1,31 @@
+name: Flutter Build
+
+on:
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Flutter installieren
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.85.5" 
+          channel: "stable"
+
+      - name: Abhängigkeiten installieren
+        working-directory: xact_frontend
+        run: flutter pub get
+
+      - name: Flutter Analyze (optional, aber empfohlen)
+        working-directory: xact_frontend
+        run: flutter analyze
+
+      - name: Flutter Web Build
+        working-directory: xact_frontend
+        run: flutter build web
