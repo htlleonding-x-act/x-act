@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/location_service.dart';
 import 'map_header.dart';
 import 'map_legend.dart';
 
@@ -14,16 +18,19 @@ class MapArea extends StatefulWidget {
 class _MapAreaState extends State<MapArea> {
   final MapController _mapController = MapController();
 
-  static const LatLng _centerLocation = LatLng(48.3069, 14.2858);
+  // Fallback center (HTL Leonding) – overridden as soon as GPS kicks in.
+  static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
 
-  final List<PlayerMarker> _players = [
-    PlayerMarker(
-      id: 'player1',
-      name: 'You',
-      position: const LatLng(48.3069, 14.2858),
-      color: Colors.blue,
-      isCurrentUser: true,
-    ),
+  // Current GPS position of "this" player. Null until first fix.
+  LatLng? _myPosition;
+
+  // When true, the map auto-pans to follow the player's GPS position.
+  bool _followMode = true;
+
+  StreamSubscription<Position>? _positionSub;
+
+  // ── Placeholder teammates (replaced by real API data in a future task) ──
+  final List<PlayerMarker> _otherPlayers = [
     PlayerMarker(
       id: 'player2',
       name: 'Team Member 1',
@@ -46,7 +53,60 @@ class _MapAreaState extends State<MapArea> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _startListeningToGps();
+  }
+
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startListeningToGps() async {
+    // Use the last known position immediately if available (no wait needed).
+    final existing = LocationService.instance.lastKnownPosition;
+    if (existing != null && mounted) {
+      setState(() => _myPosition = LatLng(existing.latitude, existing.longitude));
+    }
+
+    // Subscribe to live updates.
+    _positionSub = LocationService.instance.positionStream.listen((pos) {
+      if (!mounted) return;
+      final latLng = LatLng(pos.latitude, pos.longitude);
+      setState(() => _myPosition = latLng);
+
+      if (_followMode) {
+        _mapController.move(latLng, _mapController.camera.zoom);
+      }
+    });
+  }
+
+  List<Marker> _buildAllMarkers() {
+    final markers = <Marker>[];
+
+    // Real GPS position of the current player.
+    if (_myPosition != null) {
+      markers.add(_buildMarker(PlayerMarker(
+        id: 'me',
+        name: 'You',
+        position: _myPosition!,
+        color: Colors.blue,
+        isCurrentUser: true,
+      )));
+    }
+
+    // Other players (currently hardcoded – will come from API later).
+    markers.addAll(_otherPlayers.map(_buildMarker));
+
+    return markers;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final center = _myPosition ?? _fallbackCenter;
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
@@ -59,10 +119,16 @@ class _MapAreaState extends State<MapArea> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: _centerLocation,
+              initialCenter: center,
               initialZoom: 15.0,
               minZoom: 10.0,
               maxZoom: 18.0,
+              // Disable follow mode as soon as the user manually drags the map.
+              onPositionChanged: (_, hasGesture) {
+                if (hasGesture && _followMode) {
+                  setState(() => _followMode = false);
+                }
+              },
             ),
             children: [
               TileLayer(
@@ -96,15 +162,39 @@ class _MapAreaState extends State<MapArea> {
                   );
                 },
               ),
-              MarkerLayer(
-                markers: _players
-                    .map((player) => _buildMarker(player))
-                    .toList(),
-              ),
+              MarkerLayer(markers: _buildAllMarkers()),
             ],
           ),
           const MapHeader(),
           const MapLegend(),
+          // "No GPS fix yet" indicator
+          if (_myPosition == null)
+            Positioned(
+              top: 8,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Acquiring GPS…', style: TextStyle(color: Colors.amber, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             bottom: 16,
             right: 16,
@@ -132,10 +222,14 @@ class _MapAreaState extends State<MapArea> {
                   },
                 ),
                 const SizedBox(height: 8),
+                // my_location button: re-enable follow mode and snap to position.
                 _ZoomButton(
-                  icon: Icons.my_location,
+                  icon: _followMode ? Icons.my_location : Icons.location_searching,
                   onPressed: () {
-                    _mapController.move(_centerLocation, 15.0);
+                    final pos = _myPosition;
+                    if (pos == null) return;
+                    setState(() => _followMode = true);
+                    _mapController.move(pos, 15.0);
                   },
                 ),
               ],

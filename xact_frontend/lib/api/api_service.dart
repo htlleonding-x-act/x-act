@@ -131,6 +131,45 @@ final class ApiService {
     return MapHeaderData(nextPingText: 'Next ping: ${display}m');
   }
 
+  /// Sends the current player's GPS position to the backend.
+  ///
+  /// The backend requires the full [TeamMemberUpdateRequest] body, so you also
+  /// need to pass [teamId], [userId] and [isTeamLeader] – fetch those once
+  /// when the game starts and cache them locally.
+  Future<void> updateTeamMemberLocation({
+    required int memberId,
+    required int teamId,
+    required int userId,
+    required bool isTeamLeader,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final body = jsonEncode({
+      'teamId': teamId,
+      'userId': userId,
+      'isTeamLeader': isTeamLeader,
+      'currentLatitude': latitude,
+      'currentLongitude': longitude,
+      'lastUpdated': DateTime.now().toUtc().toIso8601String(),
+    });
+
+    final uri = _baseUri.resolve('/api/teammembers/$memberId');
+    final response = await _http.put(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: body,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'HTTP ${response.statusCode} when updating location for member $memberId',
+      );
+    }
+  }
+
   Future<int?> _getActiveSessionId() async {
     final sessions = await _listGameSessions();
     final active = sessions
