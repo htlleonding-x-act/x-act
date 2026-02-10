@@ -1,7 +1,8 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using XActBackend.Persistence.Repositories;
 
 namespace XActBackend.Persistence.Util;
 
@@ -49,6 +50,13 @@ public static class PersistenceSetup
 
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<ITransactionProvider, UnitOfWork>();
+
+            services.AddScoped<IUserRepository, UserRepository>(sp =>
+                new UserRepository(sp.GetRequiredService<DatabaseContext>().Users)
+            );
+            services.AddScoped<IGameSessionRepository, GameSessionRepository>(sp =>
+                new GameSessionRepository(sp.GetRequiredService<DatabaseContext>().GameSessions)
+            );
         }
     }
 }
