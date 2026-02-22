@@ -57,6 +57,15 @@ public static class PersistenceSetup
             services.AddScoped<IGameSessionRepository, GameSessionRepository>(sp =>
                 new GameSessionRepository(sp.GetRequiredService<DatabaseContext>().GameSessions)
             );
+            services.AddScoped<IGeofencePointRepository, GeofencePointRepository>(sp =>
+                new GeofencePointRepository(sp.GetRequiredService<DatabaseContext>().GeofencePoints)
+            );
+            services.AddScoped<ITeamRepository, TeamRepository>(sp =>
+                new TeamRepository(sp.GetRequiredService<DatabaseContext>().Teams)
+            );
+            services.AddScoped<ITeamMemberRepository, TeamMemberRepository>(sp =>
+                new TeamMemberRepository(sp.GetRequiredService<DatabaseContext>().TeamMembers)
+            );
         }
     }
 }
