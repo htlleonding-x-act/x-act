@@ -66,6 +66,12 @@ public static class PersistenceSetup
             services.AddScoped<ITeamMemberRepository, TeamMemberRepository>(sp =>
                 new TeamMemberRepository(sp.GetRequiredService<DatabaseContext>().TeamMembers)
             );
+            services.AddScoped<ILocationLogRepository, LocationLogRepository>(sp =>
+                new LocationLogRepository(sp.GetRequiredService<DatabaseContext>().LocationLogs)
+            );
+            services.AddScoped<IPowerUpUsageRepository, PowerUpUsageRepository>(sp =>
+                new PowerUpUsageRepository(sp.GetRequiredService<DatabaseContext>().PowerUpUsages)
+            );
         }
     }
 }
