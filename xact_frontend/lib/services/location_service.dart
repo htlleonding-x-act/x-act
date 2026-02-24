@@ -66,6 +66,32 @@ final class LocationService {
         permission == LocationPermission.always;
   }
 
+  /// Starts watching the device position and feeding [positionStream] without
+  /// uploading anything to the backend. Use this when you just need the map to
+  /// show the player's real position (e.g. before the game starts / no login
+  /// yet). Calling [startTracking] later will replace this subscription.
+  Future<void> startWatching() async {
+    if (_positionSub != null) return; // already running
+
+    final granted = await requestPermission();
+    if (!granted) return;
+
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5,
+    );
+
+    _positionSub = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      (position) {
+        lastKnownPosition = position;
+        _positionController.add(position);
+      },
+      onError: (_) {},
+    );
+  }
+
   /// Starts continuous GPS tracking and periodic upload to the backend.
   ///
   /// [memberId], [teamId], [userId] and [isTeamLeader] must match the current

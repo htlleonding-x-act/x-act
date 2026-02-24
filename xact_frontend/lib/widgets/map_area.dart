@@ -65,6 +65,9 @@ class _MapAreaState extends State<MapArea> {
   }
 
   Future<void> _startListeningToGps() async {
+    // Kick off the GPS stream (permission request included).
+    await LocationService.instance.startWatching();
+
     // Use the last known position immediately if available (no wait needed).
     final existing = LocationService.instance.lastKnownPosition;
     if (existing != null && mounted) {
