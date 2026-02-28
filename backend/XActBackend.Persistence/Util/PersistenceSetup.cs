@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using XActBackend.Persistence.Repositories;
 
 namespace XActBackend.Persistence.Util;
 
@@ -50,28 +49,6 @@ public static class PersistenceSetup
 
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<ITransactionProvider, UnitOfWork>();
-
-            services.AddScoped<IUserRepository, UserRepository>(sp =>
-                new UserRepository(sp.GetRequiredService<DatabaseContext>().Users)
-            );
-            services.AddScoped<IGameSessionRepository, GameSessionRepository>(sp =>
-                new GameSessionRepository(sp.GetRequiredService<DatabaseContext>().GameSessions)
-            );
-            services.AddScoped<IGeofencePointRepository, GeofencePointRepository>(sp =>
-                new GeofencePointRepository(sp.GetRequiredService<DatabaseContext>().GeofencePoints)
-            );
-            services.AddScoped<ITeamRepository, TeamRepository>(sp =>
-                new TeamRepository(sp.GetRequiredService<DatabaseContext>().Teams)
-            );
-            services.AddScoped<ITeamMemberRepository, TeamMemberRepository>(sp =>
-                new TeamMemberRepository(sp.GetRequiredService<DatabaseContext>().TeamMembers)
-            );
-            services.AddScoped<ILocationLogRepository, LocationLogRepository>(sp =>
-                new LocationLogRepository(sp.GetRequiredService<DatabaseContext>().LocationLogs)
-            );
-            services.AddScoped<IPowerUpUsageRepository, PowerUpUsageRepository>(sp =>
-                new PowerUpUsageRepository(sp.GetRequiredService<DatabaseContext>().PowerUpUsages)
-            );
         }
     }
 }

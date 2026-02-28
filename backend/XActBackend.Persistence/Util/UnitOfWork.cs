@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using XActBackend.Persistence.Repositories;
 
 namespace XActBackend.Persistence.Util;
 
@@ -13,6 +14,13 @@ public interface ITransactionProvider : IAsyncDisposable, IDisposable
 
 public interface IUnitOfWork
 {
+    public IUserRepository UserRepository { get; }
+    public IGameSessionRepository GameSessionRepository { get; }
+    public IGeofencePointRepository GeofencePointRepository { get; }
+    public ITeamRepository TeamRepository { get; }
+    public ITeamMemberRepository TeamMemberRepository { get; }
+    public ILocationLogRepository LocationLogRepository { get; }
+    public IPowerUpUsageRepository PowerUpUsageRepository { get; }
     public Task SaveChangesAsync();
 }
 
@@ -20,6 +28,14 @@ internal sealed class UnitOfWork(DatabaseContext context, ILogger<UnitOfWork> lo
     : IUnitOfWork, ITransactionProvider
 {
     private IDbContextTransaction? _transaction;
+
+    public IUserRepository UserRepository => new UserRepository(context.Users);
+    public IGameSessionRepository GameSessionRepository => new GameSessionRepository(context.GameSessions);
+    public IGeofencePointRepository GeofencePointRepository => new GeofencePointRepository(context.GeofencePoints);
+    public ITeamRepository TeamRepository => new TeamRepository(context.Teams);
+    public ITeamMemberRepository TeamMemberRepository => new TeamMemberRepository(context.TeamMembers);
+    public ILocationLogRepository LocationLogRepository => new LocationLogRepository(context.LocationLogs);
+    public IPowerUpUsageRepository PowerUpUsageRepository => new PowerUpUsageRepository(context.PowerUpUsages);
 
     public async ValueTask BeginTransactionAsync()
     {
