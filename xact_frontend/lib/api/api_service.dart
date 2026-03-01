@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
 import 'api_config.dart';
 import 'models.dart';
@@ -225,6 +226,82 @@ final class ApiService {
   Future<List<TeamMemberInfo>> _listTeamMembers() async {
     final json = await _getJsonObject('/api/teammembers');
     return ApiListResponse.fromJson(json, TeamMemberInfo.fromJson).items;
+  }
+
+  // ── Geofence ─────────────────────────────────────────────────────────────
+
+  /// Returns all geofence points for [sessionId], sorted by sequenceOrder.
+  Future<List<GeofencePointDetails>> loadGeofencePoints(int sessionId) async {
+    final json = await _getJsonObject('/api/geofencepoints');
+    final infos = ApiListResponse.fromJson(json, GeofencePointInfo.fromJson).items;
+    final forSession = infos.where((p) => p.sessionId == sessionId).toList();
+
+    // Fetch full details (includes sequenceOrder) for each point.
+    final details = await Future.wait(
+      forSession.map((p) async {
+        final detailJson = await _getJsonObject('/api/geofencepoints/${p.pointId}');
+        return GeofencePointDetails.fromJson(detailJson);
+      }),
+    );
+    return details..sort((a, b) => a.sequenceOrder.compareTo(b.sequenceOrder));
+  }
+
+  /// Adds a single geofence point and returns the created object.
+  Future<GeofencePointDetails> addGeofencePoint({
+    required int sessionId,
+    required double latitude,
+    required double longitude,
+    required int sequenceOrder,
+  }) async {
+    final uri = _baseUri.resolve('/api/geofencepoints');
+    final response = await _http.post(
+      uri,
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: jsonEncode({
+        'sessionId': sessionId,
+        'latitude': latitude,
+        'longitude': longitude,
+        'sequenceOrder': sequenceOrder,
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode} adding geofence point');
+    }
+    return GeofencePointDetails.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Deletes a single geofence point by its ID.
+  Future<void> deleteGeofencePoint(int pointId) async {
+    final uri = _baseUri.resolve('/api/geofencepoints/$pointId');
+    final response = await _http.delete(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode} deleting geofence point $pointId');
+    }
+  }
+
+  /// Replaces the entire game area for [sessionId] with the given [points].
+  ///
+  /// Deletes all existing points for the session first, then POSTs the new
+  /// list in order (sequenceOrder = 1-based index).
+  Future<void> saveGeofenceArea({
+    required int sessionId,
+    required List<LatLng> points,
+  }) async {
+    // 1. Remove old points.
+    final existing = await loadGeofencePoints(sessionId);
+    await Future.wait(existing.map((p) => deleteGeofencePoint(p.pointId)));
+
+    // 2. Add new points in order.
+    for (var i = 0; i < points.length; i++) {
+      await addGeofencePoint(
+        sessionId: sessionId,
+        latitude: points[i].latitude,
+        longitude: points[i].longitude,
+        sequenceOrder: i + 1,
+      );
+    }
   }
 
   Future<Map<String, dynamic>> _getJsonObject(String path) async {
