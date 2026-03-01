@@ -26,6 +26,9 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // True while saving to the backend.
   bool _isSaving = false;
 
+  // Index of the point currently being dragged, -1 when idle.
+  int _draggingIndex = -1;
+
   static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -67,8 +70,30 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // ── Map interactions ──────────────────────────────────────────────────────
 
   void _onMapTap(TapPosition _, LatLng point) {
-    if (_isSaving) return;
+    // Ignore taps that are really the end of a marker drag.
+    if (_isSaving || _draggingIndex >= 0) return;
     setState(() => _points.add(point));
+  }
+
+  // ── Marker drag handlers ──────────────────────────────────────────────
+
+  void _onMarkerDragStart(int index) {
+    setState(() => _draggingIndex = index);
+  }
+
+  void _onMarkerDragUpdate(int index, DragUpdateDetails details) {
+    final camera = _mapController.camera;
+    // getOffsetFromOrigin converts LatLng → screen Offset (origin = top-left).
+    // offsetToCrs is the exact inverse: screen Offset → LatLng.
+    // The drag delta from Flutter is already in screen pixels, so adding it
+    // directly gives the correct new position.
+    final currentOffset = camera.getOffsetFromOrigin(_points[index]);
+    final newOffset = currentOffset + details.delta;
+    setState(() => _points[index] = camera.offsetToCrs(newOffset));
+  }
+
+  void _onMarkerDragEnd() {
+    setState(() => _draggingIndex = -1);
   }
 
   void _undoLast() {
@@ -161,9 +186,10 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
   String get _statusText {
     if (_points.isEmpty) return 'Tap on the map to place the first corner';
+    if (_draggingIndex >= 0) return 'Drag to reposition point ${_draggingIndex + 1}';
     if (_points.length == 1) return '1 point placed – add at least 2 more';
     if (_points.length == 2) return '2 points placed – add at least 1 more';
-    return '${_points.length} points – polygon ready';
+    return '${_points.length} points – tap map to add · drag to move';
   }
 
   // ── Build ──────────────────────────────────────────────────────────────────
@@ -204,6 +230,13 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
                     minZoom: 10.0,
                     maxZoom: 18.0,
                     onTap: _onMapTap,
+                    // Freeze map panning while a marker is being dragged so
+                    // the map doesn't move under the user's finger.
+                    interactionOptions: InteractionOptions(
+                      flags: _draggingIndex >= 0
+                          ? InteractiveFlag.none
+                          : InteractiveFlag.all,
+                    ),
                   ),
                   children: [
                     // Dark tile layer (same style as game map)
@@ -256,9 +289,17 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
                         for (var i = 0; i < _points.length; i++)
                           Marker(
                             point: _points[i],
-                            width: 32,
-                            height: 32,
-                            child: _PointMarker(index: i + 1),
+                            width: 44,
+                            height: 44,
+                            child: GestureDetector(
+                              onPanStart: (_) => _onMarkerDragStart(i),
+                              onPanUpdate: (d) => _onMarkerDragUpdate(i, d),
+                              onPanEnd: (_) => _onMarkerDragEnd(),
+                              child: _PointMarker(
+                                index: i + 1,
+                                isDragging: _draggingIndex == i,
+                              ),
+                            ),
                           ),
                       ],
                     ),
@@ -291,33 +332,41 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
 class _PointMarker extends StatelessWidget {
   final int index;
+  final bool isDragging;
 
-  const _PointMarker({required this.index});
+  const _PointMarker({required this.index, this.isDragging = false});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: Colors.blue.shade700,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.6),
-            blurRadius: 6,
-            spreadRadius: 1,
+    final size = isDragging ? 44.0 : 34.0;
+    final color = isDragging ? Colors.orange.shade600 : Colors.blue.shade700;
+    return Center(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isDragging ? Colors.white : Colors.white70,
+            width: isDragging ? 3 : 2,
           ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          '$index',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: isDragging ? 0.9 : 0.6),
+              blurRadius: isDragging ? 14 : 6,
+              spreadRadius: isDragging ? 3 : 1,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            '$index',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: isDragging ? 15 : 13,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),
