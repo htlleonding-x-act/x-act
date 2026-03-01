@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import '../api/api_service.dart';
 import '../services/location_service.dart';
 import 'map_header.dart';
 import 'map_legend.dart';
@@ -28,6 +29,12 @@ class _MapAreaState extends State<MapArea> {
   bool _followMode = true;
 
   StreamSubscription<Position>? _positionSub;
+
+  // ── Geofence ──────────────────────────────────────────────────────────────
+  // Polygon boundary loaded from the backend for the active session.
+  List<LatLng> _geofencePoints = [];
+  // True when the player is outside the defined game area.
+  bool _isOutOfBounds = false;
 
   // ── Placeholder teammates (replaced by real API data in a future task) ──
   final List<PlayerMarker> _otherPlayers = [
@@ -56,6 +63,7 @@ class _MapAreaState extends State<MapArea> {
   void initState() {
     super.initState();
     _startListeningToGps();
+    _loadGeofence();
   }
 
   @override
@@ -71,19 +79,72 @@ class _MapAreaState extends State<MapArea> {
     // Use the last known position immediately if available (no wait needed).
     final existing = LocationService.instance.lastKnownPosition;
     if (existing != null && mounted) {
-      setState(() => _myPosition = LatLng(existing.latitude, existing.longitude));
+      final latLng = LatLng(existing.latitude, existing.longitude);
+      setState(() {
+        _myPosition = latLng;
+        _isOutOfBounds = _checkOutOfBounds(latLng);
+      });
     }
 
     // Subscribe to live updates.
     _positionSub = LocationService.instance.positionStream.listen((pos) {
       if (!mounted) return;
       final latLng = LatLng(pos.latitude, pos.longitude);
-      setState(() => _myPosition = latLng);
+      setState(() {
+        _myPosition = latLng;
+        _isOutOfBounds = _checkOutOfBounds(latLng);
+      });
 
       if (_followMode) {
         _mapController.move(latLng, _mapController.camera.zoom);
       }
     });
+  }
+
+  /// Loads the geofence polygon for the active session from the backend.
+  Future<void> _loadGeofence() async {
+    try {
+      final sessionId = await ApiService.instance.getActiveSessionId();
+      if (sessionId == null || !mounted) return;
+      final points = await ApiService.instance.loadGeofencePoints(sessionId);
+      if (!mounted) return;
+      setState(() {
+        _geofencePoints =
+            points.map((p) => LatLng(p.latitude, p.longitude)).toList();
+        // Re-evaluate out-of-bounds with the freshly loaded polygon.
+        if (_myPosition != null) {
+          _isOutOfBounds = _checkOutOfBounds(_myPosition!);
+        }
+      });
+    } catch (_) {
+      // Network unavailable or no session – silently ignore.
+    }
+  }
+
+  /// Returns true when [point] lies outside the [_geofencePoints] polygon.
+  /// Uses the Ray Casting algorithm. Returns false when no polygon is defined.
+  bool _checkOutOfBounds(LatLng point) {
+    if (_geofencePoints.length < 3) return false;
+    return !_isPointInPolygon(point, _geofencePoints);
+  }
+
+  /// Ray Casting point-in-polygon check.
+  static bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+    final x = point.longitude;
+    final y = point.latitude;
+    bool inside = false;
+    int j = polygon.length - 1;
+    for (int i = 0; i < polygon.length; i++) {
+      final xi = polygon[i].longitude;
+      final yi = polygon[i].latitude;
+      final xj = polygon[j].longitude;
+      final yj = polygon[j].latitude;
+      final intersect =
+          ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+      j = i;
+    }
+    return inside;
   }
 
   List<Marker> _buildAllMarkers() {
@@ -166,10 +227,52 @@ class _MapAreaState extends State<MapArea> {
                 },
               ),
               MarkerLayer(markers: _buildAllMarkers()),
+              // Geofence polygon (shown for all players once the host saves it)
+              if (_geofencePoints.length >= 3)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: _geofencePoints,
+                      color: Colors.blue.withValues(alpha: 0.07),
+                      borderColor: Colors.blue.shade400,
+                      borderStrokeWidth: 2.5,
+                    ),
+                  ],
+                ),
             ],
           ),
           const MapHeader(),
           const MapLegend(),
+          // Out-of-bounds warning banner
+          if (_isOutOfBounds)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  color: Colors.red.shade800.withValues(alpha: 0.93),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: Colors.white, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'You are outside the game area!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           // "No GPS fix yet" indicator
           if (_myPosition == null)
             Positioned(

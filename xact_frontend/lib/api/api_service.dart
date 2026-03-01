@@ -50,7 +50,7 @@ final class ApiService {
   final http.Client _http;
 
   Future<List<TeamCardData>> loadTeamCards() async {
-    final sessionId = await _getActiveSessionId();
+    final sessionId = await getActiveSessionId();
 
     final teams = await _listTeams();
     final teamMembers = await _listTeamMembers();
@@ -82,7 +82,7 @@ final class ApiService {
   }
 
   Future<TeamChatHeaderData> loadTeamChatHeader() async {
-    final sessionId = await _getActiveSessionId();
+    final sessionId = await getActiveSessionId();
 
     final teams = await _listTeams();
     final teamMembers = await _listTeamMembers();
@@ -110,7 +110,7 @@ final class ApiService {
   }
 
   Future<MapHeaderData> loadMapHeader() async {
-    final sessionId = await _getActiveSessionId();
+    final sessionId = await getActiveSessionId();
     if (sessionId == null) {
       return const MapHeaderData(nextPingText: 'Next ping: —');
     }
@@ -171,7 +171,7 @@ final class ApiService {
     }
   }
 
-  Future<int?> _getActiveSessionId() async {
+  Future<int?> getActiveSessionId() async {
     final sessions = await _listGameSessions();
     final active = sessions
         .where((s) => s.status == SessionStatus.active)
