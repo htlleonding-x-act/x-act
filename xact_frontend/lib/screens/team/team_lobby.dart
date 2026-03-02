@@ -12,12 +12,16 @@ class _TeamData {
   List<String> players;
   bool isMisterX;
 
+  /// When `false` the team cannot be deleted (Mister X + first detective team).
+  bool isDeletable;
+
   _TeamData({
     required this.name,
     required this.color,
     this.maxPlayers = 3,
     List<String>? players,
     this.isMisterX = false,
+    this.isDeletable = true,
   }) : players = players ?? [];
 }
 
@@ -59,8 +63,14 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       color: Colors.red,
       maxPlayers: 2,
       isMisterX: true,
+      isDeletable: false,
     ),
-    _TeamData(name: 'Detectives 1', color: Colors.purple, maxPlayers: 3),
+    _TeamData(
+      name: 'Detectives 1',
+      color: Colors.purple,
+      maxPlayers: 3,
+      isDeletable: false, // at least one detective team must exist
+    ),
     _TeamData(name: 'Detectives 2', color: Colors.green, maxPlayers: 3),
   ];
 
@@ -117,8 +127,81 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     });
   }
 
-  void _renameTeam(int index) {
-    // TODO: Implement rename dialog / inline editing
+  void _renameTeam(int index) async {
+    final team = _teams[index];
+    final controller = TextEditingController(text: team.name);
+
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: XActBranding.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Rename Team', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          decoration: InputDecoration(
+            hintText: 'New team name…',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: XActBranding.backgroundColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Colors.blueAccent),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = controller.text.trim();
+              if (text.isNotEmpty) Navigator.of(ctx).pop(text);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: XActBranding.primaryBlue,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+
+    if (newName != null && newName != team.name) {
+      setState(() => team.name = newName);
+      _updateTeamNameOnBackend(index, newName);
+    }
+  }
+
+  /// Sends the updated team name to the backend.
+  // TODO: Replace placeholder with real API call (e.g. PUT /api/teams/:id)
+  Future<void> _updateTeamNameOnBackend(int index, String newName) async {
+    // TODO: final teamId = _teams[index].id;
+    // TODO: await ApiService.instance.updateTeamName(teamId, newName);
+    debugPrint(
+      'TODO → update team name on backend: index=$index, name=$newName',
+    );
   }
 
   void _randomizeTeams() {
@@ -501,7 +584,6 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
                 ),
               ),
               if (isLeader) ...[
-                // TODO: Hook up rename
                 GestureDetector(
                   onTap: () => _renameTeam(index),
                   child: Icon(Icons.edit, color: team.color, size: 18),
@@ -511,15 +593,18 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
                   '${team.players.length}/${team.maxPlayers}',
                   style: TextStyle(color: team.color, fontSize: 14),
                 ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () => _deleteTeam(index),
-                  child: const Icon(
-                    Icons.delete,
-                    color: Colors.white38,
-                    size: 18,
+                // Only show delete icon when team is deletable
+                if (team.isDeletable) ...[
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () => _deleteTeam(index),
+                    child: const Icon(
+                      Icons.delete,
+                      color: Colors.white38,
+                      size: 18,
+                    ),
                   ),
-                ),
+                ],
               ] else
                 Text(
                   '${team.players.length}/${team.maxPlayers}',
