@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
@@ -239,7 +240,11 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   }
 
   void _startGame() {
-    // TODO: Navigate to game screen / call backend to start the session
+    // TODO: Call backend to start the session before navigating
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const GameScreen()),
+    );
   }
 
   // ══════════════════════════════════════════════════════════════════════════
