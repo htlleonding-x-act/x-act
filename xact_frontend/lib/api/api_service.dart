@@ -37,7 +37,21 @@ final class TeamChatHeaderData {
 final class MapHeaderData {
   final String nextPingText;
 
-  const MapHeaderData({required this.nextPingText});
+  /// Minutes remaining until the next Mr. X ping.
+  final int remainingMinutes;
+
+  /// The total interval length in minutes between pings.
+  final int intervalMinutes;
+
+  /// Progress from 0.0 (just pinged) to 1.0 (about to ping).
+  double get progress =>
+      intervalMinutes > 0 ? 1.0 - (remainingMinutes / intervalMinutes) : 0.0;
+
+  const MapHeaderData({
+    required this.nextPingText,
+    this.remainingMinutes = 0,
+    this.intervalMinutes = 0,
+  });
 }
 
 final class ApiService {
@@ -130,7 +144,11 @@ final class ApiService {
     final remaining = (interval - minutesIntoCycle) % interval;
 
     final display = remaining == 0 ? interval : remaining;
-    return MapHeaderData(nextPingText: 'Next ping: ${display}m');
+    return MapHeaderData(
+      nextPingText: 'Next ping: ${display}m',
+      remainingMinutes: display,
+      intervalMinutes: interval,
+    );
   }
 
   /// Sends the current player's GPS position to the backend.
