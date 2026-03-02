@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
 import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
