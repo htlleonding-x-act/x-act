@@ -178,8 +178,9 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
   String get _statusText {
     if (_points.isEmpty) return 'Tap on the map to place the first corner';
-    if (_draggingIndex >= 0)
+    if (_draggingIndex >= 0) {
       return 'Drag to reposition point ${_draggingIndex + 1}';
+    }
     if (_points.length == 1) return '1 point placed – add at least 2 more';
     if (_points.length == 2) return '2 points placed – add at least 1 more';
     return '${_points.length} points – tap map to add · drag to move';
