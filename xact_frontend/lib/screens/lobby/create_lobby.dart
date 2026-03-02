@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
+import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class CreateLobbyScreen extends StatefulWidget {
@@ -46,7 +47,7 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
     // Step 2: Enter the game.
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const GameScreen()),
+      MaterialPageRoute(builder: (context) => const TeamLobbyScreen()),
     );
   }
 

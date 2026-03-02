@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
+import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class JoinLobbyScreen extends StatefulWidget {
@@ -32,7 +33,7 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
     }
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const GameScreen()),
+      MaterialPageRoute(builder: (context) => const TeamLobbyScreen()),
     );
 
   }
