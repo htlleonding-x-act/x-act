@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
+import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class CreateLobbyScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
     super.dispose();
   }
 
-  void _onCreate() {
+  void _onCreate() async {
     final lobbyName = _lobbyNameController.text.trim();
 
     if (lobbyName.isEmpty) {
@@ -28,13 +29,25 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
       return;
     }
 
+    // TODO: Call POST /api/gamesessions to create a real session and get
+    // the returned sessionId. Using a placeholder of 1 for now.
+    const sessionId = 1;
+
+    // Step 1: Let the host define the game area.
+    final areaSaved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DefineGameAreaScreen(sessionId: sessionId),
+      ),
+    );
+
+    if (areaSaved != true || !mounted) return;
+
+    // Step 2: Enter the game.
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const GameScreen()),
     );
-
-    // TODO: Implement join lobby logic
-
   }
 
   @override
