@@ -27,12 +27,12 @@ public interface IGameSessionService
 
 internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
 {
-    private static int _nextSessionId = 6;
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking)
     {
         IEnumerable<GameSession> gameSessions = await uow.GameSessionRepository.GetAllSessionsAsync(tracking);
 
+        // TODO: avoid unnecessary copy, use IReadOnlyCollection<GameSession> directly
         return [.. gameSessions];
     }
 
@@ -47,19 +47,16 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
     {
         try
         {
-            var gameSession = new GameSession
-            {
-                Id = _nextSessionId++,
-                HostUserId = newGameSession.HostUserId,
-                JoinCode = newGameSession.JoinCode,
-                Status = newGameSession.Status,
-                StartTime = newGameSession.StartTime,
-                EndTime = newGameSession.EndTime,
-                PlannedDurationMinutes = newGameSession.PlannedDurationMinutes,
-                MrXRevealInterval = newGameSession.MrXRevealInterval
-            };
+            var gameSession = uow.GameSessionRepository.AddGameSession(
+                newGameSession.HostUserId,
+                newGameSession.JoinCode,
+                newGameSession.PlannedDurationMinutes,
+                newGameSession.MrXRevealInterval
+            );
 
-            uow.GameSessionRepository.AddGameSession(gameSession.HostUserId, gameSession.JoinCode, gameSession.PlannedDurationMinutes, gameSession.MrXRevealInterval);
+            gameSession.Status = newGameSession.Status;
+            gameSession.StartTime = newGameSession.StartTime;
+            gameSession.EndTime = newGameSession.EndTime;
 
             await uow.SaveChangesAsync();
 

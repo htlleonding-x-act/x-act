@@ -12,5 +12,8 @@ public static class CoreSetup
         services.AddScoped<IGeofencePointService, GeoFencePointService>();
         services.AddScoped<ILocationLogService, LocationLogService>();
         services.AddScoped<IPowerUpUsageService, PowerUpUsageService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ITeamService, TeamService>();
+        services.AddScoped<ITeamMemberService, TeamMemberService>();
     }
 }
