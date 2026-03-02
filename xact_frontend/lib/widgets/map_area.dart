@@ -108,16 +108,25 @@ class _MapAreaState extends State<MapArea> {
       if (sessionId == null || !mounted) return;
       final points = await ApiService.instance.loadGeofencePoints(sessionId);
       if (!mounted) return;
+      // Only show the polygon when there are at least 3 valid points.
+      final latLngs = points
+          .map((p) => LatLng(p.latitude, p.longitude))
+          .toList();
       setState(() {
-        _geofencePoints =
-            points.map((p) => LatLng(p.latitude, p.longitude)).toList();
+        _geofencePoints = latLngs.length >= 3 ? latLngs : [];
         // Re-evaluate out-of-bounds with the freshly loaded polygon.
         if (_myPosition != null) {
           _isOutOfBounds = _checkOutOfBounds(_myPosition!);
         }
       });
     } catch (_) {
-      // Network unavailable or no session – silently ignore.
+      // Network unavailable or no session – start without a geofence.
+      if (mounted) {
+        setState(() {
+          _geofencePoints = [];
+          _isOutOfBounds = false;
+        });
+      }
     }
   }
 
@@ -152,13 +161,17 @@ class _MapAreaState extends State<MapArea> {
 
     // Real GPS position of the current player.
     if (_myPosition != null) {
-      markers.add(_buildMarker(PlayerMarker(
-        id: 'me',
-        name: 'You',
-        position: _myPosition!,
-        color: Colors.blue,
-        isCurrentUser: true,
-      )));
+      markers.add(
+        _buildMarker(
+          PlayerMarker(
+            id: 'me',
+            name: 'You',
+            position: _myPosition!,
+            color: Colors.blue,
+            isCurrentUser: true,
+          ),
+        ),
+      );
     }
 
     // Other players (currently hardcoded – will come from API later).
@@ -257,8 +270,11 @@ class _MapAreaState extends State<MapArea> {
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.warning_amber_rounded,
-                          color: Colors.white, size: 18),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'You are outside the game area!',
@@ -281,7 +297,10 @@ class _MapAreaState extends State<MapArea> {
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black87,
                     borderRadius: BorderRadius.circular(20),
@@ -292,10 +311,16 @@ class _MapAreaState extends State<MapArea> {
                       SizedBox(
                         width: 12,
                         height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.amber,
+                        ),
                       ),
                       SizedBox(width: 8),
-                      Text('Acquiring GPS…', style: TextStyle(color: Colors.amber, fontSize: 12)),
+                      Text(
+                        'Acquiring GPS…',
+                        style: TextStyle(color: Colors.amber, fontSize: 12),
+                      ),
                     ],
                   ),
                 ),
@@ -330,7 +355,9 @@ class _MapAreaState extends State<MapArea> {
                 const SizedBox(height: 8),
                 // my_location button: re-enable follow mode and snap to position.
                 _ZoomButton(
-                  icon: _followMode ? Icons.my_location : Icons.location_searching,
+                  icon: _followMode
+                      ? Icons.my_location
+                      : Icons.location_searching,
                   onPressed: () {
                     final pos = _myPosition;
                     if (pos == null) return;

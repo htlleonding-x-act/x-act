@@ -2,29 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
+import 'package:xact_frontend/widgets/team/add_team_button.dart';
+import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
+import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
+import 'package:xact_frontend/widgets/team/lobby_header.dart';
+import 'package:xact_frontend/widgets/team/lobby_team_card.dart';
+import 'package:xact_frontend/widgets/team/spectators_card.dart';
+import 'package:xact_frontend/widgets/team/team_data.dart';
+import 'package:xact_frontend/widgets/team/team_overview_card.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
-
-// ─── Data model for a team in the lobby ─────────────────────────────────────
-
-class _TeamData {
-  String name;
-  Color color;
-  int maxPlayers;
-  List<String> players;
-  bool isMisterX;
-
-  /// When `false` the team cannot be deleted (Mister X + first detective team).
-  bool isDeletable;
-
-  _TeamData({
-    required this.name,
-    required this.color,
-    this.maxPlayers = 3,
-    List<String>? players,
-    this.isMisterX = false,
-    this.isDeletable = true,
-  }) : players = players ?? [];
-}
 
 // ─── Team Lobby Screen ──────────────────────────────────────────────────────
 
@@ -58,21 +44,21 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   ];
 
   // ── Default teams ─────────────────────────────────────────────────────────
-  late final List<_TeamData> _teams = [
-    _TeamData(
+  late final List<TeamData> _teams = [
+    TeamData(
       name: 'Mister X',
       color: Colors.red,
       maxPlayers: 2,
       isMisterX: true,
       isDeletable: false,
     ),
-    _TeamData(
+    TeamData(
       name: 'Detectives 1',
       color: Colors.purple,
       maxPlayers: 3,
       isDeletable: false, // at least one detective team must exist
     ),
-    _TeamData(name: 'Detectives 2', color: Colors.green, maxPlayers: 3),
+    TeamData(name: 'Detectives 2', color: Colors.green, maxPlayers: 3),
   ];
 
   // ── Helper: can the game start? ───────────────────────────────────────────
@@ -109,7 +95,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     if (result != null) {
       setState(() {
         _teams.add(
-          _TeamData(
+          TeamData(
             name: result.name,
             color: result.color,
             maxPlayers: result.maxPlayers,
@@ -267,7 +253,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   }
 
   /// Moves a player into [team]. Returns `false` if the team is full.
-  bool _movePlayerToTeam(String playerName, _TeamData team) {
+  bool _movePlayerToTeam(String playerName, TeamData team) {
     if (team.players.length >= team.maxPlayers) return false;
     setState(() {
       _removePlayerFromSource(playerName);
@@ -291,7 +277,13 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         child: Column(
           children: [
             // ── Header ────────────────────────────────────────────────────
-            _buildHeader(),
+            LobbyHeader(
+              totalPlayers: _totalPlayers,
+              isLeader: leader,
+              onQrPressed: () {
+                // TODO: Show QR code dialog
+              },
+            ),
 
             // ── Scrollable content ────────────────────────────────────────
             Expanded(
@@ -302,7 +294,10 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
                 ),
                 child: Column(
                   children: [
-                    _buildLobbyCodeCard(),
+                    LobbyCodeCard(
+                      lobbyCode: widget.lobbyCode,
+                      onCopy: _copyLobbyCode,
+                    ),
                     const SizedBox(height: 6),
                     const Text(
                       'Drag players to assign teams',
@@ -311,24 +306,37 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
                     const SizedBox(height: 16),
 
                     // ── Team Overview ──────────────────────────────────────
-                    _buildTeamOverview(),
+                    TeamOverviewCard(
+                      spectatorCount: _spectators.length,
+                      teams: _teams,
+                    ),
                     const SizedBox(height: 16),
 
                     // ── Spectators ─────────────────────────────────────────
-                    _buildSpectatorsCard(),
+                    SpectatorsCard(
+                      spectators: _spectators,
+                      onPlayerDropped: _movePlayerToSpectators,
+                    ),
                     const SizedBox(height: 16),
 
                     // ── Team cards ─────────────────────────────────────────
                     ..._teams.asMap().entries.map(
                       (e) => Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildTeamCard(e.key, e.value, leader),
+                        child: LobbyTeamCard(
+                          team: e.value,
+                          isLeader: leader,
+                          onRename: () => _renameTeam(e.key),
+                          onDelete: () => _deleteTeam(e.key),
+                          onPlayerDropped: (name) =>
+                              _movePlayerToTeam(name, e.value),
+                        ),
                       ),
                     ),
 
                     // ── Add team button ────────────────────────────────────
                     if (leader) ...[
-                      _buildAddTeamButton(),
+                      AddTeamButton(onPressed: _addTeam),
                       const SizedBox(height: 12),
                     ],
 
@@ -339,465 +347,14 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
             ),
 
             // ── Bottom buttons ────────────────────────────────────────────
-            if (leader) _buildBottomButtons(),
+            if (leader)
+              LobbyBottomButtons(
+                canStartGame: _canStartGame,
+                onRandomize: _randomizeTeams,
+                onStartGame: _startGame,
+              ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ── Header row ──────────────────────────────────────────────────────────
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Game Lobby',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$_totalPlayers players in lobby'
-                  '${isLobbyLeader() ? '  •  Lobby Leader' : ''}',
-                  style: const TextStyle(color: Colors.white60, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          // TODO: QR code button → show QR dialog for lobby code
-          IconButton(
-            icon: const Icon(Icons.qr_code, color: Colors.white70),
-            onPressed: () {
-              // TODO: Show QR code dialog
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Lobby code card ─────────────────────────────────────────────────────
-
-  Widget _buildLobbyCodeCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Lobby Code',
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.lobbyCode,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: _copyLobbyCode,
-            icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copy'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white12,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Team Overview ───────────────────────────────────────────────────────
-
-  Widget _buildTeamOverview() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.people, color: Colors.white70, size: 18),
-              SizedBox(width: 6),
-              Text(
-                'Team Overview',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 16,
-            runSpacing: 6,
-            children: [
-              _overviewChip(
-                'Spectators',
-                Colors.grey,
-                '${_spectators.length}/∞',
-              ),
-              ..._teams.map(
-                (t) => _overviewChip(
-                  t.name,
-                  t.color,
-                  '${t.players.length}/${t.maxPlayers}',
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _overviewChip(String name, Color color, String count) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-        const SizedBox(width: 4),
-        Text(
-          count,
-          style: const TextStyle(color: Colors.white38, fontSize: 13),
-        ),
-      ],
-    );
-  }
-
-  // ── Spectators card ─────────────────────────────────────────────────────
-
-  Widget _buildSpectatorsCard() {
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (_) => true,
-      onAcceptWithDetails: (details) => _movePlayerToSpectators(details.data),
-      builder: (context, candidateData, rejectedData) {
-        final isHovering = candidateData.isNotEmpty;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isHovering
-                ? Colors.blueAccent.withAlpha(30)
-                : XActBranding.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isHovering
-                  ? Colors.blueAccent
-                  : Colors.blueAccent.withAlpha(120),
-              width: isHovering ? 2.5 : 1.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'Spectators',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // TODO: Toggle visibility icon
-                  const Icon(Icons.visibility, color: Colors.white38, size: 18),
-                  const SizedBox(width: 6),
-                  // TODO: Edit spectators icon
-                  const Icon(Icons.edit, color: Colors.white38, size: 18),
-                  const Spacer(),
-                  Text(
-                    '${_spectators.length}/∞',
-                    style: const TextStyle(color: Colors.white54, fontSize: 13),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ..._spectators.map(
-                (name) => _buildDraggablePlayerTile(name, Colors.grey),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// Static (non-draggable) player tile – used inside the drag feedback.
-  Widget _buildPlayerTileContent(String name, Color dotColor) {
-    final isYou = name == 'You';
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: XActBranding.backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.drag_indicator, color: Colors.white24, size: 20),
-          const SizedBox(width: 8),
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 10),
-          Text(name, style: const TextStyle(color: Colors.white, fontSize: 14)),
-          if (isYou) ...[
-            const SizedBox(width: 6),
-            const Text(
-              '(you)',
-              style: TextStyle(color: Colors.amber, fontSize: 13),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Draggable player tile – can be dragged into any team or spectators.
-  Widget _buildDraggablePlayerTile(String name, Color dotColor) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: LongPressDraggable<String>(
-        data: name,
-        delay: const Duration(milliseconds: 150),
-        feedback: Material(
-          color: Colors.transparent,
-          child: Opacity(
-            opacity: 0.85,
-            child: SizedBox(
-              width: MediaQuery.of(context).size.width - 64,
-              child: _buildPlayerTileContent(name, dotColor),
-            ),
-          ),
-        ),
-        childWhenDragging: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white12),
-            ),
-          ),
-        ),
-        child: _buildPlayerTileContent(name, dotColor),
-      ),
-    );
-  }
-
-  // ── Team card ───────────────────────────────────────────────────────────
-
-  Widget _buildTeamCard(int index, _TeamData team, bool isLeader) {
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) {
-        // Accept if team has room and player isn't already in this team
-        return team.players.length < team.maxPlayers &&
-            !team.players.contains(details.data);
-      },
-      onAcceptWithDetails: (details) => _movePlayerToTeam(details.data, team),
-      builder: (context, candidateData, rejectedData) {
-        final isHovering = candidateData.isNotEmpty;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isHovering
-                ? team.color.withAlpha(30)
-                : XActBranding.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isHovering ? team.color : team.color.withAlpha(150),
-              width: isHovering ? 2.5 : 1.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      team.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (isLeader) ...[
-                    GestureDetector(
-                      onTap: () => _renameTeam(index),
-                      child: Icon(Icons.edit, color: team.color, size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      '${team.players.length}/${team.maxPlayers}',
-                      style: TextStyle(color: team.color, fontSize: 14),
-                    ),
-                    // Only show delete icon when team is deletable
-                    if (team.isDeletable) ...[
-                      const SizedBox(width: 10),
-                      GestureDetector(
-                        onTap: () => _deleteTeam(index),
-                        child: const Icon(
-                          Icons.delete,
-                          color: Colors.white38,
-                          size: 18,
-                        ),
-                      ),
-                    ],
-                  ] else
-                    Text(
-                      '${team.players.length}/${team.maxPlayers}',
-                      style: TextStyle(color: team.color, fontSize: 14),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (team.players.isEmpty)
-                const Text(
-                  'No players',
-                  style: TextStyle(color: Colors.white38, fontSize: 13),
-                )
-              else
-                ...team.players.map(
-                  (p) => _buildDraggablePlayerTile(p, team.color),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ── Add team button ─────────────────────────────────────────────────────
-
-  Widget _buildAddTeamButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: _addTeam,
-        icon: const Icon(Icons.add, color: Colors.white54),
-        label: const Text(
-          'Add New Team',
-          style: TextStyle(color: Colors.white54),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.white24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-        ),
-      ),
-    );
-  }
-
-  // ── Bottom buttons (Randomize + Start) ──────────────────────────────────
-
-  Widget _buildBottomButtons() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      child: Column(
-        children: [
-          // ── Randomize Teams ───────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _randomizeTeams,
-              icon: const Icon(Icons.shuffle, size: 18),
-              label: const Text('Randomize Teams'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: XActBranding.primaryBlue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // ── Start Game ────────────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _canStartGame ? _startGame : null,
-              icon: const Icon(Icons.play_arrow, size: 20),
-              label: const Text(
-                'Start Game',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _canStartGame ? Colors.green : Colors.white10,
-                foregroundColor: _canStartGame ? Colors.white : Colors.white38,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
-          ),
-          if (!_canStartGame) ...[
-            const SizedBox(height: 6),
-            const Text(
-              'Need at least 1 Mister X and 1 Detective to start',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-          ],
-        ],
       ),
     );
   }
