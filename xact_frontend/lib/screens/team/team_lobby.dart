@@ -247,6 +247,36 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     );
   }
 
+  // ── Drag & Drop helpers ─────────────────────────────────────────────────
+
+  /// Removes [playerName] from wherever it currently lives (spectators or a team).
+  void _removePlayerFromSource(String playerName) {
+    _spectators.remove(playerName);
+    for (final t in _teams) {
+      t.players.remove(playerName);
+    }
+  }
+
+  /// Moves a player into the spectators list.
+  void _movePlayerToSpectators(String playerName) {
+    setState(() {
+      _removePlayerFromSource(playerName);
+      _spectators.add(playerName);
+    });
+    // TODO: notify backend about the assignment change
+  }
+
+  /// Moves a player into [team]. Returns `false` if the team is full.
+  bool _movePlayerToTeam(String playerName, _TeamData team) {
+    if (team.players.length >= team.maxPlayers) return false;
+    setState(() {
+      _removePlayerFromSource(playerName);
+      team.players.add(playerName);
+    });
+    // TODO: notify backend about the assignment change
+    return true;
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // BUILD
   // ══════════════════════════════════════════════════════════════════════════
@@ -480,84 +510,126 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   // ── Spectators card ─────────────────────────────────────────────────────
 
   Widget _buildSpectatorsCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blueAccent.withAlpha(120), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (_) => true,
+      onAcceptWithDetails: (details) => _movePlayerToSpectators(details.data),
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isHovering
+                ? Colors.blueAccent.withAlpha(30)
+                : XActBranding.cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isHovering
+                  ? Colors.blueAccent
+                  : Colors.blueAccent.withAlpha(120),
+              width: isHovering ? 2.5 : 1.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Spectators',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                children: [
+                  const Text(
+                    'Spectators',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // TODO: Toggle visibility icon
+                  const Icon(Icons.visibility, color: Colors.white38, size: 18),
+                  const SizedBox(width: 6),
+                  // TODO: Edit spectators icon
+                  const Icon(Icons.edit, color: Colors.white38, size: 18),
+                  const Spacer(),
+                  Text(
+                    '${_spectators.length}/∞',
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              // TODO: Toggle visibility icon
-              const Icon(Icons.visibility, color: Colors.white38, size: 18),
-              const SizedBox(width: 6),
-              // TODO: Edit spectators icon
-              const Icon(Icons.edit, color: Colors.white38, size: 18),
-              const Spacer(),
-              Text(
-                '${_spectators.length}/∞',
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              const SizedBox(height: 10),
+              ..._spectators.map(
+                (name) => _buildDraggablePlayerTile(name, Colors.grey),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          ..._spectators.map((name) => _buildPlayerTile(name)),
+        );
+      },
+    );
+  }
+
+  /// Static (non-draggable) player tile – used inside the drag feedback.
+  Widget _buildPlayerTileContent(String name, Color dotColor) {
+    final isYou = name == 'You';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: XActBranding.backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.drag_indicator, color: Colors.white24, size: 20),
+          const SizedBox(width: 8),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 10),
+          Text(name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          if (isYou) ...[
+            const SizedBox(width: 6),
+            const Text(
+              '(you)',
+              style: TextStyle(color: Colors.amber, fontSize: 13),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildPlayerTile(String name) {
-    final isYou = name == 'You';
+  /// Draggable player tile – can be dragged into any team or spectators.
+  Widget _buildDraggablePlayerTile(String name, Color dotColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: XActBranding.backgroundColor,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            // TODO: Drag handle → implement drag & drop to assign players
-            const Icon(Icons.drag_indicator, color: Colors.white24, size: 20),
-            const SizedBox(width: 8),
-            Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Colors.grey,
-                shape: BoxShape.circle,
-              ),
+      child: LongPressDraggable<String>(
+        data: name,
+        delay: const Duration(milliseconds: 150),
+        feedback: Material(
+          color: Colors.transparent,
+          child: Opacity(
+            opacity: 0.85,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width - 64,
+              child: _buildPlayerTileContent(name, dotColor),
             ),
-            const SizedBox(width: 10),
-            Text(
-              name,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            ),
-            if (isYou) ...[
-              const SizedBox(width: 6),
-              const Text(
-                '(you)',
-                style: TextStyle(color: Colors.amber, fontSize: 13),
-              ),
-            ],
-          ],
+          ),
         ),
+        childWhenDragging: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Container(
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white10,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white12),
+            ),
+          ),
+        ),
+        child: _buildPlayerTileContent(name, dotColor),
       ),
     );
   }
@@ -565,68 +637,87 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   // ── Team card ───────────────────────────────────────────────────────────
 
   Widget _buildTeamCard(int index, _TeamData team, bool isLeader) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: team.color.withAlpha(150), width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) {
+        // Accept if team has room and player isn't already in this team
+        return team.players.length < team.maxPlayers &&
+            !team.players.contains(details.data);
+      },
+      onAcceptWithDetails: (details) => _movePlayerToTeam(details.data, team),
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isHovering
+                ? team.color.withAlpha(30)
+                : XActBranding.cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isHovering ? team.color : team.color.withAlpha(150),
+              width: isHovering ? 2.5 : 1.5,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  team.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              if (isLeader) ...[
-                GestureDetector(
-                  onTap: () => _renameTeam(index),
-                  child: Icon(Icons.edit, color: team.color, size: 18),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  '${team.players.length}/${team.maxPlayers}',
-                  style: TextStyle(color: team.color, fontSize: 14),
-                ),
-                // Only show delete icon when team is deletable
-                if (team.isDeletable) ...[
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => _deleteTeam(index),
-                    child: const Icon(
-                      Icons.delete,
-                      color: Colors.white38,
-                      size: 18,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      team.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
+                  if (isLeader) ...[
+                    GestureDetector(
+                      onTap: () => _renameTeam(index),
+                      child: Icon(Icons.edit, color: team.color, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '${team.players.length}/${team.maxPlayers}',
+                      style: TextStyle(color: team.color, fontSize: 14),
+                    ),
+                    // Only show delete icon when team is deletable
+                    if (team.isDeletable) ...[
+                      const SizedBox(width: 10),
+                      GestureDetector(
+                        onTap: () => _deleteTeam(index),
+                        child: const Icon(
+                          Icons.delete,
+                          color: Colors.white38,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  ] else
+                    Text(
+                      '${team.players.length}/${team.maxPlayers}',
+                      style: TextStyle(color: team.color, fontSize: 14),
+                    ),
                 ],
-              ] else
-                Text(
-                  '${team.players.length}/${team.maxPlayers}',
-                  style: TextStyle(color: team.color, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              if (team.players.isEmpty)
+                const Text(
+                  'No players',
+                  style: TextStyle(color: Colors.white38, fontSize: 13),
+                )
+              else
+                ...team.players.map(
+                  (p) => _buildDraggablePlayerTile(p, team.color),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (team.players.isEmpty)
-            const Text(
-              'No players',
-              style: TextStyle(color: Colors.white38, fontSize: 13),
-            )
-          else
-            ...team.players.map((p) => _buildPlayerTile(p)),
-        ],
-      ),
+        );
+      },
     );
   }
 
