@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
 import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
@@ -29,9 +30,13 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
       return;
     }
 
-    // TODO: Call POST /api/gamesessions to create a real session and get
-    // the returned sessionId. Using a placeholder of 1 for now.
-    const sessionId = 1;
+    final session = await ApiService.instance.createLobby(lobbyName: lobbyName);
+    final sessionId = session.sessionId;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Lobby created! Join code: ${session.joinCode}')),
+    );
 
     // Step 1: Let the host define the game area.
     final areaSaved = await Navigator.push<bool>(

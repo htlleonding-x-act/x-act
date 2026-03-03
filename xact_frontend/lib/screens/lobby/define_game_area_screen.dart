@@ -36,34 +36,39 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   @override
   void initState() {
     super.initState();
-    _loadExisting();
+    _initCleanSlate();
   }
 
-  Future<void> _loadExisting() async {
+  /// Clears any old geofence points on the backend for this session and
+  /// starts with a fresh canvas.
+  Future<void> _initCleanSlate() async {
     try {
-      final existing = await ApiService.instance
-          .loadGeofencePoints(widget.sessionId);
-      if (!mounted) return;
-      setState(() {
-        _points
-          ..clear()
-          ..addAll(existing.map((p) => LatLng(p.latitude, p.longitude)));
-        _isLoading = false;
-      });
+      // Delete any leftover points from previous attempts so the game map
+      // doesn't display stale data.
+      final existing = await ApiService.instance.loadGeofencePoints(
+        widget.sessionId,
+      );
+      await Future.wait(
+        existing.map((p) => ApiService.instance.deleteGeofencePoint(p.pointId)),
+      );
+    } catch (_) {
+      // Backend unreachable – that's fine, nothing to clear.
+    }
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    _centerOnPlayer();
+  }
 
-      // Pan to existing area if points are present.
-      if (_points.isNotEmpty) {
-        _fitToPoints();
-      } else {
-        // Otherwise centre on the player if we have a GPS fix.
-        final pos = LocationService.instance.lastKnownPosition;
-        if (pos != null) {
+  /// Centers the map on the player's GPS position if available.
+  void _centerOnPlayer() {
+    final pos = LocationService.instance.lastKnownPosition;
+    if (pos != null) {
+      // Schedule after the first frame so the MapController is ready.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
           _mapController.move(LatLng(pos.latitude, pos.longitude), 15.0);
         }
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
+      });
     }
   }
 
@@ -115,8 +120,10 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child:
-                const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -169,24 +176,11 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  void _fitToPoints() {
-    if (_points.isEmpty) return;
-    final lats = _points.map((p) => p.latitude);
-    final lngs = _points.map((p) => p.longitude);
-    final bounds = LatLngBounds(
-      LatLng(lats.reduce((a, b) => a < b ? a : b),
-          lngs.reduce((a, b) => a < b ? a : b)),
-      LatLng(lats.reduce((a, b) => a > b ? a : b),
-          lngs.reduce((a, b) => a > b ? a : b)),
-    );
-    _mapController.fitCamera(
-      CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(60)),
-    );
-  }
-
   String get _statusText {
     if (_points.isEmpty) return 'Tap on the map to place the first corner';
-    if (_draggingIndex >= 0) return 'Drag to reposition point ${_draggingIndex + 1}';
+    if (_draggingIndex >= 0) {
+      return 'Drag to reposition point ${_draggingIndex + 1}';
+    }
     if (_points.length == 1) return '1 point placed – add at least 2 more';
     if (_points.length == 2) return '2 points placed – add at least 1 more';
     return '${_points.length} points – tap map to add · drag to move';
@@ -246,12 +240,27 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
                       userAgentPackageName: 'com.xact.app',
                       tileBuilder: (context, tileWidget, tile) {
                         return ColorFiltered(
-                          colorFilter:
-                              const ColorFilter.matrix(<double>[
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0.2126, 0.7152, 0.0722, 0, 0,
-                            0,      0,      0,      1, 0,
+                          colorFilter: const ColorFilter.matrix(<double>[
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0.2126,
+                            0.7152,
+                            0.0722,
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                            1,
+                            0,
                           ]),
                           child: tileWidget,
                         );
@@ -277,9 +286,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
                             points: _points,
                             color: Colors.blue.shade400,
                             strokeWidth: 2.5,
-                            pattern: StrokePattern.dashed(
-                              segments: [8, 6],
-                            ),
+                            pattern: StrokePattern.dashed(segments: [8, 6]),
                           ),
                         ],
                       ),
@@ -462,13 +469,17 @@ class _BottomPanel extends StatelessWidget {
               onPressed: (canSave && !isSaving) ? onSave : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blue.shade700,
-                disabledBackgroundColor: Colors.blue.shade900.withValues(alpha: 0.4),
+                disabledBackgroundColor: Colors.blue.shade900.withValues(
+                  alpha: 0.4,
+                ),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
               ),
               icon: isSaving
                   ? const SizedBox(

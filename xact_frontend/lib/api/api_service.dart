@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -36,7 +37,21 @@ final class TeamChatHeaderData {
 final class MapHeaderData {
   final String nextPingText;
 
-  const MapHeaderData({required this.nextPingText});
+  /// Minutes remaining until the next Mr. X ping.
+  final int remainingMinutes;
+
+  /// The total interval length in minutes between pings.
+  final int intervalMinutes;
+
+  /// Progress from 0.0 (just pinged) to 1.0 (about to ping).
+  double get progress =>
+      intervalMinutes > 0 ? 1.0 - (remainingMinutes / intervalMinutes) : 0.0;
+
+  const MapHeaderData({
+    required this.nextPingText,
+    this.remainingMinutes = 0,
+    this.intervalMinutes = 0,
+  });
 }
 
 final class ApiService {
@@ -129,7 +144,11 @@ final class ApiService {
     final remaining = (interval - minutesIntoCycle) % interval;
 
     final display = remaining == 0 ? interval : remaining;
-    return MapHeaderData(nextPingText: 'Next ping: ${display}m');
+    return MapHeaderData(
+      nextPingText: 'Next ping: ${display}m',
+      remainingMinutes: display,
+      intervalMinutes: interval,
+    );
   }
 
   /// Sends the current player's GPS position to the backend.
@@ -169,6 +188,27 @@ final class ApiService {
         'HTTP ${response.statusCode} when updating location for member $memberId',
       );
     }
+  }
+
+  /// Pseudo method that creates a new lobby and returns a [GameSessionDetails]
+  /// with a random 6-digit join code and sensible defaults.
+  ///
+  /// TODO: Replace with a real POST /api/gamesessions call once the backend
+  /// endpoint is wired up.
+  Future<GameSessionDetails> createLobby({required String lobbyName}) async {
+    final random = Random();
+    final joinCode = (100000 + random.nextInt(900000)).toString();
+
+    return GameSessionDetails(
+      sessionId: 1,
+      hostUserId: 1,
+      joinCode: joinCode,
+      status: SessionStatus.waiting,
+      startTime: null,
+      endTime: null,
+      plannedDurationMinutes: 60,
+      mrXRevealInterval: 5,
+    );
   }
 
   Future<int?> getActiveSessionId() async {
@@ -233,13 +273,18 @@ final class ApiService {
   /// Returns all geofence points for [sessionId], sorted by sequenceOrder.
   Future<List<GeofencePointDetails>> loadGeofencePoints(int sessionId) async {
     final json = await _getJsonObject('/api/geofencepoints');
-    final infos = ApiListResponse.fromJson(json, GeofencePointInfo.fromJson).items;
+    final infos = ApiListResponse.fromJson(
+      json,
+      GeofencePointInfo.fromJson,
+    ).items;
     final forSession = infos.where((p) => p.sessionId == sessionId).toList();
 
     // Fetch full details (includes sequenceOrder) for each point.
     final details = await Future.wait(
       forSession.map((p) async {
-        final detailJson = await _getJsonObject('/api/geofencepoints/${p.pointId}');
+        final detailJson = await _getJsonObject(
+          '/api/geofencepoints/${p.pointId}',
+        );
         return GeofencePointDetails.fromJson(detailJson);
       }),
     );
@@ -256,7 +301,10 @@ final class ApiService {
     final uri = _baseUri.resolve('/api/geofencepoints');
     final response = await _http.post(
       uri,
-      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: jsonEncode({
         'sessionId': sessionId,
         'latitude': latitude,
@@ -277,7 +325,9 @@ final class ApiService {
     final uri = _baseUri.resolve('/api/geofencepoints/$pointId');
     final response = await _http.delete(uri);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} deleting geofence point $pointId');
+      throw Exception(
+        'HTTP ${response.statusCode} deleting geofence point $pointId',
+      );
     }
   }
 
