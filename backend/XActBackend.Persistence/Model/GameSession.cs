@@ -6,6 +6,8 @@ public class GameSession
 
     public int HostUserId { get; set; }
 
+    public required string SessionName { get; set; }
+
     public required string JoinCode { get; set; }
 
     public SessionStatus Status { get; set; }
@@ -17,6 +19,8 @@ public class GameSession
     public int PlannedDurationMinutes { get; set; }
 
     public int MrXRevealInterval { get; set; }
+
+    public Instant CreatedAt { get; set; }
 
 
     public User Host { get; set; } = null!;
