@@ -7,11 +7,11 @@ namespace XActBackend.Core.Services;
 
 public interface ITeamMemberService
 {
-    public ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int teamId, bool tracking);
-    public ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(int memberId, bool tracking);
+    public ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int sessionId, int teamId, bool tracking);
+    public ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(int sessionId, int teamId, int memberId, bool tracking);
     public ValueTask<OneOf<TeamMember, Error>> AddTeamMemberAsync(TeamMemberData newTeamMember);
-    public ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(int memberId, TeamMemberData teamMemberData, bool tracking);
-    public ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int memberId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(int sessionId, int teamId, int memberId, TeamMemberData teamMemberData, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int sessionId, int teamId, int memberId, bool tracking);
 
     public sealed record TeamMemberData(
         int SessionId,
@@ -27,16 +27,16 @@ public interface ITeamMemberService
 
 internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock) : ITeamMemberService
 {
-    public async ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int teamId, bool tracking)
+    public async ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int sessionId, int teamId, bool tracking)
     {
-        IReadOnlyCollection<TeamMember> members = await uow.TeamMemberRepository.GetMembersByTeamIdAsync(teamId, tracking);
+        IReadOnlyCollection<TeamMember> members = await uow.TeamMemberRepository.GetMembersBySessionAndTeamIdAsync(sessionId, teamId, tracking);
 
         return members;
     }
 
-    public async ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(int memberId, bool tracking)
+    public async ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(int sessionId, int teamId, int memberId, bool tracking)
     {
-        var member = await uow.TeamMemberRepository.GetMemberByIdAsync(memberId, tracking);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking);
 
         return member is not null ? member : new NotFound();
     }
@@ -86,11 +86,11 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock) : ITeamMe
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(int memberId, ITeamMemberService.TeamMemberData teamMemberData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamMemberAsync(int sessionId, int teamId, int memberId, ITeamMemberService.TeamMemberData teamMemberData, bool tracking)
     {
-        var member = await uow.TeamMemberRepository.GetMemberByIdAsync(memberId, tracking);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking);
 
-        if (member is null)
+        if (member is null || teamMemberData.SessionId != sessionId || teamMemberData.TeamId != teamId)
         {
             return new NotFound();
         }
@@ -109,9 +109,9 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock) : ITeamMe
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int memberId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int sessionId, int teamId, int memberId, bool tracking)
     {
-        var member = await uow.TeamMemberRepository.GetMemberByIdAsync(memberId, tracking);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking);
 
         if (member is null)
         {

@@ -28,6 +28,8 @@ public interface IGameSessionService
 
 internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
 {
+    private const string HostTeamColor = "#000000";
+
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking)
     {
@@ -48,6 +50,12 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
     {
         try
         {
+            var hostUser = await uow.UserRepository.GetUserByIdAsync(newGameSession.HostUserId, tracking: false);
+            if (hostUser is null || hostUser.IsDeleted)
+            {
+                return new Error();
+            }
+
             var existingActiveSession = await uow.GameSessionRepository.GetActiveSessionByHostUserIdAsync(newGameSession.HostUserId, tracking: false);
             if (existingActiveSession is not null)
             {
@@ -65,6 +73,21 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
             gameSession.Status = newGameSession.Status;
             gameSession.StartTime = newGameSession.StartTime;
             gameSession.EndTime = newGameSession.EndTime;
+
+            var hostTeam = uow.TeamRepository.AddTeam(
+                gameSession.Id,
+                $"{newGameSession.SessionName} Host",
+                TeamRole.MrX,
+                HostTeamColor
+            );
+
+            uow.TeamMemberRepository.AddTeamMember(
+                gameSession.Id,
+                hostTeam.Id,
+                newGameSession.HostUserId,
+                guestName: null,
+                isTeamLeader: true
+            );
 
             await uow.SaveChangesAsync();
 

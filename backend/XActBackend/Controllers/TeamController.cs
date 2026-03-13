@@ -37,7 +37,7 @@ public sealed class TeamController(
         [FromRoute] int sessionId,
         [FromRoute] int teamId)
     {
-        OneOf<Team, NotFound> teamResult = await teamService.GetTeamByIdAsync(teamId, tracking: false);
+        OneOf<Team, NotFound> teamResult = await teamService.GetTeamByIdAsync(sessionId, teamId, tracking: false);
 
         return teamResult.Match<ActionResult<TeamDetailsDto>>(
             team => Ok(TeamDetailsDto.FromTeam(team)),
@@ -101,6 +101,7 @@ public sealed class TeamController(
             await transaction.BeginTransactionAsync();
 
             OneOf<Success, NotFound> updateResult = await teamService.UpdateTeamAsync(
+                sessionId,
                 teamId,
                 new ITeamService.TeamData(
                     sessionId,
@@ -142,7 +143,7 @@ public sealed class TeamController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> deleteResult = await teamService.DeleteTeamAsync(teamId, tracking: true);
+            OneOf<Success, NotFound> deleteResult = await teamService.DeleteTeamAsync(sessionId, teamId, tracking: true);
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {

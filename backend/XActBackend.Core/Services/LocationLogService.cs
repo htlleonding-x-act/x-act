@@ -8,6 +8,7 @@ namespace XActBackend.Core.Services;
 public interface ILocationLogService
 {
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int memberId, bool tracking);
+    public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking);
     public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int memberId, int logId, bool tracking);
     public ValueTask<OneOf<LocationLog, Error>> AddLocationLogAsync(LocationLogData newLocationLog);
     public ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(int logId, LocationLogData locationLogData, bool tracking);
@@ -29,6 +30,12 @@ internal sealed class LocationLogService(IUnitOfWork uow) : ILocationLogService
     public async ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int memberId, bool tracking)
     {
         IEnumerable<LocationLog> logs = await uow.LocationLogRepository.GetLogsByMemberIdAsync(memberId, tracking);
+        return [.. logs];
+    }
+
+    public async ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking)
+    {
+        IEnumerable<LocationLog> logs = await uow.LocationLogRepository.GetLogsBySessionIdAsync(sessionId, tracking);
         return [.. logs];
     }
 

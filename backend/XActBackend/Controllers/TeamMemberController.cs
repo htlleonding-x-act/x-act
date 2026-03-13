@@ -19,9 +19,9 @@ public sealed class TeamMemberController(
     [HttpGet]
     [Route("")]
     [ProducesResponseType<TeamMemberListResponse>(StatusCodes.Status200OK)]
-    public async ValueTask<ActionResult<TeamMemberListResponse>> GetMembersByTeamId([FromRoute] int teamId)
+    public async ValueTask<ActionResult<TeamMemberListResponse>> GetMembersByTeamId([FromRoute] int sessionId, [FromRoute] int teamId)
     {
-        IReadOnlyCollection<TeamMember> members = await teamMemberService.GetMembersByTeamIdAsync(teamId, tracking: false);
+        IReadOnlyCollection<TeamMember> members = await teamMemberService.GetMembersByTeamIdAsync(sessionId, teamId, tracking: false);
 
         return Ok(new TeamMemberListResponse
         {
@@ -34,10 +34,11 @@ public sealed class TeamMemberController(
     [ProducesResponseType<TeamMemberDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<ActionResult<TeamMemberDetailsDto>> GetTeamMemberById(
+        [FromRoute] int sessionId,
         [FromRoute] int teamId,
         [FromRoute] int memberId)
     {
-        OneOf<TeamMember, NotFound> memberResult = await teamMemberService.GetTeamMemberByIdAsync(memberId, tracking: false);
+        OneOf<TeamMember, NotFound> memberResult = await teamMemberService.GetTeamMemberByIdAsync(sessionId, teamId, memberId, tracking: false);
 
         return memberResult.Match<ActionResult<TeamMemberDetailsDto>>(
             member => Ok(TeamMemberDetailsDto.FromTeamMember(member)),
@@ -75,7 +76,7 @@ public sealed class TeamMemberController(
             {
                 await transaction.CommitAsync();
                 return CreatedAtAction(nameof(GetTeamMemberById),
-                    new { teamId, memberId = member.Id },
+                    new { sessionId, teamId, memberId = member.Id },
                     TeamMemberDetailsDto.FromTeamMember(member));
             }, async error =>
             {
@@ -106,6 +107,8 @@ public sealed class TeamMemberController(
             await transaction.BeginTransactionAsync();
 
             OneOf<Success, NotFound> updateResult = await teamMemberService.UpdateTeamMemberAsync(
+                sessionId,
+                teamId,
                 memberId,
                 new ITeamMemberService.TeamMemberData(
                     sessionId,
@@ -143,6 +146,7 @@ public sealed class TeamMemberController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> DeleteTeamMember(
+        [FromRoute] int sessionId,
         [FromRoute] int teamId,
         [FromRoute] int memberId)
     {
@@ -150,7 +154,7 @@ public sealed class TeamMemberController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> deleteResult = await teamMemberService.DeleteTeamMemberAsync(memberId, tracking: true);
+            OneOf<Success, NotFound> deleteResult = await teamMemberService.DeleteTeamMemberAsync(sessionId, teamId, memberId, tracking: true);
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {

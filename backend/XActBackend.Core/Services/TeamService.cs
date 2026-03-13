@@ -8,10 +8,10 @@ namespace XActBackend.Core.Services;
 public interface ITeamService
 {
     public ValueTask<IReadOnlyCollection<Team>> GetTeamsBySessionIdAsync(int sessionId, bool tracking);
-    public ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(int teamId, bool tracking);
+    public ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(int sessionId, int teamId, bool tracking);
     public ValueTask<OneOf<Team, Error>> AddTeamAsync(TeamData newTeam);
-    public ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(int teamId, TeamData teamData, bool tracking);
-    public ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(int teamId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(int sessionId, int teamId, TeamData teamData, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(int sessionId, int teamId, bool tracking);
 
     public sealed record TeamData(
         int SessionId,
@@ -31,11 +31,16 @@ internal sealed class TeamService(IUnitOfWork uow) : ITeamService
         return teams;
     }
 
-    public async ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(int teamId, bool tracking)
+    public async ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(int sessionId, int teamId, bool tracking)
     {
         var team = await uow.TeamRepository.GetTeamByIdAsync(teamId, tracking);
 
-        return team is not null ? team : new NotFound();
+        if (team is null || team.SessionId != sessionId)
+        {
+            return new NotFound();
+        }
+
+        return team;
     }
 
     public async ValueTask<OneOf<Team, Error>> AddTeamAsync(ITeamService.TeamData newTeam)
@@ -61,16 +66,15 @@ internal sealed class TeamService(IUnitOfWork uow) : ITeamService
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(int teamId, ITeamService.TeamData teamData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateTeamAsync(int sessionId, int teamId, ITeamService.TeamData teamData, bool tracking)
     {
         var team = await uow.TeamRepository.GetTeamByIdAsync(teamId, tracking);
 
-        if (team is null)
+        if (team is null || team.SessionId != sessionId || teamData.SessionId != sessionId)
         {
             return new NotFound();
         }
 
-        team.SessionId = teamData.SessionId;
         team.TeamName = teamData.TeamName;
         team.Role = teamData.Role;
         team.ColorCode = teamData.ColorCode;
@@ -81,11 +85,11 @@ internal sealed class TeamService(IUnitOfWork uow) : ITeamService
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(int teamId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteTeamAsync(int sessionId, int teamId, bool tracking)
     {
         var team = await uow.TeamRepository.GetTeamByIdAsync(teamId, tracking);
 
-        if (team is null)
+        if (team is null || team.SessionId != sessionId)
         {
             return new NotFound();
         }

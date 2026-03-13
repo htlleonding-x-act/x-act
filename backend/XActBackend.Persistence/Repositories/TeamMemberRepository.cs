@@ -7,8 +7,10 @@ public interface ITeamMemberRepository
 {
     public TeamMember AddTeamMember(int sessionId, int teamId, int? userId, string? guestName, bool isTeamLeader);
     public ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int teamId, bool tracking);
+    public ValueTask<IReadOnlyCollection<TeamMember>> GetMembersBySessionAndTeamIdAsync(int sessionId, int teamId, bool tracking);
     public ValueTask<IReadOnlyCollection<TeamMember>> GetMembersBySessionIdAsync(int sessionId, bool tracking);
     public ValueTask<TeamMember?> GetMemberByIdAsync(int id, bool tracking);
+    public ValueTask<TeamMember?> GetMemberBySessionAndTeamIdAsync(int sessionId, int teamId, int memberId, bool tracking);
     public ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, int userId, bool tracking);
     public void RemoveTeamMember(TeamMember member);
 }
@@ -46,6 +48,17 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet) : ITeamM
         return members;
     }
 
+    public async ValueTask<IReadOnlyCollection<TeamMember>> GetMembersBySessionAndTeamIdAsync(int sessionId, int teamId, bool tracking)
+    {
+        IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
+
+        List<TeamMember> members = await source
+            .Where(m => m.SessionId == sessionId && m.TeamId == teamId)
+            .ToListAsync();
+
+        return members;
+    }
+
     public async ValueTask<IReadOnlyCollection<TeamMember>> GetMembersBySessionIdAsync(int sessionId, bool tracking)
     {
         IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
@@ -62,6 +75,13 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet) : ITeamM
         IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
 
         return await source.FirstOrDefaultAsync(m => m.Id == id);
+    }
+
+    public async ValueTask<TeamMember?> GetMemberBySessionAndTeamIdAsync(int sessionId, int teamId, int memberId, bool tracking)
+    {
+        IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
+
+        return await source.FirstOrDefaultAsync(m => m.SessionId == sessionId && m.TeamId == teamId && m.Id == memberId);
     }
 
     public async ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, int userId, bool tracking)
