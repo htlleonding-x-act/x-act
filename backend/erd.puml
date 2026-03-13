@@ -1,4 +1,4 @@
-@startuml x-act-erd
+﻿@startuml x-act-erd
 
 !define primary_key(x) <b><color:#b8861b><&key></color> x</b>
 !define foreign_key(x) <color:#aaaaaa><&key></color> x
@@ -8,13 +8,26 @@
 table(Users) {
     primary_key(user_id) : INTEGER
     --
-    column(username) : VARCHAR(50)
-    column(email) : VARCHAR(100)
-    column(password_hash) : VARCHAR(255)
+    column(username) : VARCHAR(50) NULL
+    column(email) : VARCHAR(100) NULL
     column(account_type) : ENUM('FREE', 'PRO', 'EVENT_PASS')
     column(subscription_end_date) : TIMESTAMP
     column(total_wins) : INTEGER
     column(total_games_played) : INTEGER
+    column(is_deleted) : BOOLEAN
+    column(deleted_at) : TIMESTAMP
+    column(created_at) : TIMESTAMP
+}
+
+table(User_Auth_Identities) {
+    primary_key(auth_identity_id) : INTEGER
+    --
+    foreign_key(user_id) : INTEGER
+    --
+    column(provider) : ENUM('LOCAL', 'GOOGLE', 'APPLE')
+    column(provider_subject) : VARCHAR(255)
+    column(password_hash) : VARCHAR(255) NULL
+    column(created_at) : TIMESTAMP
 }
 
 table(Game_Sessions) {
@@ -22,12 +35,14 @@ table(Game_Sessions) {
     --
     foreign_key(host_user_id) : INTEGER
     --
+    column(session_name) : VARCHAR(120)
     column(join_code) : VARCHAR(6)
     column(status) : ENUM('WAITING', 'ACTIVE', 'FINISHED')
     column(start_time) : TIMESTAMP
     column(end_time) : TIMESTAMP
     column(planned_duration_minutes) : INTEGER
     column(mr_x_reveal_interval) : INTEGER
+    column(created_at) : TIMESTAMP
 }
 
 table(Geofence_Points) {
@@ -54,10 +69,13 @@ table(Teams) {
 table(Team_Members) {
     primary_key(member_id) : INTEGER
     --
+    foreign_key(session_id) : INTEGER
     foreign_key(team_id) : INTEGER
-    foreign_key(user_id) : INTEGER
+    foreign_key(user_id) : INTEGER NULL
     --
+    column(guest_name) : VARCHAR(50) NULL
     column(is_team_leader) : BOOLEAN
+    column(joined_at) : TIMESTAMP
     column(current_latitude) : DOUBLE
     column(current_longitude) : DOUBLE
     column(last_updated) : TIMESTAMP
@@ -85,11 +103,13 @@ table(Power_Up_Usage) {
     column(used_at) : TIMESTAMP
 }
 
-Users ||..o{ Team_Members : "joins as member"
+Users ||..o{ User_Auth_Identities : "owns auth identities"
+Users ||..o{ Team_Members : "joins as member (optional for guests)"
 Users ||..o{ Game_Sessions : "hosts"
 
 Game_Sessions ||--|{ Teams : "consists of"
 Game_Sessions ||--|{ Geofence_Points : "defined by boundary"
+Game_Sessions ||--|{ Team_Members : "contains participants"
 
 Teams ||--|{ Team_Members : "has members"
 
