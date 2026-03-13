@@ -50,6 +50,7 @@ public sealed class TeamMemberController(
     [ProducesResponseType<TeamMemberDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async ValueTask<IActionResult> AddTeamMember(
+        [FromRoute] int sessionId,
         [FromRoute] int teamId,
         [FromBody] TeamMemberAddRequest addRequest)
     {
@@ -59,8 +60,10 @@ public sealed class TeamMemberController(
 
             OneOf<TeamMember, Error> addResult = await teamMemberService.AddTeamMemberAsync(
                 new ITeamMemberService.TeamMemberData(
+                    sessionId,
                     teamId,
                     addRequest.UserId,
+                    addRequest.GuestName,
                     addRequest.IsTeamLeader,
                     addRequest.CurrentLatitude,
                     addRequest.CurrentLongitude,
@@ -93,6 +96,7 @@ public sealed class TeamMemberController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> UpdateTeamMember(
+        [FromRoute] int sessionId,
         [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromBody] TeamMemberUpdateRequest updateRequest)
@@ -104,8 +108,10 @@ public sealed class TeamMemberController(
             OneOf<Success, NotFound> updateResult = await teamMemberService.UpdateTeamMemberAsync(
                 memberId,
                 new ITeamMemberService.TeamMemberData(
+                    sessionId,
                     teamId,
                     updateRequest.UserId,
+                    updateRequest.GuestName,
                     updateRequest.IsTeamLeader,
                     updateRequest.CurrentLatitude,
                     updateRequest.CurrentLongitude,
@@ -170,28 +176,31 @@ public sealed class TeamMemberListResponse
     public required List<TeamMemberInformationDto> Items { get; init; }
 }
 
-public sealed record TeamMemberInformationDto(int Id, int TeamId, int UserId, bool IsTeamLeader)
+public sealed record TeamMemberInformationDto(int Id, int SessionId, int TeamId, int? UserId, string? GuestName, bool IsTeamLeader)
 {
     public static TeamMemberInformationDto FromTeamMember(TeamMember member) =>
-        new(member.Id, member.TeamId, member.UserId, member.IsTeamLeader);
+    new(member.Id, member.SessionId, member.TeamId, member.UserId, member.GuestName, member.IsTeamLeader);
 }
 
 public sealed record TeamMemberDetailsDto(
     int Id,
+    int SessionId,
     int TeamId,
-    int UserId,
+    int? UserId,
+    string? GuestName,
     bool IsTeamLeader,
     double? CurrentLatitude,
     double? CurrentLongitude,
     Instant? LastUpdated)
 {
     public static TeamMemberDetailsDto FromTeamMember(TeamMember member) =>
-        new(member.Id, member.TeamId, member.UserId, member.IsTeamLeader,
+        new(member.Id, member.SessionId, member.TeamId, member.UserId, member.GuestName, member.IsTeamLeader,
             member.CurrentLatitude, member.CurrentLongitude, member.LastUpdated);
 }
 
 public sealed record TeamMemberAddRequest(
-    int UserId,
+    int? UserId,
+    string? GuestName,
     bool IsTeamLeader = false,
     double? CurrentLatitude = null,
     double? CurrentLongitude = null,
@@ -199,7 +208,8 @@ public sealed record TeamMemberAddRequest(
 );
 
 public sealed record TeamMemberUpdateRequest(
-    int UserId,
+    int? UserId,
+    string? GuestName,
     bool IsTeamLeader,
     double? CurrentLatitude,
     double? CurrentLongitude,

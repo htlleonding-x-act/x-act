@@ -15,6 +15,7 @@ public interface ILocationLogRepository
         bool isRevealedPosition
     );
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int memberId, bool tracking);
+    public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking);
     public void RemoveLocationLog(LocationLog log);
 }
 
@@ -55,6 +56,18 @@ internal sealed class LocationLogRepository(DbSet<LocationLog> logSet) : ILocati
 
         List<LocationLog> logs = await source
             .Where(l => l.MemberId == memberId)
+            .OrderBy(l => l.Timestamp)
+            .ToListAsync();
+
+        return logs;
+    }
+
+    public async ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking)
+    {
+        IQueryable<LocationLog> source = tracking ? Logs : LogsNoTracking;
+
+        List<LocationLog> logs = await source
+            .Where(l => l.Member.SessionId == sessionId)
             .OrderBy(l => l.Timestamp)
             .ToListAsync();
 

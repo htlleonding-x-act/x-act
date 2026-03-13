@@ -15,6 +15,7 @@ public interface ITransactionProvider : IAsyncDisposable, IDisposable
 public interface IUnitOfWork
 {
     public IUserRepository UserRepository { get; }
+    public IUserAuthIdentityRepository UserAuthIdentityRepository { get; }
     public IGameSessionRepository GameSessionRepository { get; }
     public IGeofencePointRepository GeofencePointRepository { get; }
     public ITeamRepository TeamRepository { get; }
@@ -30,6 +31,7 @@ internal sealed class UnitOfWork(DatabaseContext context, ILogger<UnitOfWork> lo
     private IDbContextTransaction? _transaction;
 
     public IUserRepository UserRepository => new UserRepository(context.Users);
+    public IUserAuthIdentityRepository UserAuthIdentityRepository => new UserAuthIdentityRepository(context.UserAuthIdentities);
     public IGameSessionRepository GameSessionRepository => new GameSessionRepository(context.GameSessions);
     public IGeofencePointRepository GeofencePointRepository => new GeofencePointRepository(context.GeofencePoints);
     public ITeamRepository TeamRepository => new TeamRepository(context.Teams);

@@ -70,6 +70,7 @@ public sealed class GameSessionController(
             OneOf<GameSession, Error> addResult = await gameSessionService.AddGameSessionAsync(
                 new IGameSessionService.GameSessionData(
                     addRequest.HostUserId,
+                    addRequest.SessionName,
                     addRequest.JoinCode,
                     addRequest.Status,
                     addRequest.StartTime,
@@ -117,6 +118,7 @@ public sealed class GameSessionController(
                 sessionId,
                 new IGameSessionService.GameSessionData(
                     updateRequest.HostUserId,
+                    updateRequest.SessionName,
                     updateRequest.JoinCode,
                     updateRequest.Status,
                     updateRequest.StartTime,
@@ -189,6 +191,7 @@ public sealed class GameSessionListResponse
 
 public sealed record GameSessionInformationDto(
     int Id,
+    string SessionName,
     string JoinCode,
     SessionStatus Status,
     Instant? StartTime,
@@ -198,6 +201,7 @@ public sealed record GameSessionInformationDto(
     public static GameSessionInformationDto FromGameSession(GameSession gameSession) =>
         new(
             gameSession.Id,
+            gameSession.SessionName,
             gameSession.JoinCode,
             gameSession.Status,
             gameSession.StartTime,
@@ -208,6 +212,7 @@ public sealed record GameSessionInformationDto(
 public sealed record GameSessionDetailsDto(
     int Id,
     int HostUserId,
+    string SessionName,
     string JoinCode,
     SessionStatus Status,
     Instant? StartTime,
@@ -220,6 +225,7 @@ public sealed record GameSessionDetailsDto(
         new(
             gameSession.Id,
             gameSession.HostUserId,
+            gameSession.SessionName,
             gameSession.JoinCode,
             gameSession.Status,
             gameSession.StartTime,
@@ -231,6 +237,7 @@ public sealed record GameSessionDetailsDto(
 
 public sealed record GameSessionAddRequest(
     int HostUserId,
+    string SessionName,
     string JoinCode,
     SessionStatus Status = SessionStatus.Waiting,
     Instant? StartTime = null,
@@ -241,6 +248,7 @@ public sealed record GameSessionAddRequest(
 
 public sealed record GameSessionUpdateRequest(
     int HostUserId,
+    string SessionName,
     string JoinCode,
     SessionStatus Status,
     Instant? StartTime,

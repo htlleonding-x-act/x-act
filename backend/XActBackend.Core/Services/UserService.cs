@@ -18,7 +18,6 @@ public interface IUserService
     public sealed record UserData(
         string Username,
         string Email,
-        string PasswordHash,
         AccountType AccountType = AccountType.Free,
         Instant? SubscriptionEndDate = null,
         int TotalWins = 0,
@@ -63,7 +62,6 @@ internal sealed class UserService(IUnitOfWork uow) : IUserService
             var user = uow.UserRepository.AddUser(
                 newUser.Username,
                 newUser.Email,
-                newUser.PasswordHash,
                 newUser.AccountType
             );
 
@@ -92,7 +90,6 @@ internal sealed class UserService(IUnitOfWork uow) : IUserService
 
         user.Username = userData.Username;
         user.Email = userData.Email;
-        user.PasswordHash = userData.PasswordHash;
         user.AccountType = userData.AccountType;
         user.SubscriptionEndDate = userData.SubscriptionEndDate;
         user.TotalWins = userData.TotalWins;
@@ -112,7 +109,12 @@ internal sealed class UserService(IUnitOfWork uow) : IUserService
             return new NotFound();
         }
 
-        uow.UserRepository.RemoveUser(user);
+        user.IsDeleted = true;
+        user.DeletedAt = SystemClock.Instance.GetCurrentInstant();
+        user.Username = $"deleted_user_{user.Id}";
+        user.Email = $"deleted_user_{user.Id}@deleted.local";
+        user.SubscriptionEndDate = null;
+
         await uow.SaveChangesAsync();
 
         return new Success();

@@ -14,8 +14,10 @@ public interface ITeamMemberService
     public ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int memberId, bool tracking);
 
     public sealed record TeamMemberData(
+        int SessionId,
         int TeamId,
-        int UserId,
+        int? UserId,
+        string? GuestName,
         bool IsTeamLeader = false,
         double? CurrentLatitude = null,
         double? CurrentLongitude = null,
@@ -43,9 +45,30 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock) : ITeamMe
     {
         try
         {
+            if (newTeamMember.UserId is null && string.IsNullOrWhiteSpace(newTeamMember.GuestName))
+            {
+                return new Error();
+            }
+
+            if (newTeamMember.UserId is not null)
+            {
+                var existingMember = await uow.TeamMemberRepository.GetMemberBySessionAndUserIdAsync(
+                    newTeamMember.SessionId,
+                    newTeamMember.UserId.Value,
+                    tracking: false
+                );
+
+                if (existingMember is not null)
+                {
+                    return new Error();
+                }
+            }
+
             var member = uow.TeamMemberRepository.AddTeamMember(
+                newTeamMember.SessionId,
                 newTeamMember.TeamId,
                 newTeamMember.UserId,
+                newTeamMember.GuestName,
                 newTeamMember.IsTeamLeader
             );
 
@@ -73,7 +96,9 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock) : ITeamMe
         }
 
         member.TeamId = teamMemberData.TeamId;
+        member.SessionId = teamMemberData.SessionId;
         member.UserId = teamMemberData.UserId;
+        member.GuestName = teamMemberData.GuestName;
         member.IsTeamLeader = teamMemberData.IsTeamLeader;
         member.CurrentLatitude = teamMemberData.CurrentLatitude;
         member.CurrentLongitude = teamMemberData.CurrentLongitude;

@@ -57,7 +57,6 @@ public sealed class UserController(
                 new IUserService.UserData(
                     addRequest.Username,
                     addRequest.Email,
-                    addRequest.PasswordHash,
                     addRequest.AccountType,
                     addRequest.SubscriptionEndDate,
                     addRequest.TotalWins,
@@ -104,7 +103,6 @@ public sealed class UserController(
                 new IUserService.UserData(
                     updateRequest.Username,
                     updateRequest.Email,
-                    updateRequest.PasswordHash,
                     updateRequest.AccountType,
                     updateRequest.SubscriptionEndDate,
                     updateRequest.TotalWins,
@@ -175,8 +173,8 @@ public sealed class UserListResponse
 
 public sealed record UserInformationDto(
     int Id,
-    string Username,
-    string Email,
+    string? Username,
+    string? Email,
     AccountType AccountType
 )
 {
@@ -191,8 +189,8 @@ public sealed record UserInformationDto(
 
 public sealed record UserDetailsDto(
     int Id,
-    string Username,
-    string Email,
+    string? Username,
+    string? Email,
     AccountType AccountType,
     Instant? SubscriptionEndDate,
     int TotalWins,
@@ -214,7 +212,6 @@ public sealed record UserDetailsDto(
 public sealed record UserAddRequest(
     string Username,
     string Email,
-    string PasswordHash,
     AccountType AccountType = AccountType.Free,
     Instant? SubscriptionEndDate = null,
     int TotalWins = 0,
@@ -224,7 +221,6 @@ public sealed record UserAddRequest(
 public sealed record UserUpdateRequest(
     string Username,
     string Email,
-    string PasswordHash,
     AccountType AccountType,
     Instant? SubscriptionEndDate,
     int TotalWins,

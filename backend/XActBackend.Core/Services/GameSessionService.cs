@@ -16,6 +16,7 @@ public interface IGameSessionService
 
     public sealed record GameSessionData(
         int HostUserId,
+        string SessionName,
         string JoinCode,
         SessionStatus Status = SessionStatus.Waiting,
         Instant? StartTime = null,
@@ -47,8 +48,15 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
     {
         try
         {
+            var existingActiveSession = await uow.GameSessionRepository.GetActiveSessionByHostUserIdAsync(newGameSession.HostUserId, tracking: false);
+            if (existingActiveSession is not null)
+            {
+                return new Error();
+            }
+
             var gameSession = uow.GameSessionRepository.AddGameSession(
                 newGameSession.HostUserId,
+                newGameSession.SessionName,
                 newGameSession.JoinCode,
                 newGameSession.PlannedDurationMinutes,
                 newGameSession.MrXRevealInterval
@@ -78,6 +86,7 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
         }
 
         gameSession.HostUserId = gameSessionData.HostUserId;
+        gameSession.SessionName = gameSessionData.SessionName;
         gameSession.JoinCode = gameSessionData.JoinCode;
         gameSession.Status = gameSessionData.Status;
         gameSession.StartTime = gameSessionData.StartTime;
