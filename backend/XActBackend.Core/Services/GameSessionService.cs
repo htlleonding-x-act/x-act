@@ -32,12 +32,7 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
 
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking)
-    {
-        IEnumerable<GameSession> gameSessions = await uow.GameSessionRepository.GetAllSessionsAsync(tracking);
-
-        // TODO: avoid unnecessary copy, use IReadOnlyCollection<GameSession> directly
-        return [.. gameSessions];
-    }
+        =>  await uow.GameSessionRepository.GetAllSessionsAsync(tracking);
 
     public async ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(int sessionId, bool tracking)
     {
