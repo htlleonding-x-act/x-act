@@ -7,11 +7,11 @@ namespace XActBackend.Core.Services;
 
 public interface IPowerUpUsageService
 {
-    public ValueTask<IReadOnlyCollection<PowerUpUsage>> GetUsagesByMemberIdAsync(int memberId, bool tracking);
-    public ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int memberId, int usageId, bool tracking);
+    public ValueTask<IReadOnlyCollection<PowerUpUsage>> GetUsagesByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking);
+    public ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking);
     public ValueTask<OneOf<PowerUpUsage, Error>> AddPowerUpUsageAsync(PowerUpUsageData newPowerUpUsage);
-    public ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(int usageId, PowerUpUsageData powerUpUsageData, bool tracking);
-    public ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int memberId, int usageId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, PowerUpUsageData powerUpUsageData, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking);
 
     public sealed record PowerUpUsageData(
         int MemberId,
@@ -20,18 +20,29 @@ public interface IPowerUpUsageService
     );
 }
 
-internal sealed class PowerUpUsageService(IUnitOfWork uow) : IPowerUpUsageService
+internal sealed class PowerUpUsageService(IUnitOfWork uow, ILogger<PowerUpUsageService> logger) : IPowerUpUsageService
 {
-    public async ValueTask<IReadOnlyCollection<PowerUpUsage>> GetUsagesByMemberIdAsync(int memberId, bool tracking)
+    public async ValueTask<IReadOnlyCollection<PowerUpUsage>> GetUsagesByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking)
     {
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return [];
+        }
+
         IEnumerable<PowerUpUsage> powerUpUsages = await uow.PowerUpUsageRepository.GetUsagesByMemberIdAsync(memberId, tracking);
         return [.. powerUpUsages];
     }
 
-    public async ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int memberId, int usageId, bool tracking)
+    public async ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking)
     {
-        IReadOnlyCollection<PowerUpUsage> powerUpUsages = await uow.PowerUpUsageRepository.GetUsagesByMemberIdAsync(memberId, tracking);
-        var powerUpUsage = powerUpUsages.FirstOrDefault(u => u.Id == usageId);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return new NotFound();
+        }
+
+        var powerUpUsage = await uow.PowerUpUsageRepository.GetUsageByMemberAndIdAsync(memberId, usageId, tracking);
 
         return powerUpUsage is not null ? powerUpUsage : new NotFound();
     }
@@ -49,16 +60,27 @@ internal sealed class PowerUpUsageService(IUnitOfWork uow) : IPowerUpUsageServic
 
             return powerUpUsage;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to add power-up usage for member {MemberId}", newPowerUpUsage.MemberId);
             return new Error();
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(int usageId, IPowerUpUsageService.PowerUpUsageData powerUpUsageData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> UpdatePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, IPowerUpUsageService.PowerUpUsageData powerUpUsageData, bool tracking)
     {
-        IReadOnlyCollection<PowerUpUsage> powerUpUsages = await uow.PowerUpUsageRepository.GetUsagesByMemberIdAsync(powerUpUsageData.MemberId, tracking);
-        var powerUpUsage = powerUpUsages.FirstOrDefault(u => u.Id == usageId);
+        if (powerUpUsageData.MemberId != memberId)
+        {
+            return new NotFound();
+        }
+
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return new NotFound();
+        }
+
+        var powerUpUsage = await uow.PowerUpUsageRepository.GetUsageByMemberAndIdAsync(memberId, usageId, tracking);
 
         if (powerUpUsage is null)
         {
@@ -73,10 +95,15 @@ internal sealed class PowerUpUsageService(IUnitOfWork uow) : IPowerUpUsageServic
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int memberId, int usageId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking)
     {
-        IReadOnlyCollection<PowerUpUsage> powerUpUsages = await uow.PowerUpUsageRepository.GetUsagesByMemberIdAsync(memberId, tracking);
-        var usage = powerUpUsages.FirstOrDefault(u => u.Id == usageId);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return new NotFound();
+        }
+
+        var usage = await uow.PowerUpUsageRepository.GetUsageByMemberAndIdAsync(memberId, usageId, tracking);
 
         if (usage is null)
         {

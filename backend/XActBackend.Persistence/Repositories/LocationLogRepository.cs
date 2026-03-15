@@ -16,6 +16,7 @@ public interface ILocationLogRepository
     );
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int memberId, bool tracking);
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking);
+    public ValueTask<LocationLog?> GetLogByMemberAndIdAsync(int memberId, int logId, bool tracking);
     public void RemoveLocationLog(LocationLog log);
 }
 
@@ -72,6 +73,13 @@ internal sealed class LocationLogRepository(DbSet<LocationLog> logSet) : ILocati
             .ToListAsync();
 
         return logs;
+    }
+
+    public async ValueTask<LocationLog?> GetLogByMemberAndIdAsync(int memberId, int logId, bool tracking)
+    {
+        IQueryable<LocationLog> source = tracking ? Logs : LogsNoTracking;
+
+        return await source.FirstOrDefaultAsync(l => l.MemberId == memberId && l.Id == logId);
     }
 
     public void RemoveLocationLog(LocationLog log)

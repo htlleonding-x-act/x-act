@@ -22,7 +22,7 @@ public interface ITeamService
     );
 }
 
-internal sealed class TeamService(IUnitOfWork uow) : ITeamService
+internal sealed class TeamService(IUnitOfWork uow, ILogger<TeamService> logger) : ITeamService
 {
     public async ValueTask<IReadOnlyCollection<Team>> GetTeamsBySessionIdAsync(int sessionId, bool tracking)
     {
@@ -60,8 +60,9 @@ internal sealed class TeamService(IUnitOfWork uow) : ITeamService
 
             return team;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to add team {TeamName} in session {SessionId}", newTeam.TeamName, newTeam.SessionId);
             return new Error();
         }
     }

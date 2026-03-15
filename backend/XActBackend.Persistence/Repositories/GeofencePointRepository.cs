@@ -7,6 +7,7 @@ public interface IGeofencePointRepository
 {
     public GeofencePoint AddGeofencePoint(int sessionId, double latitude, double longitude, int sequenceOrder);
     public ValueTask<IReadOnlyCollection<GeofencePoint>> GetPointsBySessionIdAsync(int sessionId, bool tracking);
+    public ValueTask<GeofencePoint?> GetPointBySessionAndIdAsync(int sessionId, int pointId, bool tracking);
     public void RemoveGeofencePoint(GeofencePoint point);
 }
 
@@ -40,6 +41,13 @@ internal sealed class GeofencePointRepository(DbSet<GeofencePoint> pointSet) : I
             .ToListAsync();
 
         return points;
+    }
+
+    public async ValueTask<GeofencePoint?> GetPointBySessionAndIdAsync(int sessionId, int pointId, bool tracking)
+    {
+        IQueryable<GeofencePoint> source = tracking ? Points : PointsNoTracking;
+
+        return await source.FirstOrDefaultAsync(p => p.SessionId == sessionId && p.Id == pointId);
     }
 
     public void RemoveGeofencePoint(GeofencePoint point)

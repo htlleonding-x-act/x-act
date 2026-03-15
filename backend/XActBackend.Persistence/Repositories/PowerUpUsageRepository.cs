@@ -7,6 +7,7 @@ public interface IPowerUpUsageRepository
 {
     public PowerUpUsage AddPowerUpUsage(int memberId, PowerUpType powerUpType, Instant usedAt);
     public ValueTask<IReadOnlyCollection<PowerUpUsage>> GetUsagesByMemberIdAsync(int memberId, bool tracking);
+    public ValueTask<PowerUpUsage?> GetUsageByMemberAndIdAsync(int memberId, int usageId, bool tracking);
     public void RemovePowerUpUsage(PowerUpUsage usage);
 }
 
@@ -39,6 +40,13 @@ internal sealed class PowerUpUsageRepository(DbSet<PowerUpUsage> usageSet) : IPo
             .ToListAsync();
 
         return usages;
+    }
+
+    public async ValueTask<PowerUpUsage?> GetUsageByMemberAndIdAsync(int memberId, int usageId, bool tracking)
+    {
+        IQueryable<PowerUpUsage> source = tracking ? Usages : UsagesNoTracking;
+
+        return await source.FirstOrDefaultAsync(u => u.MemberId == memberId && u.Id == usageId);
     }
 
     public void RemovePowerUpUsage(PowerUpUsage usage)

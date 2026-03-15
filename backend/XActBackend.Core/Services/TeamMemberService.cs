@@ -25,7 +25,7 @@ public interface ITeamMemberService
     );
 }
 
-internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock) : ITeamMemberService
+internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock, ILogger<TeamMemberService> logger) : ITeamMemberService
 {
     public async ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int sessionId, int teamId, bool tracking)
     {
@@ -80,8 +80,9 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock) : ITeamMe
 
             return member;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to add team member in session {SessionId}, team {TeamId}", newTeamMember.SessionId, newTeamMember.TeamId);
             return new Error();
         }
     }

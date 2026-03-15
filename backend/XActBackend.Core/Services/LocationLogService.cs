@@ -7,12 +7,12 @@ namespace XActBackend.Core.Services;
 
 public interface ILocationLogService
 {
-    public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int memberId, bool tracking);
+    public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking);
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking);
-    public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int memberId, int logId, bool tracking);
+    public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
     public ValueTask<OneOf<LocationLog, Error>> AddLocationLogAsync(LocationLogData newLocationLog);
-    public ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(int logId, LocationLogData locationLogData, bool tracking);
-    public ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int memberId, int logId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(int sessionId, int teamId, int memberId, int logId, LocationLogData locationLogData, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
 
     public sealed record LocationLogData(
         int MemberId,
@@ -25,10 +25,16 @@ public interface ILocationLogService
     );
 }
 
-internal sealed class LocationLogService(IUnitOfWork uow) : ILocationLogService
+internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogService> logger) : ILocationLogService
 {
-    public async ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int memberId, bool tracking)
+    public async ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking)
     {
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return [];
+        }
+
         IEnumerable<LocationLog> logs = await uow.LocationLogRepository.GetLogsByMemberIdAsync(memberId, tracking);
         return [.. logs];
     }
@@ -39,10 +45,15 @@ internal sealed class LocationLogService(IUnitOfWork uow) : ILocationLogService
         return [.. logs];
     }
 
-    public async ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int memberId, int logId, bool tracking)
+    public async ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int sessionId, int teamId, int memberId, int logId, bool tracking)
     {
-        IReadOnlyCollection<LocationLog> logs = await uow.LocationLogRepository.GetLogsByMemberIdAsync(memberId, tracking);
-        var log = logs.FirstOrDefault(l => l.Id == logId);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return new NotFound();
+        }
+
+        var log = await uow.LocationLogRepository.GetLogByMemberAndIdAsync(memberId, logId, tracking);
 
         return log is not null ? log : new NotFound();
     }
@@ -64,16 +75,27 @@ internal sealed class LocationLogService(IUnitOfWork uow) : ILocationLogService
 
             return log;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to add location log for member {MemberId}", newLocationLog.MemberId);
             return new Error();
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(int logId, ILocationLogService.LocationLogData locationLogData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateLocationLogAsync(int sessionId, int teamId, int memberId, int logId, ILocationLogService.LocationLogData locationLogData, bool tracking)
     {
-        IReadOnlyCollection<LocationLog> logs = await uow.LocationLogRepository.GetLogsByMemberIdAsync(locationLogData.MemberId, tracking);
-        var log = logs.FirstOrDefault(l => l.Id == logId);
+        if (locationLogData.MemberId != memberId)
+        {
+            return new NotFound();
+        }
+
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return new NotFound();
+        }
+
+        var log = await uow.LocationLogRepository.GetLogByMemberAndIdAsync(memberId, logId, tracking);
 
         if (log is null)
         {
@@ -92,10 +114,15 @@ internal sealed class LocationLogService(IUnitOfWork uow) : ILocationLogService
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int memberId, int logId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking)
     {
-        IReadOnlyCollection<LocationLog> logs = await uow.LocationLogRepository.GetLogsByMemberIdAsync(memberId, tracking);
-        var log = logs.FirstOrDefault(l => l.Id == logId);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            return new NotFound();
+        }
+
+        var log = await uow.LocationLogRepository.GetLogByMemberAndIdAsync(memberId, logId, tracking);
 
         if (log is null)
         {

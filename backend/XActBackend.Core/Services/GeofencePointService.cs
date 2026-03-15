@@ -21,7 +21,7 @@ public interface IGeofencePointService
     );
 }
 
-internal sealed class GeoFencePointService(IUnitOfWork uow) : IGeofencePointService
+internal sealed class GeoFencePointService(IUnitOfWork uow, ILogger<GeoFencePointService> logger) : IGeofencePointService
 {
     public async ValueTask<IReadOnlyCollection<GeofencePoint>> GetAllPointsBySessionIdAsync(int sessionId, bool tracking)
     {
@@ -32,8 +32,7 @@ internal sealed class GeoFencePointService(IUnitOfWork uow) : IGeofencePointServ
 
     public async ValueTask<OneOf<GeofencePoint, NotFound>> GetGeofencePointByIdAsync(int sessionId, int pointId, bool tracking)
     {
-        IReadOnlyCollection<GeofencePoint> geofencePoints = await uow.GeofencePointRepository.GetPointsBySessionIdAsync(sessionId, tracking);
-        var geofencePoint = geofencePoints.FirstOrDefault(p => p.Id == pointId);
+        var geofencePoint = await uow.GeofencePointRepository.GetPointBySessionAndIdAsync(sessionId, pointId, tracking);
 
         return geofencePoint is not null ? geofencePoint : new NotFound();
     }
@@ -52,16 +51,16 @@ internal sealed class GeoFencePointService(IUnitOfWork uow) : IGeofencePointServ
 
             return geofencePoint;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to add geofence point for session {SessionId}", newGeofencePoint.SessionId);
             return new Error();
         }
     }
 
     public async ValueTask<OneOf<Success, NotFound>> UpdateGeofencePointAsync(int pointId, IGeofencePointService.GeofencePointData geofencePointData, bool tracking)
     {
-        IReadOnlyCollection<GeofencePoint> geofencePoints = await uow.GeofencePointRepository.GetPointsBySessionIdAsync(geofencePointData.SessionId, tracking);
-        var geofencePoint = geofencePoints.FirstOrDefault(p => p.Id == pointId);
+        var geofencePoint = await uow.GeofencePointRepository.GetPointBySessionAndIdAsync(geofencePointData.SessionId, pointId, tracking);
 
         if (geofencePoint is null)
         {
@@ -79,8 +78,7 @@ internal sealed class GeoFencePointService(IUnitOfWork uow) : IGeofencePointServ
 
     public async ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(int sessionId, int pointId, bool tracking)
     {
-        IReadOnlyCollection<GeofencePoint> geofencePoints = await uow.GeofencePointRepository.GetPointsBySessionIdAsync(sessionId, tracking);
-        var point = geofencePoints.FirstOrDefault(p => p.Id == pointId);
+        var point = await uow.GeofencePointRepository.GetPointBySessionAndIdAsync(sessionId, pointId, tracking);
 
         if (point is null)
         {

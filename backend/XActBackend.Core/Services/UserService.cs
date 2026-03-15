@@ -25,7 +25,7 @@ public interface IUserService
     );
 }
 
-internal sealed class UserService(IUnitOfWork uow) : IUserService
+internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) : IUserService
 {
     public async ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync(bool tracking)
     {
@@ -73,8 +73,9 @@ internal sealed class UserService(IUnitOfWork uow) : IUserService
 
             return user;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to add user {Username} ({Email})", newUser.Username, newUser.Email);
             return new Error();
         }
     }

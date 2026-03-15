@@ -26,7 +26,7 @@ public interface IGameSessionService
     );
 }
 
-internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
+internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionService> logger) : IGameSessionService
 {
     private const string HostTeamColor = "#000000";
 
@@ -92,8 +92,9 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
 
             return gameSession;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.LogError(ex, "Failed to add game session {SessionName} for host {HostUserId}", newGameSession.SessionName, newGameSession.HostUserId);
             return new Error();
         }
     }
