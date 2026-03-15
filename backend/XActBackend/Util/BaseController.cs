@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
+using XActBackend.Core.Services;
 
 namespace XActBackend.Util;
 
@@ -10,6 +11,41 @@ namespace XActBackend.Util;
 [ApiController]
 public abstract class BaseController : ControllerBase
 {
+    protected static ObjectResult DomainErrorResult(DomainError error)
+    {
+        int statusCode = error.Code switch
+        {
+            DomainErrorCodes.InvalidMemberIdentity => StatusCodes.Status400BadRequest,
+            DomainErrorCodes.TeamNotInSession => StatusCodes.Status400BadRequest,
+            DomainErrorCodes.HostUserDeleted => StatusCodes.Status409Conflict,
+            DomainErrorCodes.HostUserAlreadyHasActiveSession => StatusCodes.Status409Conflict,
+            DomainErrorCodes.JoinCodeInUse => StatusCodes.Status409Conflict,
+            DomainErrorCodes.InvalidSessionTransition => StatusCodes.Status409Conflict,
+            DomainErrorCodes.SessionNotJoinable => StatusCodes.Status409Conflict,
+            DomainErrorCodes.SessionNotActive => StatusCodes.Status409Conflict,
+            DomainErrorCodes.MrXTeamAlreadyExists => StatusCodes.Status409Conflict,
+            DomainErrorCodes.TeamHasMembers => StatusCodes.Status409Conflict,
+            DomainErrorCodes.UserDeleted => StatusCodes.Status409Conflict,
+            DomainErrorCodes.UserAlreadyJoined => StatusCodes.Status409Conflict,
+            DomainErrorCodes.TeamLeaderAlreadyExists => StatusCodes.Status409Conflict,
+            DomainErrorCodes.PowerUpNotAllowedForTeamRole => StatusCodes.Status409Conflict,
+            _ => StatusCodes.Status400BadRequest,
+        };
+
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = "Domain rule violation",
+            Detail = error.Message,
+        };
+        problemDetails.Extensions["code"] = error.Code;
+
+        return new ObjectResult(problemDetails)
+        {
+            StatusCode = statusCode,
+        };
+    }
+
     /// <summary>
     ///     Validates the given request with the specified validator
     /// </summary>

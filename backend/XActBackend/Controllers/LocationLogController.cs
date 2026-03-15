@@ -55,6 +55,8 @@ public sealed class LocationLogController(
     [Route("")]
     [ProducesResponseType<LocationLogDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> AddLocationLog(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -63,6 +65,7 @@ public sealed class LocationLogController(
     {
         if (!ValidateRequest<LocationLogAddRequest.Validator, LocationLogAddRequest>(addRequest))
         {
+            logger.LogWarning("Rejected location log create request for member {MemberId} because validation failed", memberId);
             return BadRequest();
         }
 
@@ -70,7 +73,7 @@ public sealed class LocationLogController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<LocationLog, Error> addResult = await locationLogService.AddLocationLogAsync(
+            OneOf<LocationLog, NotFound, DomainError> addResult = await locationLogService.AddLocationLogAsync(
                 new ILocationLogService.LocationLogData(
                     memberId,
                     addRequest.Timestamp,
@@ -85,15 +88,23 @@ public sealed class LocationLogController(
             return await addResult.Match<ValueTask<IActionResult>>(async locationLog =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Created location log {LogId} for member {MemberId}", locationLog.Id, memberId);
 
                 return CreatedAtAction(nameof(GetLocationLogById),
                     new { sessionId, teamId, memberId, logId = locationLog.Id },
                     LocationLogDetailsDto.FromLocationLog(locationLog));
-            }, async error =>
+            }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected location log create request because member {MemberId} was not found in session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
 
-                return BadRequest();
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected location log create request for member {MemberId} with domain error {ErrorCode}: {ErrorMessage}", memberId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -109,6 +120,7 @@ public sealed class LocationLogController(
     [Route("{logId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateLocationLog(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -118,6 +130,7 @@ public sealed class LocationLogController(
     {
         if (!ValidateRequest<LocationLogUpdateRequest.Validator, LocationLogUpdateRequest>(updateRequest))
         {
+            logger.LogWarning("Rejected location log update request for log {LogId} and member {MemberId} because validation failed", logId, memberId);
             return BadRequest();
         }
 
@@ -125,7 +138,7 @@ public sealed class LocationLogController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> updateResult = await locationLogService.UpdateLocationLogAsync(
+            OneOf<Success, NotFound, DomainError> updateResult = await locationLogService.UpdateLocationLogAsync(
                 sessionId,
                 teamId,
                 memberId,
@@ -145,13 +158,21 @@ public sealed class LocationLogController(
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Updated location log {LogId} for member {MemberId}", logId, memberId);
 
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected location log update request because log {LogId} or member {MemberId} was not found", logId, memberId);
 
                 return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected location log update request for log {LogId} with domain error {ErrorCode}: {ErrorMessage}", logId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -167,6 +188,7 @@ public sealed class LocationLogController(
     [Route("{logId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> DeleteLocationLog(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -177,18 +199,26 @@ public sealed class LocationLogController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> deleteResult = await locationLogService.DeleteLocationLogAsync(sessionId, teamId, memberId, logId, tracking: true);
+            OneOf<Success, NotFound, DomainError> deleteResult = await locationLogService.DeleteLocationLogAsync(sessionId, teamId, memberId, logId, tracking: true);
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Deleted location log {LogId} for member {MemberId}", logId, memberId);
 
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected location log delete request because log {LogId} or member {MemberId} was not found", logId, memberId);
 
                 return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected location log delete request for log {LogId} with domain error {ErrorCode}: {ErrorMessage}", logId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)

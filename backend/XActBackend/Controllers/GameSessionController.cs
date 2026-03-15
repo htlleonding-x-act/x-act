@@ -62,10 +62,13 @@ public sealed class GameSessionController(
     [Route("")]
     [ProducesResponseType<GameSessionDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> AddGameSession([FromBody] GameSessionAddRequest addRequest)
     {
         if (!ValidateRequest<GameSessionAddRequest.Validator, GameSessionAddRequest>(addRequest))
         {
+            logger.LogWarning("Rejected game session create request because validation failed for host user {HostUserId}", addRequest.HostUserId);
             return BadRequest();
         }
 
@@ -73,7 +76,7 @@ public sealed class GameSessionController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<GameSession, Error> addResult = await gameSessionService.AddGameSessionAsync(
+            OneOf<GameSession, NotFound, DomainError> addResult = await gameSessionService.AddGameSessionAsync(
                 new IGameSessionService.GameSessionData(
                     addRequest.HostUserId,
                     addRequest.SessionName,
@@ -89,14 +92,22 @@ public sealed class GameSessionController(
             return await addResult.Match<ValueTask<IActionResult>>(async gameSession =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Created game session {SessionId} for host user {HostUserId}", gameSession.Id, gameSession.HostUserId);
 
                 return CreatedAtAction(nameof(GetGameSessionById), new { sessionId = gameSession.Id },
                     GameSessionDetailsDto.FromGameSession(gameSession));
-            }, async error =>
+            }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected game session create request because host user {HostUserId} was not found", addRequest.HostUserId);
 
-                return BadRequest();
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected game session create request with domain error {ErrorCode}: {ErrorMessage}", domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -112,12 +123,14 @@ public sealed class GameSessionController(
     [Route("{sessionId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateGameSession(
         [FromRoute] int sessionId,
         [FromBody] GameSessionUpdateRequest updateRequest)
     {
         if (!ValidateRequest<GameSessionUpdateRequest.Validator, GameSessionUpdateRequest>(updateRequest))
         {
+            logger.LogWarning("Rejected update for game session {SessionId} because validation failed", sessionId);
             return BadRequest();
         }
 
@@ -125,7 +138,7 @@ public sealed class GameSessionController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> updateResult = await gameSessionService.UpdateGameSessionAsync(
+            OneOf<Success, NotFound, DomainError> updateResult = await gameSessionService.UpdateGameSessionAsync(
                 sessionId,
                 new IGameSessionService.GameSessionData(
                     updateRequest.HostUserId,
@@ -143,13 +156,21 @@ public sealed class GameSessionController(
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Updated game session {SessionId}", sessionId);
 
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected update for game session {SessionId} because the session or host user was not found", sessionId);
 
                 return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected update for game session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", sessionId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -176,11 +197,13 @@ public sealed class GameSessionController(
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Deleted game session {SessionId}", sessionId);
 
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected delete for game session {SessionId} because it was not found", sessionId);
 
                 return NotFound();
             });

@@ -50,12 +50,15 @@ public sealed class TeamController(
     [Route("")]
     [ProducesResponseType<TeamDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> AddTeam(
         [FromRoute] int sessionId,
         [FromBody] TeamAddRequest addRequest)
     {
         if (!ValidateRequest<TeamAddRequest.Validator, TeamAddRequest>(addRequest))
         {
+            logger.LogWarning("Rejected team create request in session {SessionId} because validation failed", sessionId);
             return BadRequest();
         }
 
@@ -63,7 +66,7 @@ public sealed class TeamController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Team, Error> addResult = await teamService.AddTeamAsync(
+            OneOf<Team, NotFound, DomainError> addResult = await teamService.AddTeamAsync(
                 new ITeamService.TeamData(
                     sessionId,
                     addRequest.TeamName,
@@ -76,13 +79,20 @@ public sealed class TeamController(
             return await addResult.Match<ValueTask<IActionResult>>(async team =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Created team {TeamId} in session {SessionId}", team.Id, sessionId);
                 return CreatedAtAction(nameof(GetTeamById),
                     new { sessionId, teamId = team.Id },
                     TeamDetailsDto.FromTeam(team));
-            }, async error =>
+            }, async notFound =>
             {
                 await transaction.RollbackAsync();
-                return BadRequest();
+                logger.LogWarning("Rejected team create request because session {SessionId} was not found", sessionId);
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team create request in session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", sessionId, domainError.Code, domainError.Message);
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -97,6 +107,7 @@ public sealed class TeamController(
     [Route("{teamId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateTeam(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -104,6 +115,7 @@ public sealed class TeamController(
     {
         if (!ValidateRequest<TeamUpdateRequest.Validator, TeamUpdateRequest>(updateRequest))
         {
+            logger.LogWarning("Rejected team update request for team {TeamId} in session {SessionId} because validation failed", teamId, sessionId);
             return BadRequest();
         }
 
@@ -111,7 +123,7 @@ public sealed class TeamController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> updateResult = await teamService.UpdateTeamAsync(
+            OneOf<Success, NotFound, DomainError> updateResult = await teamService.UpdateTeamAsync(
                 sessionId,
                 teamId,
                 new ITeamService.TeamData(
@@ -127,11 +139,18 @@ public sealed class TeamController(
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Updated team {TeamId} in session {SessionId}", teamId, sessionId);
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team update request because team {TeamId} or session {SessionId} was not found", teamId, sessionId);
                 return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team update request for team {TeamId} in session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", teamId, sessionId, domainError.Code, domainError.Message);
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -146,6 +165,7 @@ public sealed class TeamController(
     [Route("{teamId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> DeleteTeam(
         [FromRoute] int sessionId,
         [FromRoute] int teamId)
@@ -154,16 +174,23 @@ public sealed class TeamController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> deleteResult = await teamService.DeleteTeamAsync(sessionId, teamId, tracking: true);
+            OneOf<Success, NotFound, DomainError> deleteResult = await teamService.DeleteTeamAsync(sessionId, teamId, tracking: true);
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Deleted team {TeamId} from session {SessionId}", teamId, sessionId);
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team delete request because team {TeamId} or session {SessionId} was not found", teamId, sessionId);
                 return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team delete request for team {TeamId} in session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", teamId, sessionId, domainError.Code, domainError.Message);
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)

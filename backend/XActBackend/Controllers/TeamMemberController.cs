@@ -51,6 +51,8 @@ public sealed class TeamMemberController(
     [Route("")]
     [ProducesResponseType<TeamMemberDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> AddTeamMember(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -58,6 +60,7 @@ public sealed class TeamMemberController(
     {
         if (!ValidateRequest<TeamMemberAddRequest.Validator, TeamMemberAddRequest>(addRequest))
         {
+            logger.LogWarning("Rejected team member create request in session {SessionId}, team {TeamId} because validation failed", sessionId, teamId);
             return BadRequest();
         }
 
@@ -65,7 +68,7 @@ public sealed class TeamMemberController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<TeamMember, Error> addResult = await teamMemberService.AddTeamMemberAsync(
+            OneOf<TeamMember, NotFound, DomainError> addResult = await teamMemberService.AddTeamMemberAsync(
                 new ITeamMemberService.TeamMemberData(
                     sessionId,
                     teamId,
@@ -81,13 +84,20 @@ public sealed class TeamMemberController(
             return await addResult.Match<ValueTask<IActionResult>>(async member =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Created team member {MemberId} in session {SessionId}, team {TeamId}", member.Id, sessionId, teamId);
                 return CreatedAtAction(nameof(GetTeamMemberById),
                     new { sessionId, teamId, memberId = member.Id },
                     TeamMemberDetailsDto.FromTeamMember(member));
-            }, async error =>
+            }, async notFound =>
             {
                 await transaction.RollbackAsync();
-                return BadRequest();
+                logger.LogWarning("Rejected team member create request because a referenced resource was not found in session {SessionId}, team {TeamId}", sessionId, teamId);
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team member create request in session {SessionId}, team {TeamId} with domain error {ErrorCode}: {ErrorMessage}", sessionId, teamId, domainError.Code, domainError.Message);
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -102,6 +112,7 @@ public sealed class TeamMemberController(
     [Route("{memberId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateTeamMember(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -110,6 +121,7 @@ public sealed class TeamMemberController(
     {
         if (!ValidateRequest<TeamMemberUpdateRequest.Validator, TeamMemberUpdateRequest>(updateRequest))
         {
+            logger.LogWarning("Rejected team member update request for member {MemberId} in session {SessionId}, team {TeamId} because validation failed", memberId, sessionId, teamId);
             return BadRequest();
         }
 
@@ -117,7 +129,7 @@ public sealed class TeamMemberController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> updateResult = await teamMemberService.UpdateTeamMemberAsync(
+            OneOf<Success, NotFound, DomainError> updateResult = await teamMemberService.UpdateTeamMemberAsync(
                 sessionId,
                 teamId,
                 memberId,
@@ -137,11 +149,18 @@ public sealed class TeamMemberController(
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Updated team member {MemberId} in session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team member update request because a referenced resource was not found for member {MemberId} in session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
                 return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team member update request for member {MemberId} in session {SessionId}, team {TeamId} with domain error {ErrorCode}: {ErrorMessage}", memberId, sessionId, teamId, domainError.Code, domainError.Message);
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)
@@ -170,10 +189,12 @@ public sealed class TeamMemberController(
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+                logger.LogInformation("Deleted team member {MemberId} from session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected team member delete request because member {MemberId} was not found in session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
                 return NotFound();
             });
         }
