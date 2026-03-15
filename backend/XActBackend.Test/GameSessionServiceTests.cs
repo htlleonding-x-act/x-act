@@ -1,4 +1,5 @@
 ﻿using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NodaTime;
 using NSubstitute;
 using OneOf;
@@ -42,7 +43,8 @@ public sealed class GameSessionServiceTests
         _teamMemberRepository = Substitute.For<ITeamMemberRepository>();
         _uow.TeamMemberRepository.Returns(_teamMemberRepository);
 
-        _sut = new GameSessionService(_uow);
+        var logger = Substitute.For<ILogger<GameSessionService>>();
+        _sut = new GameSessionService(_uow, logger);
     }
 
     private static GameSession CreateSession(

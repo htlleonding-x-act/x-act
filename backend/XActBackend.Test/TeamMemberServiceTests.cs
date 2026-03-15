@@ -1,4 +1,5 @@
 ﻿using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NodaTime;
 using NSubstitute;
 using OneOf;
@@ -31,7 +32,8 @@ public sealed class TeamMemberServiceTests
         _uow.TeamMemberRepository.Returns(_teamMemberRepository);
 
         _clock = Substitute.For<IClock>();
-        _sut = new TeamMemberService(_uow, _clock);
+        var logger = Substitute.For<ILogger<TeamMemberService>>();
+        _sut = new TeamMemberService(_uow, _clock, logger);
     }
 
     private static TeamMember CreateMember(

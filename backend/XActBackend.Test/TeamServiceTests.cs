@@ -1,4 +1,5 @@
 ﻿using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using OneOf;
 using OneOf.Types;
@@ -25,7 +26,8 @@ public sealed class TeamServiceTests
         _uow = Substitute.For<IUnitOfWork>();
         _teamRepository = Substitute.For<ITeamRepository>();
         _uow.TeamRepository.Returns(_teamRepository);
-        _sut = new TeamService(_uow);
+        var logger = Substitute.For<ILogger<TeamService>>();
+        _sut = new TeamService(_uow, logger);
     }
 
     private static Team CreateTeam(

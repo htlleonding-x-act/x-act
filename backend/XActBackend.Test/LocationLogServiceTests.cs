@@ -1,10 +1,10 @@
 ﻿using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NodaTime;
 using NSubstitute;
 using OneOf;
 using OneOf.Types;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using XActBackend.Core.Services;
 using XActBackend.Persistence.Model;
@@ -18,8 +18,10 @@ public sealed class LocationLogServiceTests
     private const int DefaultLogId = 1;
     private const int DefaultMemberId = 1;
     private const int DefaultSessionId = 1;
+    private const int DefaultTeamId = 1;
 
     private readonly ILocationLogRepository _locationLogRepository;
+    private readonly ITeamMemberRepository _teamMemberRepository;
     private readonly LocationLogService _sut;
     private readonly IUnitOfWork _uow;
 
@@ -27,9 +29,20 @@ public sealed class LocationLogServiceTests
     {
         _uow = Substitute.For<IUnitOfWork>();
         _locationLogRepository = Substitute.For<ILocationLogRepository>();
+        _teamMemberRepository = Substitute.For<ITeamMemberRepository>();
         _uow.LocationLogRepository.Returns(_locationLogRepository);
-        _sut = new LocationLogService(_uow);
+        _uow.TeamMemberRepository.Returns(_teamMemberRepository);
+        var logger = Substitute.For<ILogger<LocationLogService>>();
+        _sut = new LocationLogService(_uow, logger);
     }
+
+    private static TeamMember CreateMember() =>
+        new()
+        {
+            Id = DefaultMemberId,
+            SessionId = DefaultSessionId,
+            TeamId = DefaultTeamId,
+        };
 
     private static LocationLog CreateLog(int id = DefaultLogId, int memberId = DefaultMemberId) =>
         new()
@@ -48,9 +61,10 @@ public sealed class LocationLogServiceTests
     public async ValueTask GetLogsByMemberIdAsync_ReturnsLogs()
     {
         var logs = CreateLogs();
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _locationLogRepository.GetLogsByMemberIdAsync(DefaultMemberId, false).Returns(logs);
 
-        var result = await _sut.GetLogsByMemberIdAsync(DefaultMemberId, false);
+        var result = await _sut.GetLogsByMemberIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false);
 
         result.Should().BeEquivalentTo(logs);
     }
@@ -69,13 +83,14 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask GetLocationLogByIdAsync_ReturnsLog_WhenFound()
     {
-        var logs = new List<LocationLog> { CreateLog() };
-        _locationLogRepository.GetLogsByMemberIdAsync(DefaultMemberId, false).Returns(logs);
+        var log = CreateLog();
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
+        _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, false).Returns(log);
 
-        OneOf<LocationLog, NotFound> result = await _sut.GetLocationLogByIdAsync(DefaultMemberId, DefaultLogId, false);
+        OneOf<LocationLog, NotFound> result = await _sut.GetLocationLogByIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, false);
 
         result.Switch(
-            log => log.Should().BeEquivalentTo(logs.First()),
+            found => found.Should().BeEquivalentTo(log),
             notFound => Assert.Fail("Expected LocationLog but got NotFound")
         );
     }
@@ -83,10 +98,10 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask GetLocationLogByIdAsync_ReturnsNotFound_WhenUnknown()
     {
-        var logs = new List<LocationLog>();
-        _locationLogRepository.GetLogsByMemberIdAsync(DefaultMemberId, false).Returns(logs);
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
+        _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, false).Returns((LocationLog?) null);
 
-        OneOf<LocationLog, NotFound> result = await _sut.GetLocationLogByIdAsync(DefaultMemberId, DefaultLogId, false);
+        OneOf<LocationLog, NotFound> result = await _sut.GetLocationLogByIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, false);
 
         result.Switch(
             log => Assert.Fail("Expected NotFound but got LocationLog"),
@@ -124,12 +139,12 @@ public sealed class LocationLogServiceTests
     public async ValueTask UpdateLocationLogAsync_ReturnsSuccess_WhenFound()
     {
         var log = CreateLog();
-        var logs = new List<LocationLog> { log };
         var data = new ILocationLogService.LocationLogData(DefaultMemberId, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, true);
 
-        _locationLogRepository.GetLogsByMemberIdAsync(DefaultMemberId, true).Returns(logs);
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
+        _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, true).Returns(log);
 
-        OneOf<Success, NotFound> result = await _sut.UpdateLocationLogAsync(DefaultLogId, data, true);
+        OneOf<Success, NotFound> result = await _sut.UpdateLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, data, true);
 
         result.Switch(
             success => { /* expected */ },
@@ -143,12 +158,12 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask UpdateLocationLogAsync_ReturnsNotFound_WhenUnknown()
     {
-        var logs = new List<LocationLog>();
         var data = new ILocationLogService.LocationLogData(DefaultMemberId, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, true);
 
-        _locationLogRepository.GetLogsByMemberIdAsync(DefaultMemberId, true).Returns(logs);
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
+        _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, true).Returns((LocationLog?) null);
 
-        OneOf<Success, NotFound> result = await _sut.UpdateLocationLogAsync(DefaultLogId, data, true);
+        OneOf<Success, NotFound> result = await _sut.UpdateLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, data, true);
 
         result.Switch(
             success => Assert.Fail("Expected NotFound but got Success"),
@@ -160,10 +175,10 @@ public sealed class LocationLogServiceTests
     public async ValueTask DeleteLocationLogAsync_ReturnsSuccess_WhenFound()
     {
         var log = CreateLog();
-        var logs = new List<LocationLog> { log };
-        _locationLogRepository.GetLogsByMemberIdAsync(DefaultMemberId, true).Returns(logs);
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
+        _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, true).Returns(log);
 
-        OneOf<Success, NotFound> result = await _sut.DeleteLocationLogAsync(DefaultMemberId, DefaultLogId, true);
+        OneOf<Success, NotFound> result = await _sut.DeleteLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, true);
 
         result.Switch(
             success => { /* expected */ },
@@ -176,10 +191,10 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask DeleteLocationLogAsync_ReturnsNotFound_WhenUnknown()
     {
-        var logs = new List<LocationLog>();
-        _locationLogRepository.GetLogsByMemberIdAsync(DefaultMemberId, true).Returns(logs);
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
+        _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, true).Returns((LocationLog?) null);
 
-        OneOf<Success, NotFound> result = await _sut.DeleteLocationLogAsync(DefaultMemberId, DefaultLogId, true);
+        OneOf<Success, NotFound> result = await _sut.DeleteLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, true);
 
         result.Switch(
             success => Assert.Fail("Expected NotFound but got Success"),

@@ -1,4 +1,5 @@
 ﻿using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using OneOf;
 using OneOf.Types;
@@ -28,7 +29,8 @@ public sealed class UserServiceTests
         _uow = Substitute.For<IUnitOfWork>();
         _userRepository = Substitute.For<IUserRepository>();
         _uow.UserRepository.Returns(_userRepository);
-        _sut = new UserService(_uow);
+        var logger = Substitute.For<ILogger<UserService>>();
+        _sut = new UserService(_uow, logger);
     }
 
     private static User CreateUser(

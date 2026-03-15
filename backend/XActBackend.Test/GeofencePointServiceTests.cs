@@ -1,4 +1,5 @@
 ﻿using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using OneOf;
 using OneOf.Types;
@@ -26,7 +27,8 @@ public sealed class GeofencePointServiceTests
         _uow = Substitute.For<IUnitOfWork>();
         _geofencePointRepository = Substitute.For<IGeofencePointRepository>();
         _uow.GeofencePointRepository.Returns(_geofencePointRepository);
-        _sut = new GeoFencePointService(_uow);
+        var logger = Substitute.For<ILogger<GeoFencePointService>>();
+        _sut = new GeoFencePointService(_uow, logger);
     }
 
     private static GeofencePoint CreatePoint(
@@ -65,13 +67,13 @@ public sealed class GeofencePointServiceTests
     [Fact]
     public async ValueTask GetGeofencePointByIdAsync_ReturnsPoint_WhenFound()
     {
-        var points = new List<GeofencePoint> { CreatePoint() };
-        _geofencePointRepository.GetPointsBySessionIdAsync(DefaultSessionId, false).Returns(points);
+        var point = CreatePoint();
+        _geofencePointRepository.GetPointBySessionAndIdAsync(DefaultSessionId, DefaultPointId, false).Returns(point);
 
         var result = await _sut.GetGeofencePointByIdAsync(DefaultSessionId, DefaultPointId, false);
 
         result.Switch(
-            point => point.Should().BeEquivalentTo(points.First()),
+            found => found.Should().BeEquivalentTo(point),
             notFound => Assert.Fail("Expected GeofencePoint but got NotFound")
         );
     }
@@ -79,8 +81,7 @@ public sealed class GeofencePointServiceTests
     [Fact]
     public async ValueTask GetGeofencePointByIdAsync_ReturnsNotFound_WhenUnknown()
     {
-        var points = new List<GeofencePoint>();
-        _geofencePointRepository.GetPointsBySessionIdAsync(DefaultSessionId, false).Returns(points);
+        _geofencePointRepository.GetPointBySessionAndIdAsync(DefaultSessionId, DefaultPointId, false).Returns((GeofencePoint?) null);
 
         var result = await _sut.GetGeofencePointByIdAsync(DefaultSessionId, DefaultPointId, false);
 
@@ -111,9 +112,8 @@ public sealed class GeofencePointServiceTests
     public async ValueTask UpdateGeofencePointAsync_ReturnsSuccess_WhenFound()
     {
         var point = CreatePoint(DefaultPointId, DefaultSessionId, 0.0, 0.0, 0);
-        var points = new List<GeofencePoint> { point };
         var data = new IGeofencePointService.GeofencePointData(DefaultSessionId, 10.0, 20.0, 2);
-        _geofencePointRepository.GetPointsBySessionIdAsync(DefaultSessionId, true).Returns(points);
+        _geofencePointRepository.GetPointBySessionAndIdAsync(DefaultSessionId, DefaultPointId, true).Returns(point);
 
         var result = await _sut.UpdateGeofencePointAsync(DefaultPointId, data, true);
 
@@ -130,9 +130,8 @@ public sealed class GeofencePointServiceTests
     [Fact]
     public async ValueTask UpdateGeofencePointAsync_ReturnsNotFound_WhenUnknown()
     {
-        var points = new List<GeofencePoint>();
         var data = new IGeofencePointService.GeofencePointData(DefaultSessionId, 10.0, 20.0, 2);
-        _geofencePointRepository.GetPointsBySessionIdAsync(DefaultSessionId, true).Returns(points);
+        _geofencePointRepository.GetPointBySessionAndIdAsync(DefaultSessionId, DefaultPointId, true).Returns((GeofencePoint?) null);
 
         OneOf<Success, NotFound> result = await _sut.UpdateGeofencePointAsync(DefaultPointId, data, true);
 
@@ -146,8 +145,7 @@ public sealed class GeofencePointServiceTests
     public async ValueTask DeleteGeofencePointAsync_ReturnsSuccess_WhenFound()
     {
         var point = CreatePoint();
-        var points = new List<GeofencePoint> { point };
-        _geofencePointRepository.GetPointsBySessionIdAsync(DefaultSessionId, true).Returns(points);
+        _geofencePointRepository.GetPointBySessionAndIdAsync(DefaultSessionId, DefaultPointId, true).Returns(point);
 
         OneOf<Success, NotFound> result = await _sut.DeleteGeofencePointAsync(DefaultSessionId, DefaultPointId, true);
 
@@ -162,8 +160,7 @@ public sealed class GeofencePointServiceTests
     [Fact]
     public async ValueTask DeleteGeofencePointAsync_ReturnsNotFound_WhenUnknown()
     {
-        var points = new List<GeofencePoint>();
-        _geofencePointRepository.GetPointsBySessionIdAsync(DefaultSessionId, true).Returns(points);
+        _geofencePointRepository.GetPointBySessionAndIdAsync(DefaultSessionId, DefaultPointId, true).Returns((GeofencePoint?) null);
 
         OneOf<Success, NotFound> result = await _sut.DeleteGeofencePointAsync(DefaultSessionId, DefaultPointId, true);
 
