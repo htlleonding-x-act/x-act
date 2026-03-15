@@ -12,7 +12,7 @@ public interface ILocationLogService
     public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
     public ValueTask<OneOf<LocationLog, NotFound, DomainError>> AddLocationLogAsync(LocationLogData newLocationLog);
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateLocationLogAsync(int sessionId, int teamId, int memberId, int logId, LocationLogData locationLogData, bool tracking);
-    public ValueTask<OneOf<Success, NotFound, DomainError>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
 
     public sealed record LocationLogData(
         int MemberId,
@@ -130,30 +130,28 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
         );
     }
 
-    public async ValueTask<OneOf<Success, NotFound, DomainError>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking)
     {
-        OneOf<Success, NotFound, DomainError> validationResult = await ValidateGameplayMutationAsync(sessionId, teamId, memberId);
+        var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
+        if (member is null)
+        {
+            logger.LogWarning("Rejected location log delete because member {MemberId} was not found in session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
+            return new NotFound();
+        }
 
-        return await validationResult.Match<ValueTask<OneOf<Success, NotFound, DomainError>>>(
-            async _ =>
-            {
-                var log = await uow.LocationLogRepository.GetLogByMemberAndIdAsync(memberId, logId, tracking);
+        var log = await uow.LocationLogRepository.GetLogByMemberAndIdAsync(memberId, logId, tracking);
+        if (log is null)
+        {
+            logger.LogWarning("Rejected location log delete because log {LogId} was not found for member {MemberId}", logId, memberId);
+            return new NotFound();
+        }
 
-                if (log is null)
-                {
-                    return new NotFound();
-                }
+        uow.LocationLogRepository.RemoveLocationLog(log);
+        await uow.SaveChangesAsync();
 
-                uow.LocationLogRepository.RemoveLocationLog(log);
-                await uow.SaveChangesAsync();
+        logger.LogInformation("Deleted location log {LogId} for member {MemberId}", logId, memberId);
 
-                logger.LogInformation("Deleted location log {LogId} for member {MemberId}", logId, memberId);
-
-                return new Success();
-            },
-            notFound => ValueTask.FromResult<OneOf<Success, NotFound, DomainError>>(notFound),
-            domainError => ValueTask.FromResult<OneOf<Success, NotFound, DomainError>>(domainError)
-        );
+        return new Success();
     }
 
     private async ValueTask<OneOf<Success, NotFound, DomainError>> ValidateGameplayMutationAsync(int memberId)

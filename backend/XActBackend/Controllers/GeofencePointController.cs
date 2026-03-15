@@ -9,8 +9,6 @@ using XActBackend.Util;
 
 namespace XActBackend.Controllers;
 
-// TODO Review tracking usage
-
 [Route("api/gamesessions/{sessionId:int}/geofencepoints")]
 public sealed class GeofencePointController(
     ITransactionProvider transaction,
@@ -50,6 +48,7 @@ public sealed class GeofencePointController(
     [Route("")]
     [ProducesResponseType<GeofencePointDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> AddGeofencePoint(
         [FromRoute] int sessionId,
         [FromBody] GeofencePointAddRequest addRequest)
@@ -63,7 +62,7 @@ public sealed class GeofencePointController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<GeofencePoint, Error> addResult = await geofencePointService.AddGeofencePointAsync(
+            OneOf<GeofencePoint, NotFound> addResult = await geofencePointService.AddGeofencePointAsync(
                 new IGeofencePointService.GeofencePointData(
                     sessionId,
                     addRequest.Latitude,
@@ -79,11 +78,12 @@ public sealed class GeofencePointController(
                 return CreatedAtAction(nameof(GetGeofencePointById),
                     new { sessionId, pointId = geofencePoint.Id },
                     GeofencePointDetailsDto.FromGeofencePoint(geofencePoint));
-            }, async error =>
+            }, async notFound =>
             {
                 await transaction.RollbackAsync();
+                logger.LogWarning("Rejected geofence point create request because session {SessionId} was not found", sessionId);
 
-                return BadRequest();
+                return NotFound();
             });
         }
         catch (Exception ex)

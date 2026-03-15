@@ -13,6 +13,9 @@ public interface IGameSessionService
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateGameSessionAsync(int sessionId, GameSessionData gameSessionData, bool tracking);
     public ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(int sessionId, bool tracking);
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByJoinCodeAsync(string joinCode, bool tracking);
+    public ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId);
+    public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId);
+    public ValueTask<OneOf<Success, NotFound, DomainError>> CatchMrXAsync(int sessionId);
 
     public sealed record GameSessionData(
         int HostUserId,
@@ -26,7 +29,7 @@ public interface IGameSessionService
     );
 }
 
-internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionService> logger) : IGameSessionService
+internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<GameSessionService> logger) : IGameSessionService
 {
     private const string HostTeamColor = "#000000";
 
@@ -213,6 +216,84 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
         var gameSession = await uow.GameSessionRepository.GetSessionByJoinCodeAsync(joinCode, tracking);
 
         return gameSession is not null ? gameSession : new NotFound();
+    }
+
+    public async ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId)
+    {
+        var gameSession = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking: true);
+        if (gameSession is null)
+        {
+            return new NotFound();
+        }
+
+        if (gameSession.Status != SessionStatus.Waiting)
+        {
+            logger.LogWarning("Rejected start for session {SessionId} because current status {Status} does not allow starting", sessionId, gameSession.Status);
+            return DomainError.InvalidSessionTransition(gameSession.Status, SessionStatus.Active);
+        }
+
+        gameSession.Status = SessionStatus.Active;
+        gameSession.StartTime = clock.GetCurrentInstant();
+
+        await uow.SaveChangesAsync();
+
+        logger.LogInformation("Started game session {SessionId}", sessionId);
+
+        return new Success();
+    }
+
+    public async ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId)
+    {
+        var gameSession = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking: true);
+        if (gameSession is null)
+        {
+            return new NotFound();
+        }
+
+        if (gameSession.Status != SessionStatus.Active)
+        {
+            logger.LogWarning("Rejected end for session {SessionId} because current status {Status} does not allow ending", sessionId, gameSession.Status);
+            return DomainError.InvalidSessionTransition(gameSession.Status, SessionStatus.Finished);
+        }
+
+        gameSession.Status = SessionStatus.Finished;
+        gameSession.EndTime = clock.GetCurrentInstant();
+
+        await uow.SaveChangesAsync();
+
+        logger.LogInformation("Ended game session {SessionId}", sessionId);
+
+        return new Success();
+    }
+
+    public async ValueTask<OneOf<Success, NotFound, DomainError>> CatchMrXAsync(int sessionId)
+    {
+        var gameSession = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking: false);
+        if (gameSession is null)
+        {
+            return new NotFound();
+        }
+
+        if (gameSession.Status != SessionStatus.Active)
+        {
+            logger.LogWarning("Rejected catch for session {SessionId} because session is in status {Status}", sessionId, gameSession.Status);
+            return DomainError.SessionNotActive(sessionId, gameSession.Status);
+        }
+
+        var mrXTeam = await uow.TeamRepository.GetTeamBySessionAndRoleAsync(sessionId, TeamRole.MrX, tracking: true);
+        if (mrXTeam is null)
+        {
+            logger.LogWarning("Rejected catch for session {SessionId} because no MrX team was found", sessionId);
+            return new NotFound();
+        }
+
+        mrXTeam.IsCaught = true;
+
+        await uow.SaveChangesAsync();
+
+        logger.LogInformation("MrX was caught in session {SessionId}, team {TeamId}", sessionId, mrXTeam.Id);
+
+        return new Success();
     }
 
     private static bool IsValidStatusTransition(SessionStatus currentStatus, SessionStatus requestedStatus) =>

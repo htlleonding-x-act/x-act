@@ -9,8 +9,6 @@ using XActBackend.Util;
 
 namespace XActBackend.Controllers;
 
-// TODO Review tracking usage
-
 [Route("api/gamesessions/{sessionId:int}/teams/{teamId:int}/members/{memberId:int}/powerupusages")]
 public sealed class PowerUpUsageController(
     ITransactionProvider transaction,
@@ -180,7 +178,6 @@ public sealed class PowerUpUsageController(
     [Route("{usageId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> DeletePowerUpUsage(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -191,7 +188,7 @@ public sealed class PowerUpUsageController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound, DomainError> deleteResult = await powerUpUsageService.DeletePowerUpUsageAsync(
+            OneOf<Success, NotFound> deleteResult = await powerUpUsageService.DeletePowerUpUsageAsync(
                 sessionId,
                 teamId,
                 memberId,
@@ -211,12 +208,6 @@ public sealed class PowerUpUsageController(
                 logger.LogWarning("Rejected power-up usage delete request because usage {UsageId} or member {MemberId} was not found", usageId, memberId);
 
                 return NotFound();
-            }, async domainError =>
-            {
-                await transaction.RollbackAsync();
-                logger.LogWarning("Rejected power-up usage delete request for usage {UsageId} with domain error {ErrorCode}: {ErrorMessage}", usageId, domainError.Code, domainError.Message);
-
-                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)

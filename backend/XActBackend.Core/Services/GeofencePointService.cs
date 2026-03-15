@@ -9,7 +9,7 @@ public interface IGeofencePointService
 {
     public ValueTask<IReadOnlyCollection<GeofencePoint>> GetAllPointsBySessionIdAsync(int sessionId, bool tracking);
     public ValueTask<OneOf<GeofencePoint, NotFound>> GetGeofencePointByIdAsync(int sessionId, int pointId, bool tracking);
-    public ValueTask<OneOf<GeofencePoint, Error>> AddGeofencePointAsync(GeofencePointData newGeofencePoint);
+    public ValueTask<OneOf<GeofencePoint, NotFound>> AddGeofencePointAsync(GeofencePointData newGeofencePoint);
     public ValueTask<OneOf<Success, NotFound>> UpdateGeofencePointAsync(int pointId, GeofencePointData geofencePointData, bool tracking);
     public ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(int sessionId, int pointId, bool tracking);
 
@@ -37,25 +37,24 @@ internal sealed class GeoFencePointService(IUnitOfWork uow, ILogger<GeoFencePoin
         return geofencePoint is not null ? geofencePoint : new NotFound();
     }
 
-    public async ValueTask<OneOf<GeofencePoint, Error>> AddGeofencePointAsync(IGeofencePointService.GeofencePointData newGeofencePoint)
+    public async ValueTask<OneOf<GeofencePoint, NotFound>> AddGeofencePointAsync(IGeofencePointService.GeofencePointData newGeofencePoint)
     {
-        try
+        var session = await uow.GameSessionRepository.GetSessionByIdAsync(newGeofencePoint.SessionId, tracking: false);
+        if (session is null)
         {
-            var geofencePoint = uow.GeofencePointRepository.AddGeofencePoint(
-                    newGeofencePoint.SessionId,
-                    newGeofencePoint.Latitude,
-                    newGeofencePoint.Longitude,
-                    newGeofencePoint.SequenceOrder);
-
-            await uow.SaveChangesAsync();
-
-            return geofencePoint;
+            logger.LogWarning("Rejected geofence point creation because session {SessionId} does not exist", newGeofencePoint.SessionId);
+            return new NotFound();
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to add geofence point for session {SessionId}", newGeofencePoint.SessionId);
-            return new Error();
-        }
+
+        var geofencePoint = uow.GeofencePointRepository.AddGeofencePoint(
+                newGeofencePoint.SessionId,
+                newGeofencePoint.Latitude,
+                newGeofencePoint.Longitude,
+                newGeofencePoint.SequenceOrder);
+
+        await uow.SaveChangesAsync();
+
+        return geofencePoint;
     }
 
     public async ValueTask<OneOf<Success, NotFound>> UpdateGeofencePointAsync(int pointId, IGeofencePointService.GeofencePointData geofencePointData, bool tracking)

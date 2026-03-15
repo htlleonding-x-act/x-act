@@ -9,8 +9,6 @@ using XActBackend.Util;
 
 namespace XActBackend.Controllers;
 
-// TODO Review tracking usage
-
 [Route("api/gamesessions")]
 public sealed class GameSessionController(
     ITransactionProvider transaction,
@@ -211,6 +209,132 @@ public sealed class GameSessionController(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to delete game session {SessionId}", sessionId);
+            await transaction.RollbackAsync();
+
+            return Problem();
+        }
+    }
+
+    [HttpPost]
+    [Route("{sessionId:int}/start")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async ValueTask<IActionResult> StartGameSession([FromRoute] int sessionId)
+    {
+        try
+        {
+            await transaction.BeginTransactionAsync();
+
+            OneOf<Success, NotFound, DomainError> result = await gameSessionService.StartGameSessionAsync(sessionId);
+
+            return await result.Match<ValueTask<IActionResult>>(async success =>
+            {
+                await transaction.CommitAsync();
+                logger.LogInformation("Started game session {SessionId}", sessionId);
+
+                return NoContent();
+            }, async notFound =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected start for game session {SessionId} because it was not found", sessionId);
+
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected start for game session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", sessionId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to start game session {SessionId}", sessionId);
+            await transaction.RollbackAsync();
+
+            return Problem();
+        }
+    }
+
+    [HttpPost]
+    [Route("{sessionId:int}/end")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async ValueTask<IActionResult> EndGameSession([FromRoute] int sessionId)
+    {
+        try
+        {
+            await transaction.BeginTransactionAsync();
+
+            OneOf<Success, NotFound, DomainError> result = await gameSessionService.EndGameSessionAsync(sessionId);
+
+            return await result.Match<ValueTask<IActionResult>>(async success =>
+            {
+                await transaction.CommitAsync();
+                logger.LogInformation("Ended game session {SessionId}", sessionId);
+
+                return NoContent();
+            }, async notFound =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected end for game session {SessionId} because it was not found", sessionId);
+
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected end for game session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", sessionId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to end game session {SessionId}", sessionId);
+            await transaction.RollbackAsync();
+
+            return Problem();
+        }
+    }
+
+    [HttpPost]
+    [Route("{sessionId:int}/catch")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async ValueTask<IActionResult> CatchMrX([FromRoute] int sessionId)
+    {
+        try
+        {
+            await transaction.BeginTransactionAsync();
+
+            OneOf<Success, NotFound, DomainError> result = await gameSessionService.CatchMrXAsync(sessionId);
+
+            return await result.Match<ValueTask<IActionResult>>(async success =>
+            {
+                await transaction.CommitAsync();
+                logger.LogInformation("MrX was caught in game session {SessionId}", sessionId);
+
+                return NoContent();
+            }, async notFound =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected catch for game session {SessionId} because session or MrX team was not found", sessionId);
+
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected catch for game session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", sessionId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to process catch for game session {SessionId}", sessionId);
             await transaction.RollbackAsync();
 
             return Problem();

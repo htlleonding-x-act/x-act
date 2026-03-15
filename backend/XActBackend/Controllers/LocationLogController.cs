@@ -9,8 +9,6 @@ using XActBackend.Util;
 
 namespace XActBackend.Controllers;
 
-// TODO Review tracking usage
-
 [Route("api/gamesessions/{sessionId:int}/teams/{teamId:int}/members/{memberId:int}/locationlogs")]
 public sealed class LocationLogController(
     ITransactionProvider transaction,
@@ -188,7 +186,6 @@ public sealed class LocationLogController(
     [Route("{logId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> DeleteLocationLog(
         [FromRoute] int sessionId,
         [FromRoute] int teamId,
@@ -199,7 +196,7 @@ public sealed class LocationLogController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound, DomainError> deleteResult = await locationLogService.DeleteLocationLogAsync(
+            OneOf<Success, NotFound> deleteResult = await locationLogService.DeleteLocationLogAsync(
                 sessionId,
                 teamId,
                 memberId,
@@ -219,12 +216,6 @@ public sealed class LocationLogController(
                 logger.LogWarning("Rejected location log delete request because log {LogId} or member {MemberId} was not found", logId, memberId);
 
                 return NotFound();
-            }, async domainError =>
-            {
-                await transaction.RollbackAsync();
-                logger.LogWarning("Rejected location log delete request for log {LogId} with domain error {ErrorCode}: {ErrorMessage}", logId, domainError.Code, domainError.Message);
-
-                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)

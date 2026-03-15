@@ -11,7 +11,7 @@ public interface IPowerUpUsageService
     public ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking);
     public ValueTask<OneOf<PowerUpUsage, NotFound, DomainError>> AddPowerUpUsageAsync(PowerUpUsageData newPowerUpUsage);
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdatePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, PowerUpUsageData powerUpUsageData, bool tracking);
-    public ValueTask<OneOf<Success, NotFound, DomainError>> DeletePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking);
 
     public sealed record PowerUpUsageData(
         int MemberId,
@@ -112,36 +112,28 @@ internal sealed class PowerUpUsageService(IUnitOfWork uow, ILogger<PowerUpUsageS
         );
     }
 
-    public async ValueTask<OneOf<Success, NotFound, DomainError>> DeletePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking)
     {
         var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
         if (member is null)
         {
+            logger.LogWarning("Rejected power-up usage delete because member {MemberId} was not found in session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
             return new NotFound();
         }
 
-        OneOf<Success, NotFound, DomainError> validationResult = await ValidatePowerUpMutationAsync(sessionId, teamId, memberId, powerUpType: null);
+        var usage = await uow.PowerUpUsageRepository.GetUsageByMemberAndIdAsync(memberId, usageId, tracking);
+        if (usage is null)
+        {
+            logger.LogWarning("Rejected power-up usage delete because usage {UsageId} was not found for member {MemberId}", usageId, memberId);
+            return new NotFound();
+        }
 
-        return await validationResult.Match<ValueTask<OneOf<Success, NotFound, DomainError>>>(
-            async _ =>
-            {
-                var usage = await uow.PowerUpUsageRepository.GetUsageByMemberAndIdAsync(memberId, usageId, tracking);
+        uow.PowerUpUsageRepository.RemovePowerUpUsage(usage);
+        await uow.SaveChangesAsync();
 
-                if (usage is null)
-                {
-                    return new NotFound();
-                }
+        logger.LogInformation("Deleted power-up usage {UsageId} for member {MemberId}", usageId, memberId);
 
-                uow.PowerUpUsageRepository.RemovePowerUpUsage(usage);
-                await uow.SaveChangesAsync();
-
-                logger.LogInformation("Deleted power-up usage {UsageId} for member {MemberId}", usageId, memberId);
-
-                return new Success();
-            },
-            notFound => ValueTask.FromResult<OneOf<Success, NotFound, DomainError>>(notFound),
-            domainError => ValueTask.FromResult<OneOf<Success, NotFound, DomainError>>(domainError)
-        );
+        return new Success();
     }
 
     private async ValueTask<OneOf<Success, NotFound, DomainError>> ValidatePowerUpMutationAsync(int memberId, PowerUpType? powerUpType)

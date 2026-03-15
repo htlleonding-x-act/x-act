@@ -9,8 +9,6 @@ using XActBackend.Util;
 
 namespace XActBackend.Controllers;
 
-// TODO Review tracking usage
-
 [Route("api/gamesessions/{sessionId:int}/teams/{teamId:int}/members")]
 public sealed class TeamMemberController(
     ITransactionProvider transaction,
