@@ -160,4 +160,99 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    // --- StartGameSession ---
+
+    [Fact]
+    public async ValueTask StartGameSession_NoContent()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionId}/start", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var checkResponse = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionId}", TestCancellationToken);
+        var content = await checkResponse.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
+        content!.Status.Should().Be(SessionStatus.Active);
+        content.StartTime.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async ValueTask StartGameSession_NotFound()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/9999/start", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async ValueTask StartGameSession_Conflict_WhenNotWaiting()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionTwoId}/start", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    // --- EndGameSession ---
+
+    [Fact]
+    public async ValueTask EndGameSession_NoContent()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionTwoId}/end", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var checkResponse = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionTwoId}", TestCancellationToken);
+        var content = await checkResponse.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
+        content!.Status.Should().Be(SessionStatus.Finished);
+        content.EndTime.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async ValueTask EndGameSession_NotFound()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/9999/end", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async ValueTask EndGameSession_Conflict_WhenNotActive()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionId}/end", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    // --- CatchMrX ---
+
+    [Fact]
+    public async ValueTask CatchMrX_NoContent()
+    {
+        await ModifyDatabaseContentAsync(context =>
+        {
+            var session = context.GameSessions.Find(SeedData.SessionId);
+            session!.Status = SessionStatus.Active;
+            return new ValueTask(context.SaveChangesAsync());
+        });
+
+        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionId}/catch", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async ValueTask CatchMrX_NotFound()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/9999/catch", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async ValueTask CatchMrX_Conflict_WhenNotActive()
+    {
+        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionId}/catch", null, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
 }

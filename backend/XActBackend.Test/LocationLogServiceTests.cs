@@ -291,15 +291,13 @@ public sealed class LocationLogServiceTests
     {
         var log = CreateLog();
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
-        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
         _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, true).Returns(log);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.DeleteLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, true);
+        OneOf<Success, NotFound> result = await _sut.DeleteLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, true);
 
         result.Switch(
             success => { /* expected */ },
-            notFound => Assert.Fail("Expected Success but got NotFound"),
-            domainError => Assert.Fail("Expected Success but got DomainError")
+            notFound => Assert.Fail("Expected Success but got NotFound")
         );
         _locationLogRepository.Received(1).RemoveLocationLog(log);
         await _uow.Received(1).SaveChangesAsync();
@@ -309,30 +307,13 @@ public sealed class LocationLogServiceTests
     public async ValueTask DeleteLocationLogAsync_ReturnsNotFound_WhenUnknown()
     {
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
-        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
         _locationLogRepository.GetLogByMemberAndIdAsync(DefaultMemberId, DefaultLogId, true).Returns((LocationLog?) null);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.DeleteLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, true);
+        OneOf<Success, NotFound> result = await _sut.DeleteLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, true);
 
         result.Switch(
             success => Assert.Fail("Expected NotFound but got Success"),
-            notFound => { /* expected */ },
-            domainError => Assert.Fail("Expected NotFound but got DomainError")
-        );
-    }
-
-    [Fact]
-    public async ValueTask DeleteLocationLogAsync_ReturnsDomainError_WhenSessionNotActive()
-    {
-        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
-        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
-
-        OneOf<Success, NotFound, DomainError> result = await _sut.DeleteLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, true);
-
-        result.Switch(
-            _ => Assert.Fail("Expected DomainError but got Success"),
-            _ => Assert.Fail("Expected DomainError but got NotFound"),
-            domainError => domainError.Code.Should().Be(DomainErrorCodes.SessionNotActive)
+            notFound => { /* expected */ }
         );
     }
 }

@@ -19,6 +19,7 @@ public sealed class GeofencePointServiceTests
     private const int DefaultPointId = 1;
 
     private readonly IGeofencePointRepository _geofencePointRepository;
+    private readonly IGameSessionRepository _gameSessionRepository;
     private readonly GeoFencePointService _sut;
     private readonly IUnitOfWork _uow;
 
@@ -27,9 +28,19 @@ public sealed class GeofencePointServiceTests
         _uow = Substitute.For<IUnitOfWork>();
         _geofencePointRepository = Substitute.For<IGeofencePointRepository>();
         _uow.GeofencePointRepository.Returns(_geofencePointRepository);
+        _gameSessionRepository = Substitute.For<IGameSessionRepository>();
+        _uow.GameSessionRepository.Returns(_gameSessionRepository);
         var logger = Substitute.For<ILogger<GeoFencePointService>>();
         _sut = new GeoFencePointService(_uow, logger);
     }
+
+    private static GameSession CreateSession(int id = DefaultSessionId) =>
+        new()
+        {
+            Id = id,
+            SessionName = "Test Session",
+            JoinCode = "ABC123",
+        };
 
     private static GeofencePoint CreatePoint(
         int id = DefaultPointId,
@@ -97,13 +108,14 @@ public sealed class GeofencePointServiceTests
         var data = new IGeofencePointService.GeofencePointData(DefaultSessionId, 12.34, 56.78, 1);
         var point = CreatePoint(DefaultPointId, data.SessionId, data.Latitude, data.Longitude, data.SequenceOrder);
 
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateSession());
         _geofencePointRepository.AddGeofencePoint(data.SessionId, data.Latitude, data.Longitude, data.SequenceOrder).Returns(point);
 
         var result = await _sut.AddGeofencePointAsync(data);
 
         result.Switch(
             addedPoint => addedPoint.Should().BeEquivalentTo(point),
-            error => Assert.Fail("Expected GeofencePoint but got Error")
+            notFound => Assert.Fail("Expected GeofencePoint but got NotFound")
         );
         await _uow.Received(1).SaveChangesAsync();
     }

@@ -26,6 +26,7 @@ public sealed class GameSessionServiceTests
     private readonly ITeamMemberRepository _teamMemberRepository;
     private readonly GameSessionService _sut;
     private readonly IUnitOfWork _uow;
+    private readonly IClock _clock;
 
     public GameSessionServiceTests()
     {
@@ -43,8 +44,9 @@ public sealed class GameSessionServiceTests
         _teamMemberRepository = Substitute.For<ITeamMemberRepository>();
         _uow.TeamMemberRepository.Returns(_teamMemberRepository);
 
+        _clock = Substitute.For<IClock>();
         var logger = Substitute.For<ILogger<GameSessionService>>();
-        _sut = new GameSessionService(_uow, logger);
+        _sut = new GameSessionService(_uow, _clock, logger);
     }
 
     private static GameSession CreateSession(
@@ -421,5 +423,160 @@ public sealed class GameSessionServiceTests
             found => found.Should().BeEquivalentTo(session),
             _ => Assert.Fail("Expected GameSession but got NotFound")
         );
+    }
+
+    // --- StartGameSessionAsync ---
+
+    [Fact]
+    public async ValueTask StartGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
+    {
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns((GameSession?) null);
+        OneOf<Success, NotFound, DomainError> result = await _sut.StartGameSessionAsync(DefaultSessionId);
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    public async ValueTask StartGameSessionAsync_ReturnsDomainError_WhenStatusIsNotWaiting()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Active;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns(session);
+        OneOf<Success, NotFound, DomainError> result = await _sut.StartGameSessionAsync(DefaultSessionId);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.InvalidSessionTransition)
+        );
+    }
+
+    [Fact]
+    public async ValueTask StartGameSessionAsync_ReturnsSuccess_WhenStatusIsWaiting()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Waiting;
+        var now = Instant.FromUtc(2026, 3, 15, 12, 0);
+        _clock.GetCurrentInstant().Returns(now);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns(session);
+        OneOf<Success, NotFound, DomainError> result = await _sut.StartGameSessionAsync(DefaultSessionId);
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound"),
+            _ => Assert.Fail("Expected Success but got DomainError")
+        );
+        session.Status.Should().Be(SessionStatus.Active);
+        session.StartTime.Should().Be(now);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    // --- EndGameSessionAsync ---
+
+    [Fact]
+    public async ValueTask EndGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
+    {
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns((GameSession?) null);
+        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId);
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    public async ValueTask EndGameSessionAsync_ReturnsDomainError_WhenStatusIsNotActive()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Waiting;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns(session);
+        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.InvalidSessionTransition)
+        );
+    }
+
+    [Fact]
+    public async ValueTask EndGameSessionAsync_ReturnsSuccess_WhenStatusIsActive()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Active;
+        var now = Instant.FromUtc(2026, 3, 15, 14, 0);
+        _clock.GetCurrentInstant().Returns(now);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns(session);
+        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId);
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound"),
+            _ => Assert.Fail("Expected Success but got DomainError")
+        );
+        session.Status.Should().Be(SessionStatus.Finished);
+        session.EndTime.Should().Be(now);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    // --- CatchMrXAsync ---
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsNotFound_WhenSessionMissing()
+    {
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?) null);
+        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsDomainError_WhenSessionNotActive()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Waiting;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
+        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.SessionNotActive)
+        );
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsNotFound_WhenMrXTeamMissing()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Active;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
+        _teamRepository.GetTeamBySessionAndRoleAsync(DefaultSessionId, TeamRole.MrX, true).Returns((Team?) null);
+        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsSuccess_WhenActive()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Active;
+        var mrXTeam = CreateTeam(10, "MrX Team", TeamRole.MrX, "#000000");
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
+        _teamRepository.GetTeamBySessionAndRoleAsync(DefaultSessionId, TeamRole.MrX, true).Returns(mrXTeam);
+        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound"),
+            _ => Assert.Fail("Expected Success but got DomainError")
+        );
+        mrXTeam.IsCaught.Should().BeTrue();
+        await _uow.Received(1).SaveChangesAsync();
     }
 }

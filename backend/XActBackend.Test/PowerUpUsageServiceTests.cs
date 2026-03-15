@@ -343,16 +343,13 @@ public sealed class PowerUpUsageServiceTests
     {
         var usage = CreateUsage(DefaultUsageId, DefaultMemberId);
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
-        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
-        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateMrXTeam());
         _powerUpUsageRepository.GetUsageByMemberAndIdAsync(DefaultMemberId, DefaultUsageId, true).Returns(usage);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.DeletePowerUpUsageAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultUsageId, true);
+        OneOf<Success, NotFound> result = await _sut.DeletePowerUpUsageAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultUsageId, true);
 
         result.Switch(
             success => { /* expected */ },
-            notFound => Assert.Fail("Expected Success but got NotFound"),
-            domainError => Assert.Fail("Expected Success but got DomainError")
+            notFound => Assert.Fail("Expected Success but got NotFound")
         );
         _powerUpUsageRepository.Received(1).RemovePowerUpUsage(usage);
         await _uow.Received(1).SaveChangesAsync();
@@ -362,16 +359,13 @@ public sealed class PowerUpUsageServiceTests
     internal async ValueTask DeletePowerUpUsageAsync_ReturnsNotFound_WhenUnknown()
     {
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
-        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
-        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateMrXTeam());
         _powerUpUsageRepository.GetUsageByMemberAndIdAsync(DefaultMemberId, DefaultUsageId, true).Returns((PowerUpUsage?) null);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.DeletePowerUpUsageAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultUsageId, true);
+        OneOf<Success, NotFound> result = await _sut.DeletePowerUpUsageAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultUsageId, true);
 
         result.Switch(
             success => Assert.Fail("Expected NotFound but got Success"),
-            notFound => { /* expected */ },
-            domainError => Assert.Fail("Expected NotFound but got DomainError")
+            notFound => { /* expected */ }
         );
     }
 
@@ -380,12 +374,11 @@ public sealed class PowerUpUsageServiceTests
     {
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns((TeamMember?) null);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.DeletePowerUpUsageAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultUsageId, true);
+        OneOf<Success, NotFound> result = await _sut.DeletePowerUpUsageAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultUsageId, true);
 
         result.Switch(
             _ => Assert.Fail("Expected NotFound but got Success"),
-            _ => { /* expected */ },
-            _ => Assert.Fail("Expected NotFound but got DomainError")
+            _ => { /* expected */ }
         );
     }
 }

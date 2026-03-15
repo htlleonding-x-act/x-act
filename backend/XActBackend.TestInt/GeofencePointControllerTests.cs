@@ -71,7 +71,7 @@ public sealed class GeofencePointControllerTests(WebApiTestFixture fixture) : Se
     }
 
     [Fact]
-    public async ValueTask AddGeofencePoint_BadRequest()
+    public async ValueTask AddGeofencePoint_NotFound_WhenSessionNotFound()
     {
         var request = new GeofencePointAddRequest(48.2, 16.3, 1);
 
@@ -82,7 +82,7 @@ public sealed class GeofencePointControllerTests(WebApiTestFixture fixture) : Se
             TestCancellationToken
         );
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
