@@ -64,7 +64,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
                 logger.LogWarning(
                     "Rejected session creation for host user {HostUserId} because session {ExistingSessionId} is still open",
                     newGameSession.HostUserId,
-                    existingActiveSession.Id);
+                    existingActiveSession.Id
+                );
                 return DomainError.HostUserAlreadyHasActiveSession(newGameSession.HostUserId);
             }
 
@@ -152,7 +153,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
                 "Rejected update for session {SessionId} because host user {HostUserId} already owns open session {ExistingSessionId}",
                 sessionId,
                 gameSessionData.HostUserId,
-                conflictingSession.Id);
+                conflictingSession.Id
+            );
             return DomainError.HostUserAlreadyHasActiveSession(gameSessionData.HostUserId);
         }
 

@@ -199,7 +199,13 @@ public sealed class LocationLogController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound, DomainError> deleteResult = await locationLogService.DeleteLocationLogAsync(sessionId, teamId, memberId, logId, tracking: true);
+            OneOf<Success, NotFound, DomainError> deleteResult = await locationLogService.DeleteLocationLogAsync(
+                sessionId,
+                teamId,
+                memberId,
+                logId,
+                tracking: true
+            );
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {

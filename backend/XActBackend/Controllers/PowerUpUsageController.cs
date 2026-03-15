@@ -191,7 +191,13 @@ public sealed class PowerUpUsageController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound, DomainError> deleteResult = await powerUpUsageService.DeletePowerUpUsageAsync(sessionId, teamId, memberId, usageId, tracking: true);
+            OneOf<Success, NotFound, DomainError> deleteResult = await powerUpUsageService.DeletePowerUpUsageAsync(
+                sessionId,
+                teamId,
+                memberId,
+                usageId,
+                tracking: true
+            );
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
