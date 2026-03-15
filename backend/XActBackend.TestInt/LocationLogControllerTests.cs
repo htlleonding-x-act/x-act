@@ -12,6 +12,15 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
 {
     private const string BaseUrl = "api/gamesessions";
 
+    private ValueTask ActivateSeedSessionAsync() =>
+        ModifyDatabaseContentAsync(context =>
+        {
+            GameSession session = context.GameSessions.Single(session => session.Id == SeedData.SessionId);
+            session.Status = SessionStatus.Active;
+
+            return new ValueTask(context.SaveChangesAsync(TestCancellationToken));
+        });
+
     [Fact]
     public async ValueTask GetAllLocationLogs_ReturnsList()
     {
@@ -55,6 +64,8 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     [Fact]
     public async ValueTask AddLocationLog_ReturnsCreated()
     {
+        await ActivateSeedSessionAsync();
+
         var request = new LocationLogAddRequest(
             SeedData.BaseInstant.Plus(Duration.FromMinutes(45)),
             48.25,
@@ -80,7 +91,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     }
 
     [Fact]
-    public async ValueTask AddLocationLog_BadRequest()
+    public async ValueTask AddLocationLog_NotFound_WhenMemberIsMissing()
     {
         var request = new LocationLogAddRequest(
             Instant.FromUtc(2026, 1, 1, 9, 0),
@@ -98,12 +109,14 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
             TestCancellationToken
         );
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
     public async ValueTask UpdateLocationLog_NoContent()
     {
+        await ActivateSeedSessionAsync();
+
         var request = new LocationLogUpdateRequest(
             Instant.FromUtc(2026, 1, 1, 9, 0),
             48.2,
@@ -126,6 +139,8 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     [Fact]
     public async ValueTask UpdateLocationLog_NotFound()
     {
+        await ActivateSeedSessionAsync();
+
         var request = new LocationLogUpdateRequest(
             Instant.FromUtc(2026, 1, 1, 9, 0),
             48.2,
@@ -148,6 +163,8 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     [Fact]
     public async ValueTask DeleteLocationLog_NoContent()
     {
+        await ActivateSeedSessionAsync();
+
         var response = await ApiClient.DeleteAsync(
             $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogTwoId}",
             TestCancellationToken
@@ -165,6 +182,8 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     [Fact]
     public async ValueTask DeleteLocationLog_NotFound()
     {
+        await ActivateSeedSessionAsync();
+
         var response = await ApiClient.DeleteAsync(
             $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/9999",
             TestCancellationToken

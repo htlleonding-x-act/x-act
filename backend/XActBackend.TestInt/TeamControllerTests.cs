@@ -1,8 +1,10 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using NodaTime;
 using XActBackend.Controllers;
 using XActBackend.Importer;
 using XActBackend.Persistence.Model;
+using XActBackend.Persistence.Util;
 using XActBackend.TestInt.Util;
 
 namespace XActBackend.TestInt;
@@ -83,13 +85,13 @@ public sealed class TeamControllerTests(WebApiTestFixture fixture) : SeededWebAp
             TestCancellationToken
         );
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
     public async ValueTask UpdateTeam_NoContent()
     {
-        var request = new TeamUpdateRequest("Updated", TeamRole.MrX, "#00ff00", true);
+        var request = new TeamUpdateRequest("Updated", TeamRole.Detective, "#00ff00", true);
 
         var response = await ApiClient.PutAsJsonAsync(
             $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}",
@@ -119,15 +121,31 @@ public sealed class TeamControllerTests(WebApiTestFixture fixture) : SeededWebAp
     [Fact]
     public async ValueTask DeleteTeam_NoContent()
     {
+        const int EmptyTeamId = 99;
+        await ModifyDatabaseContentAsync(context =>
+        {
+            context.Teams.Add(new Team
+            {
+                Id = EmptyTeamId,
+                SessionId = SeedData.SessionId,
+                TeamName = "Temp Team",
+                Role = TeamRole.Spectator,
+                ColorCode = "#123456",
+                IsCaught = false,
+            });
+
+            return new ValueTask(context.SaveChangesAsync(TestCancellationToken));
+        });
+
         var response = await ApiClient.DeleteAsync(
-            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.MrXTeamId}",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{EmptyTeamId}",
             TestCancellationToken
         );
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var deletedCheck = await ApiClient.GetAsync(
-            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.MrXTeamId}",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{EmptyTeamId}",
             TestCancellationToken
         );
         deletedCheck.StatusCode.Should().Be(HttpStatusCode.NotFound);

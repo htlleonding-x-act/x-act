@@ -12,6 +12,18 @@ public sealed class PowerUpUsageControllerTests(WebApiTestFixture fixture) : See
 {
     private const string BaseUrl = "api/gamesessions";
 
+    private ValueTask PrepareActiveMrXMemberAsync() =>
+        ModifyDatabaseContentAsync(context =>
+        {
+            GameSession session = context.GameSessions.Single(session => session.Id == SeedData.SessionId);
+            session.Status = SessionStatus.Active;
+
+            Team team = context.Teams.Single(team => team.Id == SeedData.DetectiveTeamId);
+            team.Role = TeamRole.MrX;
+
+            return new ValueTask(context.SaveChangesAsync(TestCancellationToken));
+        });
+
     [Fact]
     public async ValueTask GetAllPowerUpUsages_ReturnsList()
     {
@@ -55,6 +67,8 @@ public sealed class PowerUpUsageControllerTests(WebApiTestFixture fixture) : See
     [Fact]
     public async ValueTask AddPowerUpUsage_ReturnsCreated()
     {
+        await PrepareActiveMrXMemberAsync();
+
         var request = new PowerUpUsageAddRequest(PowerUpType.DoubleMove, SeedData.BaseInstant.Plus(Duration.FromMinutes(40)));
 
         var response = await ApiClient.PostAsJsonAsync(
@@ -73,7 +87,7 @@ public sealed class PowerUpUsageControllerTests(WebApiTestFixture fixture) : See
     }
 
     [Fact]
-    public async ValueTask AddPowerUpUsage_BadRequest()
+    public async ValueTask AddPowerUpUsage_NotFound_WhenMemberIsMissing()
     {
         var request = new PowerUpUsageAddRequest(PowerUpType.BlackTicket, Instant.FromUtc(2026, 1, 1, 10, 0));
 
@@ -84,12 +98,14 @@ public sealed class PowerUpUsageControllerTests(WebApiTestFixture fixture) : See
             TestCancellationToken
         );
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
     public async ValueTask UpdatePowerUpUsage_NoContent()
     {
+        await PrepareActiveMrXMemberAsync();
+
         var request = new PowerUpUsageUpdateRequest(PowerUpType.BlackTicket, Instant.FromUtc(2026, 1, 1, 10, 30));
 
         var response = await ApiClient.PutAsJsonAsync(
@@ -105,6 +121,8 @@ public sealed class PowerUpUsageControllerTests(WebApiTestFixture fixture) : See
     [Fact]
     public async ValueTask UpdatePowerUpUsage_NotFound()
     {
+        await PrepareActiveMrXMemberAsync();
+
         var request = new PowerUpUsageUpdateRequest(PowerUpType.BlackTicket, Instant.FromUtc(2026, 1, 1, 10, 30));
 
         var response = await ApiClient.PutAsJsonAsync(
@@ -120,6 +138,8 @@ public sealed class PowerUpUsageControllerTests(WebApiTestFixture fixture) : See
     [Fact]
     public async ValueTask DeletePowerUpUsage_NoContent()
     {
+        await PrepareActiveMrXMemberAsync();
+
         var response = await ApiClient.DeleteAsync(
             $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/powerupusages/{SeedData.PowerUpUsageId}",
             TestCancellationToken
@@ -137,6 +157,8 @@ public sealed class PowerUpUsageControllerTests(WebApiTestFixture fixture) : See
     [Fact]
     public async ValueTask DeletePowerUpUsage_NotFound()
     {
+        await PrepareActiveMrXMemberAsync();
+
         var response = await ApiClient.DeleteAsync(
             $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/powerupusages/9999",
             TestCancellationToken

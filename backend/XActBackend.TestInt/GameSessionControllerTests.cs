@@ -105,13 +105,13 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
     }
 
     [Fact]
-    public async ValueTask AddGameSession_BadRequest()
+    public async ValueTask AddGameSession_Conflict_WhenHostAlreadyHasOpenSession()
     {
         var request = new GameSessionAddRequest(SeedData.HostUserId, "Session", "JOIN42");
 
         var response = await ApiClient.PostAsJsonAsync(BaseUrl, request, JsonOptions, TestCancellationToken);
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
     [Fact]

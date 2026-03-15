@@ -21,6 +21,9 @@ public sealed class TeamMemberServiceTests
     private const int DefaultUserId = 10;
 
     private readonly ITeamMemberRepository _teamMemberRepository;
+    private readonly IGameSessionRepository _gameSessionRepository;
+    private readonly ITeamRepository _teamRepository;
+    private readonly IUserRepository _userRepository;
     private readonly TeamMemberService _sut;
     private readonly IUnitOfWork _uow;
     private readonly IClock _clock;
@@ -29,7 +32,13 @@ public sealed class TeamMemberServiceTests
     {
         _uow = Substitute.For<IUnitOfWork>();
         _teamMemberRepository = Substitute.For<ITeamMemberRepository>();
+        _gameSessionRepository = Substitute.For<IGameSessionRepository>();
+        _teamRepository = Substitute.For<ITeamRepository>();
+        _userRepository = Substitute.For<IUserRepository>();
         _uow.TeamMemberRepository.Returns(_teamMemberRepository);
+        _uow.GameSessionRepository.Returns(_gameSessionRepository);
+        _uow.TeamRepository.Returns(_teamRepository);
+        _uow.UserRepository.Returns(_userRepository);
 
         _clock = Substitute.For<IClock>();
         var logger = Substitute.For<ILogger<TeamMemberService>>();
@@ -48,6 +57,41 @@ public sealed class TeamMemberServiceTests
             SessionId = sessionId,
             TeamId = teamId,
             UserId = userId,
+        };
+
+    private static GameSession CreateWaitingSession() =>
+        new()
+        {
+            Id = DefaultSessionId,
+            SessionName = "Waiting Session",
+            JoinCode = "WAIT01",
+            Status = SessionStatus.Waiting,
+        };
+
+    private static GameSession CreateActiveSession() =>
+        new()
+        {
+            Id = DefaultSessionId,
+            SessionName = "Active Session",
+            JoinCode = "ACT001",
+            Status = SessionStatus.Active,
+        };
+
+    private static Team CreateTeam() =>
+        new()
+        {
+            Id = DefaultTeamId,
+            SessionId = DefaultSessionId,
+            TeamName = "Detectives",
+            Role = TeamRole.Detective,
+            ColorCode = "#ff0000",
+        };
+
+    private static User CreateUser(int id = DefaultUserId, bool isDeleted = false) =>
+        new()
+        {
+            Id = id,
+            IsDeleted = isDeleted,
         };
 
     [Fact]
@@ -93,31 +137,154 @@ public sealed class TeamMemberServiceTests
     }
 
     [Fact]
-    internal async ValueTask AddTeamMemberAsync_ReturnsError_WhenNeitherUserIdNorGuestNameProvided()
+    internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenNeitherUserIdNorGuestNameProvided()
     {
         var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, null, null);
 
-        OneOf<TeamMember, Error> result = await _sut.AddTeamMemberAsync(data);
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
 
         result.Switch(
-            teamMember => Assert.Fail("Expected Error but got TeamMember"),
-            error => { /* expected */ }
+            teamMember => Assert.Fail("Expected DomainError but got TeamMember"),
+            notFound => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.InvalidMemberIdentity)
         );
     }
 
     [Fact]
-    internal async ValueTask AddTeamMemberAsync_ReturnsError_WhenUserAlreadyInSession()
+    internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenUserAlreadyInSession()
     {
         var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null);
         var existingMember = CreateMember(2, DefaultSessionId, DefaultTeamId, DefaultUserId);
 
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
         _teamMemberRepository.GetMemberBySessionAndUserIdAsync(DefaultSessionId, DefaultUserId, false).Returns(existingMember);
 
-        OneOf<TeamMember, Error> result = await _sut.AddTeamMemberAsync(data);
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
 
         result.Switch(
-            teamMember => Assert.Fail("Expected Error but got TeamMember"),
-            error => { /* expected */ }
+            teamMember => Assert.Fail("Expected DomainError but got TeamMember"),
+            notFound => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.UserAlreadyJoined)
+        );
+    }
+
+    [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsNotFound_WhenSessionMissing()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?) null);
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got TeamMember"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenSessionNotJoinable()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got TeamMember"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.SessionNotJoinable)
+        );
+    }
+
+    [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsNotFound_WhenTeamMissing()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns((Team?) null);
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got TeamMember"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenTeamNotInSession()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(
+            new Team { Id = DefaultTeamId, SessionId = 99, TeamName = "Other", Role = TeamRole.Detective, ColorCode = "#ffffff" });
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got TeamMember"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.TeamNotInSession)
+        );
+    }
+
+    [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsNotFound_WhenUserMissing()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns((User?) null);
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got TeamMember"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenUserDeleted()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser(DefaultUserId, isDeleted: true));
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got TeamMember"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.UserDeleted)
+        );
+    }
+
+    [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenLeaderAlreadyExists()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null, IsTeamLeader: true);
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _teamMemberRepository.GetMemberBySessionAndUserIdAsync(DefaultSessionId, DefaultUserId, false).Returns((TeamMember?) null);
+        _teamMemberRepository.GetMembersBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, false)
+            .Returns([new TeamMember { Id = 99, IsTeamLeader = true, SessionId = DefaultSessionId, TeamId = DefaultTeamId }]);
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got TeamMember"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.TeamLeaderAlreadyExists)
         );
     }
 
@@ -129,14 +296,19 @@ public sealed class TeamMemberServiceTests
         var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, DefaultUserId);
         member.IsTeamLeader = true;
 
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
         _teamMemberRepository.GetMemberBySessionAndUserIdAsync(DefaultSessionId, DefaultUserId, false).Returns((TeamMember?) null);
+        _teamMemberRepository.GetMembersBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, false).Returns([]);
         _teamMemberRepository.AddTeamMember(DefaultSessionId, DefaultTeamId, DefaultUserId, null, true).Returns(member);
 
-        OneOf<TeamMember, Error> result = await _sut.AddTeamMemberAsync(data);
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
 
         result.Switch(
             teamMember => teamMember.Should().BeEquivalentTo(member),
-            error => Assert.Fail("Expected TeamMember but got Error")
+            notFound => Assert.Fail("Expected TeamMember but got NotFound"),
+            domainError => Assert.Fail("Expected TeamMember but got DomainError")
         );
         member.CurrentLatitude.Should().Be(45.0);
         member.CurrentLongitude.Should().Be(90.0);
@@ -152,11 +324,12 @@ public sealed class TeamMemberServiceTests
 
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, true).Returns(member);
 
-        OneOf<Success, NotFound> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
 
         result.Switch(
             success => Assert.Fail("Expected NotFound but got Success"),
-            notFound => { /* expected */ }
+            notFound => { /* expected */ },
+            domainError => Assert.Fail("Expected NotFound but got DomainError")
         );
     }
 
@@ -169,16 +342,62 @@ public sealed class TeamMemberServiceTests
         _clock.GetCurrentInstant().Returns(now);
 
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, true).Returns(member);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
 
-        OneOf<Success, NotFound> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
 
         result.Switch(
             success => { /* expected */ },
-            notFound => Assert.Fail("Expected Success but got NotFound")
+            notFound => Assert.Fail("Expected Success but got NotFound"),
+            domainError => Assert.Fail("Expected Success but got DomainError")
         );
         member.GuestName.Should().Be("New Guest");
         member.LastUpdated.Should().Be(now);
         await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    internal async ValueTask UpdateTeamMemberAsync_ReturnsDomainError_WhenIdentityIsInvalid()
+    {
+        var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, null);
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, "Guest");
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, true).Returns(member);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.InvalidMemberIdentity)
+        );
+    }
+
+    [Fact]
+    internal async ValueTask UpdateTeamMemberAsync_ReturnsDomainError_WhenLeaderAlreadyExists()
+    {
+        var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, DefaultUserId);
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null, IsTeamLeader: true);
+
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, true).Returns(member);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _teamMemberRepository.GetMemberBySessionAndUserIdAsync(DefaultSessionId, DefaultUserId, false).Returns(member);
+        _teamMemberRepository.GetMembersBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, false)
+            .Returns(
+            [
+                new TeamMember { Id = DefaultMemberId, IsTeamLeader = false, SessionId = DefaultSessionId, TeamId = DefaultTeamId },
+                new TeamMember { Id = 99, IsTeamLeader = true, SessionId = DefaultSessionId, TeamId = DefaultTeamId },
+            ]);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.TeamLeaderAlreadyExists)
+        );
     }
 
     [Fact]

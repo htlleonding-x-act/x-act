@@ -65,11 +65,11 @@ public sealed class GameSessionServiceTests
             CreateSession(2, "Game 2", "JOIN456"),
         ];
 
-    private static User CreateUser(int id = DefaultUserId) =>
+    private static User CreateUser(int id = DefaultUserId, bool isDeleted = false) =>
         new()
         {
             Id = id,
-            IsDeleted = false,
+            IsDeleted = isDeleted,
         };
 
     private static Team CreateTeam(
@@ -125,16 +125,17 @@ public sealed class GameSessionServiceTests
     }
 
     [Fact]
-    public async ValueTask AddGameSessionAsync_ReturnsError_WhenHostUserNotFound()
+    public async ValueTask AddGameSessionAsync_ReturnsNotFound_WhenHostUserNotFound()
     {
         var data = new IGameSessionService.GameSessionData(DefaultUserId, DefaultSessionName, DefaultJoinCode);
         _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns((User?) null);
 
-        OneOf<GameSession, Error> result = await _sut.AddGameSessionAsync(data);
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
 
         result.Switch(
-            session => Assert.Fail("Expected Error but got GameSession"),
-            error => { /* expected */ }
+            session => Assert.Fail("Expected NotFound but got GameSession"),
+            notFound => { /* expected */ },
+            domainError => Assert.Fail("Expected NotFound but got DomainError")
         );
     }
 
@@ -148,16 +149,277 @@ public sealed class GameSessionServiceTests
 
         _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(user);
         _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeAsync(DefaultJoinCode, false).Returns((GameSession?) null);
         _gameSessionRepository.AddGameSession(DefaultUserId, DefaultSessionName, DefaultJoinCode, 60, 5).Returns(session);
         _teamRepository.AddTeam(session.Id, "Game 1 Host", TeamRole.MrX, "#000000").Returns(team);
 
-        OneOf<GameSession, Error> result = await _sut.AddGameSessionAsync(data);
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
 
         result.Switch(
             added => added.Should().BeEquivalentTo(session),
-            error => Assert.Fail("Expected GameSession but got Error")
+            notFound => Assert.Fail("Expected GameSession but got NotFound"),
+            domainError => Assert.Fail("Expected GameSession but got DomainError")
         );
         _teamMemberRepository.Received(1).AddTeamMember(session.Id, team.Id, user.Id, null, true);
         await _uow.Received(3).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask AddGameSessionAsync_ReturnsDomainError_WhenHostUserDeleted()
+    {
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, DefaultSessionName, DefaultJoinCode);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser(DefaultUserId, isDeleted: true));
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got GameSession"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.HostUserDeleted)
+        );
+    }
+
+    [Fact]
+    public async ValueTask AddGameSessionAsync_ReturnsDomainError_WhenHostAlreadyHasActiveSession()
+    {
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, DefaultSessionName, DefaultJoinCode);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false)
+            .Returns(CreateSession(99, "Existing", "EXIST1"));
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got GameSession"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.HostUserAlreadyHasActiveSession)
+        );
+    }
+
+    [Fact]
+    public async ValueTask AddGameSessionAsync_ReturnsDomainError_WhenJoinCodeAlreadyInUse()
+    {
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, DefaultSessionName, DefaultJoinCode);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeAsync(DefaultJoinCode, false)
+            .Returns(CreateSession(2, "Other", DefaultJoinCode));
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got GameSession"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.JoinCodeInUse)
+        );
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
+    {
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, "Updated", "UPD123");
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?) null);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_ReturnsNotFound_WhenHostMissing()
+    {
+        var existing = CreateSession();
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, "Updated", "UPD123");
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns((User?) null);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_ReturnsDomainError_WhenHostDeleted()
+    {
+        var existing = CreateSession();
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, "Updated", "UPD123");
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser(DefaultUserId, isDeleted: true));
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.HostUserDeleted)
+        );
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_ReturnsDomainError_WhenHostHasDifferentActiveSession()
+    {
+        var existing = CreateSession();
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, "Updated", "UPD123");
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns(CreateSession(99, "Existing", "EXIST1"));
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.HostUserAlreadyHasActiveSession)
+        );
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_ReturnsDomainError_WhenJoinCodeAlreadyInUse()
+    {
+        var existing = CreateSession();
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, "Updated", "UPD123");
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeExcludingIdAsync("UPD123", DefaultSessionId, false).Returns(CreateSession(22, "Other", "UPD123"));
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.JoinCodeInUse)
+        );
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_ReturnsDomainError_WhenStatusTransitionInvalid()
+    {
+        var existing = CreateSession();
+        existing.Status = SessionStatus.Finished;
+        var data = new IGameSessionService.GameSessionData(
+            DefaultUserId,
+            "Updated",
+            "UPD123",
+            SessionStatus.Active,
+            StartTime: null,
+            EndTime: null,
+            PlannedDurationMinutes: 45,
+            MrXRevealInterval: 3);
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeExcludingIdAsync("UPD123", DefaultSessionId, false).Returns((GameSession?) null);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.InvalidSessionTransition)
+        );
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_ReturnsSuccess_WhenValid()
+    {
+        var existing = CreateSession();
+        existing.Status = SessionStatus.Waiting;
+        var now = SystemClock.Instance.GetCurrentInstant();
+        var data = new IGameSessionService.GameSessionData(
+            DefaultUserId,
+            "Updated Session",
+            "UPD123",
+            SessionStatus.Active,
+            StartTime: now,
+            EndTime: null,
+            PlannedDurationMinutes: 45,
+            MrXRevealInterval: 4);
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeExcludingIdAsync("UPD123", DefaultSessionId, false).Returns((GameSession?) null);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound"),
+            _ => Assert.Fail("Expected Success but got DomainError")
+        );
+        existing.SessionName.Should().Be("Updated Session");
+        existing.JoinCode.Should().Be("UPD123");
+        existing.Status.Should().Be(SessionStatus.Active);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask DeleteGameSessionAsync_ReturnsNotFound_WhenUnknown()
+    {
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?) null);
+
+        OneOf<Success, NotFound> result = await _sut.DeleteGameSessionAsync(DefaultSessionId, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => { /* expected */ }
+        );
+    }
+
+    [Fact]
+    public async ValueTask DeleteGameSessionAsync_ReturnsSuccess_WhenFound()
+    {
+        var existing = CreateSession();
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+
+        OneOf<Success, NotFound> result = await _sut.DeleteGameSessionAsync(DefaultSessionId, false);
+
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound")
+        );
+        _gameSessionRepository.Received(1).RemoveSession(existing);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask GetGameSessionByJoinCodeAsync_ReturnsNotFound_WhenUnknown()
+    {
+        _gameSessionRepository.GetSessionByJoinCodeAsync(DefaultJoinCode, false).Returns((GameSession?) null);
+
+        OneOf<GameSession, NotFound> result = await _sut.GetGameSessionByJoinCodeAsync(DefaultJoinCode, false);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got GameSession"),
+            _ => { /* expected */ }
+        );
+    }
+
+    [Fact]
+    public async ValueTask GetGameSessionByJoinCodeAsync_ReturnsSession_WhenFound()
+    {
+        var session = CreateSession();
+        _gameSessionRepository.GetSessionByJoinCodeAsync(DefaultJoinCode, false).Returns(session);
+
+        OneOf<GameSession, NotFound> result = await _sut.GetGameSessionByJoinCodeAsync(DefaultJoinCode, false);
+
+        result.Switch(
+            found => found.Should().BeEquivalentTo(session),
+            _ => Assert.Fail("Expected GameSession but got NotFound")
+        );
     }
 }
