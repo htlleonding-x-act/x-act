@@ -15,6 +15,7 @@ public interface IGameSessionRepository
     public ValueTask<IReadOnlyCollection<GameSession>> GetAllSessionsAsync(bool tracking);
     public ValueTask<GameSession?> GetSessionByIdAsync(int id, bool tracking);
     public ValueTask<GameSession?> GetSessionByJoinCodeAsync(string joinCode, bool tracking);
+    public ValueTask<GameSession?> GetSessionByJoinCodeExcludingIdAsync(string joinCode, int excludedSessionId, bool tracking);
     public ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(int hostUserId, bool tracking);
     public void RemoveSession(GameSession session);
 }
@@ -69,6 +70,13 @@ internal sealed class GameSessionRepository(DbSet<GameSession> sessionSet) : IGa
         IQueryable<GameSession> source = tracking ? Sessions : SessionsNoTracking;
 
         return await source.FirstOrDefaultAsync(s => s.JoinCode == joinCode);
+    }
+
+    public async ValueTask<GameSession?> GetSessionByJoinCodeExcludingIdAsync(string joinCode, int excludedSessionId, bool tracking)
+    {
+        IQueryable<GameSession> source = tracking ? Sessions : SessionsNoTracking;
+
+        return await source.FirstOrDefaultAsync(s => s.JoinCode == joinCode && s.Id != excludedSessionId);
     }
 
     public async ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(int hostUserId, bool tracking)

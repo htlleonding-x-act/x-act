@@ -8,6 +8,7 @@ public interface ITeamRepository
     public Team AddTeam(int sessionId, string teamName, TeamRole role, string colorCode);
     public ValueTask<IReadOnlyCollection<Team>> GetTeamsBySessionIdAsync(int sessionId, bool tracking);
     public ValueTask<Team?> GetTeamByIdAsync(int id, bool tracking);
+    public ValueTask<Team?> GetTeamBySessionAndRoleAsync(int sessionId, TeamRole role, bool tracking);
     public void RemoveTeam(Team team);
 }
 
@@ -47,6 +48,13 @@ internal sealed class TeamRepository(DbSet<Team> teamSet) : ITeamRepository
         IQueryable<Team> source = tracking ? Teams : TeamsNoTracking;
 
         return await source.FirstOrDefaultAsync(t => t.Id == id);
+    }
+
+    public async ValueTask<Team?> GetTeamBySessionAndRoleAsync(int sessionId, TeamRole role, bool tracking)
+    {
+        IQueryable<Team> source = tracking ? Teams : TeamsNoTracking;
+
+        return await source.FirstOrDefaultAsync(t => t.SessionId == sessionId && t.Role == role);
     }
 
     public void RemoveTeam(Team team)

@@ -9,8 +9,8 @@ public interface IGameSessionService
 {
     public ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking);
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(int sessionId, bool tracking);
-    public ValueTask<OneOf<GameSession, Error>> AddGameSessionAsync(GameSessionData newGameSession);
-    public ValueTask<OneOf<Success, NotFound>> UpdateGameSessionAsync(int sessionId, GameSessionData gameSessionData, bool tracking);
+    public ValueTask<OneOf<GameSession, NotFound, DomainError>> AddGameSessionAsync(GameSessionData newGameSession);
+    public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateGameSessionAsync(int sessionId, GameSessionData gameSessionData, bool tracking);
     public ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(int sessionId, bool tracking);
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByJoinCodeAsync(string joinCode, bool tracking);
 
@@ -41,20 +41,38 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
         return gameSession is not null ? gameSession : new NotFound();
     }
 
-    public async ValueTask<OneOf<GameSession, Error>> AddGameSessionAsync(IGameSessionService.GameSessionData newGameSession)
+    public async ValueTask<OneOf<GameSession, NotFound, DomainError>> AddGameSessionAsync(IGameSessionService.GameSessionData newGameSession)
     {
         try
         {
             var hostUser = await uow.UserRepository.GetUserByIdAsync(newGameSession.HostUserId, tracking: false);
-            if (hostUser is null || hostUser.IsDeleted)
+            if (hostUser is null)
             {
-                return new Error();
+                logger.LogWarning("Rejected session creation for missing host user {HostUserId}", newGameSession.HostUserId);
+                return new NotFound();
+            }
+
+            if (hostUser.IsDeleted)
+            {
+                logger.LogWarning("Rejected session creation because host user {HostUserId} is deleted", newGameSession.HostUserId);
+                return DomainError.HostUserDeleted(newGameSession.HostUserId);
             }
 
             var existingActiveSession = await uow.GameSessionRepository.GetActiveSessionByHostUserIdAsync(newGameSession.HostUserId, tracking: false);
             if (existingActiveSession is not null)
             {
-                return new Error();
+                logger.LogWarning(
+                    "Rejected session creation for host user {HostUserId} because session {ExistingSessionId} is still open",
+                    newGameSession.HostUserId,
+                    existingActiveSession.Id);
+                return DomainError.HostUserAlreadyHasActiveSession(newGameSession.HostUserId);
+            }
+
+            var sessionWithJoinCode = await uow.GameSessionRepository.GetSessionByJoinCodeAsync(newGameSession.JoinCode, tracking: false);
+            if (sessionWithJoinCode is not null)
+            {
+                logger.LogWarning("Rejected session creation because join code {JoinCode} is already in use", newGameSession.JoinCode);
+                return DomainError.JoinCodeInUse(newGameSession.JoinCode);
             }
 
             var gameSession = uow.GameSessionRepository.AddGameSession(
@@ -71,6 +89,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
 
             await uow.SaveChangesAsync();
 
+            logger.LogInformation("Created game session {SessionId} with host user {HostUserId}", gameSession.Id, gameSession.HostUserId);
+
             var hostTeam = uow.TeamRepository.AddTeam(
                 gameSession.Id,
                 $"{newGameSession.SessionName} Host",
@@ -79,6 +99,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
             );
 
             await uow.SaveChangesAsync();
+
+            logger.LogInformation("Created default host team {TeamId} for session {SessionId}", hostTeam.Id, gameSession.Id);
 
             uow.TeamMemberRepository.AddTeamMember(
                 gameSession.Id,
@@ -90,22 +112,65 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
 
             await uow.SaveChangesAsync();
 
+            logger.LogInformation("Created default host member for session {SessionId} and team {TeamId}", gameSession.Id, hostTeam.Id);
+
             return gameSession;
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to add game session {SessionName} for host {HostUserId}", newGameSession.SessionName, newGameSession.HostUserId);
-            return new Error();
+            throw;
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateGameSessionAsync(int sessionId, IGameSessionService.GameSessionData gameSessionData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound, DomainError>> UpdateGameSessionAsync(int sessionId, IGameSessionService.GameSessionData gameSessionData, bool tracking)
     {
         var gameSession = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking);
 
         if (gameSession is null)
         {
             return new NotFound();
+        }
+
+        var hostUser = await uow.UserRepository.GetUserByIdAsync(gameSessionData.HostUserId, tracking: false);
+        if (hostUser is null)
+        {
+            logger.LogWarning("Rejected update for session {SessionId} because host user {HostUserId} does not exist", sessionId, gameSessionData.HostUserId);
+            return new NotFound();
+        }
+
+        if (hostUser.IsDeleted)
+        {
+            logger.LogWarning("Rejected update for session {SessionId} because host user {HostUserId} is deleted", sessionId, gameSessionData.HostUserId);
+            return DomainError.HostUserDeleted(gameSessionData.HostUserId);
+        }
+
+        var conflictingSession = await uow.GameSessionRepository.GetActiveSessionByHostUserIdAsync(gameSessionData.HostUserId, tracking: false);
+        if (conflictingSession is not null && conflictingSession.Id != sessionId)
+        {
+            logger.LogWarning(
+                "Rejected update for session {SessionId} because host user {HostUserId} already owns open session {ExistingSessionId}",
+                sessionId,
+                gameSessionData.HostUserId,
+                conflictingSession.Id);
+            return DomainError.HostUserAlreadyHasActiveSession(gameSessionData.HostUserId);
+        }
+
+        var existingJoinCode = await uow.GameSessionRepository.GetSessionByJoinCodeExcludingIdAsync(gameSessionData.JoinCode, sessionId, tracking: false);
+        if (existingJoinCode is not null)
+        {
+            logger.LogWarning("Rejected update for session {SessionId} because join code {JoinCode} is already in use", sessionId, gameSessionData.JoinCode);
+            return DomainError.JoinCodeInUse(gameSessionData.JoinCode);
+        }
+
+        if (!IsValidStatusTransition(gameSession.Status, gameSessionData.Status))
+        {
+            logger.LogWarning(
+                "Rejected update for session {SessionId} because status transition {CurrentStatus}->{RequestedStatus} is invalid",
+                sessionId,
+                gameSession.Status,
+                gameSessionData.Status);
+            return DomainError.InvalidSessionTransition(gameSession.Status, gameSessionData.Status);
         }
 
         gameSession.HostUserId = gameSessionData.HostUserId;
@@ -118,6 +183,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
         gameSession.MrXRevealInterval = gameSessionData.MrXRevealInterval;
 
         await uow.SaveChangesAsync();
+
+        logger.LogInformation("Updated game session {SessionId} to status {Status}", sessionId, gameSession.Status);
 
         return new Success();
     }
@@ -134,6 +201,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
         uow.GameSessionRepository.RemoveSession(gameSession);
         await uow.SaveChangesAsync();
 
+        logger.LogInformation("Deleted game session {SessionId}", sessionId);
+
         return new Success();
     }
 
@@ -143,4 +212,13 @@ internal sealed class GameSessionService(IUnitOfWork uow, ILogger<GameSessionSer
 
         return gameSession is not null ? gameSession : new NotFound();
     }
+
+    private static bool IsValidStatusTransition(SessionStatus currentStatus, SessionStatus requestedStatus) =>
+        currentStatus switch
+        {
+            SessionStatus.Waiting => requestedStatus is SessionStatus.Waiting or SessionStatus.Active,
+            SessionStatus.Active => requestedStatus is SessionStatus.Active or SessionStatus.Finished,
+            SessionStatus.Finished => requestedStatus == SessionStatus.Finished,
+            _ => false,
+        };
 }
