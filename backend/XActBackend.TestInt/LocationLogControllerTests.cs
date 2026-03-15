@@ -10,13 +10,13 @@ namespace XActBackend.TestInt;
 
 public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : SeededWebApiTestBase(fixture)
 {
-    private const string BaseUrl = "api/teammembers";
+    private const string BaseUrl = "api/gamesessions";
 
     [Fact]
     public async ValueTask GetAllLocationLogs_ReturnsList()
     {
         var response = await ApiClient.GetAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs",
             TestCancellationToken
         );
 
@@ -31,7 +31,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     public async ValueTask GetLocationLogById_ReturnsLog()
     {
         var response = await ApiClient.GetAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogOneId}",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogOneId}",
             TestCancellationToken
         );
 
@@ -45,7 +45,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     public async ValueTask GetLocationLogById_NotFound()
     {
         var response = await ApiClient.GetAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs/9999",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/9999",
             TestCancellationToken
         );
 
@@ -65,7 +65,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
         );
 
         var response = await ApiClient.PostAsJsonAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs",
             request,
             JsonOptions,
             TestCancellationToken
@@ -92,7 +92,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
         );
 
         var response = await ApiClient.PostAsJsonAsync(
-            $"{BaseUrl}/9999/locationlogs",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/9999/locationlogs",
             request,
             JsonOptions,
             TestCancellationToken
@@ -114,7 +114,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
         );
 
         var response = await ApiClient.PutAsJsonAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogOneId}",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogOneId}",
             request,
             JsonOptions,
             TestCancellationToken
@@ -136,7 +136,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
         );
 
         var response = await ApiClient.PutAsJsonAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs/9999",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/9999",
             request,
             JsonOptions,
             TestCancellationToken
@@ -149,14 +149,14 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     public async ValueTask DeleteLocationLog_NoContent()
     {
         var response = await ApiClient.DeleteAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogTwoId}",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogTwoId}",
             TestCancellationToken
         );
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         var deletedCheck = await ApiClient.GetAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogTwoId}",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/{SeedData.LocationLogTwoId}",
             TestCancellationToken
         );
         deletedCheck.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -166,7 +166,7 @@ public sealed class LocationLogControllerTests(WebApiTestFixture fixture) : Seed
     public async ValueTask DeleteLocationLog_NotFound()
     {
         var response = await ApiClient.DeleteAsync(
-            $"{BaseUrl}/{SeedData.DetectiveMemberId}/locationlogs/9999",
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.DetectiveMemberId}/locationlogs/9999",
             TestCancellationToken
         );
 
