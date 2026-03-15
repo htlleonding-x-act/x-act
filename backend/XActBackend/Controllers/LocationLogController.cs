@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Services;
@@ -10,7 +11,7 @@ namespace XActBackend.Controllers;
 
 // TODO Review tracking usage
 
-[Route("api/teammembers/{memberId:int}/locationlogs")]
+[Route("api/gamesessions/{sessionId:int}/teams/{teamId:int}/members/{memberId:int}/locationlogs")]
 public sealed class LocationLogController(
     ITransactionProvider transaction,
     ILocationLogService locationLogService,
@@ -19,9 +20,12 @@ public sealed class LocationLogController(
     [HttpGet]
     [Route("")]
     [ProducesResponseType<LocationLogListResponse>(StatusCodes.Status200OK)]
-    public async ValueTask<ActionResult<LocationLogListResponse>> GetAllLocationLogs([FromRoute] int memberId)
+    public async ValueTask<ActionResult<LocationLogListResponse>> GetAllLocationLogs(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
+        [FromRoute] int memberId)
     {
-        IReadOnlyCollection<LocationLog> locationLogs = await locationLogService.GetLogsByMemberIdAsync(memberId, tracking: false);
+        IReadOnlyCollection<LocationLog> locationLogs = await locationLogService.GetLogsByMemberIdAsync(sessionId, teamId, memberId, tracking: false);
 
         return Ok(new LocationLogListResponse
         {
@@ -34,10 +38,12 @@ public sealed class LocationLogController(
     [ProducesResponseType<LocationLogDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<ActionResult<LocationLogDetailsDto>> GetLocationLogById(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromRoute] int logId)
     {
-        OneOf<LocationLog, NotFound> logResult = await locationLogService.GetLocationLogByIdAsync(memberId, logId, tracking: false);
+        OneOf<LocationLog, NotFound> logResult = await locationLogService.GetLocationLogByIdAsync(sessionId, teamId, memberId, logId, tracking: false);
 
         return logResult.Match<ActionResult<LocationLogDetailsDto>>(
             locationLog => Ok(LocationLogDetailsDto.FromLocationLog(locationLog)),
@@ -50,9 +56,16 @@ public sealed class LocationLogController(
     [ProducesResponseType<LocationLogDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async ValueTask<IActionResult> AddLocationLog(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromBody] LocationLogAddRequest addRequest)
     {
+        if (!ValidateRequest<LocationLogAddRequest.Validator, LocationLogAddRequest>(addRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -74,7 +87,7 @@ public sealed class LocationLogController(
                 await transaction.CommitAsync();
 
                 return CreatedAtAction(nameof(GetLocationLogById),
-                    new { memberId, logId = locationLog.Id },
+                    new { sessionId, teamId, memberId, logId = locationLog.Id },
                     LocationLogDetailsDto.FromLocationLog(locationLog));
             }, async error =>
             {
@@ -97,15 +110,25 @@ public sealed class LocationLogController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> UpdateLocationLog(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromRoute] int logId,
         [FromBody] LocationLogUpdateRequest updateRequest)
     {
+        if (!ValidateRequest<LocationLogUpdateRequest.Validator, LocationLogUpdateRequest>(updateRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
 
             OneOf<Success, NotFound> updateResult = await locationLogService.UpdateLocationLogAsync(
+                sessionId,
+                teamId,
+                memberId,
                 logId,
                 new ILocationLogService.LocationLogData(
                     memberId,
@@ -145,6 +168,8 @@ public sealed class LocationLogController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> DeleteLocationLog(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromRoute] int logId)
     {
@@ -152,7 +177,7 @@ public sealed class LocationLogController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> deleteResult = await locationLogService.DeleteLocationLogAsync(memberId, logId, tracking: true);
+            OneOf<Success, NotFound> deleteResult = await locationLogService.DeleteLocationLogAsync(sessionId, teamId, memberId, logId, tracking: true);
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
@@ -230,7 +255,19 @@ public sealed record LocationLogAddRequest(
     double AccuracyMeters,
     TransportMode TransportMode,
     bool IsRevealedPosition = false
-);
+)
+{
+    public sealed class Validator : AbstractValidator<LocationLogAddRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
+            RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
+            RuleFor(x => x.AccuracyMeters).GreaterThanOrEqualTo(0);
+            RuleFor(x => x.TransportMode).IsInEnum();
+        }
+    }
+}
 
 public sealed record LocationLogUpdateRequest(
     Instant Timestamp,
@@ -239,4 +276,16 @@ public sealed record LocationLogUpdateRequest(
     double AccuracyMeters,
     TransportMode TransportMode,
     bool IsRevealedPosition
-);
+)
+{
+    public sealed class Validator : AbstractValidator<LocationLogUpdateRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
+            RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
+            RuleFor(x => x.AccuracyMeters).GreaterThanOrEqualTo(0);
+            RuleFor(x => x.TransportMode).IsInEnum();
+        }
+    }
+}

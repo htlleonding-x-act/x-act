@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Services;
@@ -63,6 +64,11 @@ public sealed class GameSessionController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async ValueTask<IActionResult> AddGameSession([FromBody] GameSessionAddRequest addRequest)
     {
+        if (!ValidateRequest<GameSessionAddRequest.Validator, GameSessionAddRequest>(addRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -110,6 +116,11 @@ public sealed class GameSessionController(
         [FromRoute] int sessionId,
         [FromBody] GameSessionUpdateRequest updateRequest)
     {
+        if (!ValidateRequest<GameSessionUpdateRequest.Validator, GameSessionUpdateRequest>(updateRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -244,7 +255,21 @@ public sealed record GameSessionAddRequest(
     Instant? EndTime = null,
     int PlannedDurationMinutes = 60,
     int MrXRevealInterval = 5
-);
+)
+{
+    public sealed class Validator : AbstractValidator<GameSessionAddRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.HostUserId).GreaterThan(0);
+            RuleFor(x => x.SessionName).NotEmpty().MaximumLength(120);
+            RuleFor(x => x.JoinCode).NotEmpty().Length(6);
+            RuleFor(x => x.Status).IsInEnum();
+            RuleFor(x => x.PlannedDurationMinutes).GreaterThan(0);
+            RuleFor(x => x.MrXRevealInterval).GreaterThan(0);
+        }
+    }
+}
 
 public sealed record GameSessionUpdateRequest(
     int HostUserId,
@@ -255,4 +280,18 @@ public sealed record GameSessionUpdateRequest(
     Instant? EndTime,
     int PlannedDurationMinutes,
     int MrXRevealInterval
-);
+)
+{
+    public sealed class Validator : AbstractValidator<GameSessionUpdateRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.HostUserId).GreaterThan(0);
+            RuleFor(x => x.SessionName).NotEmpty().MaximumLength(120);
+            RuleFor(x => x.JoinCode).NotEmpty().Length(6);
+            RuleFor(x => x.Status).IsInEnum();
+            RuleFor(x => x.PlannedDurationMinutes).GreaterThan(0);
+            RuleFor(x => x.MrXRevealInterval).GreaterThan(0);
+        }
+    }
+}

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Services;
@@ -53,6 +54,11 @@ public sealed class GeofencePointController(
         [FromRoute] int sessionId,
         [FromBody] GeofencePointAddRequest addRequest)
     {
+        if (!ValidateRequest<GeofencePointAddRequest.Validator, GeofencePointAddRequest>(addRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -98,6 +104,11 @@ public sealed class GeofencePointController(
         [FromRoute] int pointId,
         [FromBody] GeofencePointUpdateRequest updateRequest)
     {
+        if (!ValidateRequest<GeofencePointUpdateRequest.Validator, GeofencePointUpdateRequest>(updateRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -213,10 +224,32 @@ public sealed record GeofencePointAddRequest(
     double Latitude,
     double Longitude,
     int SequenceOrder
-);
+)
+{
+    public sealed class Validator : AbstractValidator<GeofencePointAddRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
+            RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
+            RuleFor(x => x.SequenceOrder).GreaterThanOrEqualTo(0);
+        }
+    }
+}
 
 public sealed record GeofencePointUpdateRequest(
     double Latitude,
     double Longitude,
     int SequenceOrder
-);
+)
+{
+    public sealed class Validator : AbstractValidator<GeofencePointUpdateRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
+            RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
+            RuleFor(x => x.SequenceOrder).GreaterThanOrEqualTo(0);
+        }
+    }
+}

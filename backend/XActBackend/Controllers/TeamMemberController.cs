@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Services;
@@ -55,6 +56,11 @@ public sealed class TeamMemberController(
         [FromRoute] int teamId,
         [FromBody] TeamMemberAddRequest addRequest)
     {
+        if (!ValidateRequest<TeamMemberAddRequest.Validator, TeamMemberAddRequest>(addRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -102,6 +108,11 @@ public sealed class TeamMemberController(
         [FromRoute] int memberId,
         [FromBody] TeamMemberUpdateRequest updateRequest)
     {
+        if (!ValidateRequest<TeamMemberUpdateRequest.Validator, TeamMemberUpdateRequest>(updateRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -209,7 +220,22 @@ public sealed record TeamMemberAddRequest(
     double? CurrentLatitude = null,
     double? CurrentLongitude = null,
     Instant? LastUpdated = null
-);
+)
+{
+    public sealed class Validator : AbstractValidator<TeamMemberAddRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.UserId).GreaterThan(0).When(x => x.UserId.HasValue);
+            RuleFor(x => x.GuestName).MaximumLength(50).When(x => !string.IsNullOrWhiteSpace(x.GuestName));
+            RuleFor(x => x).Must(x => (x.UserId.HasValue && string.IsNullOrWhiteSpace(x.GuestName))
+                                  || (!x.UserId.HasValue && !string.IsNullOrWhiteSpace(x.GuestName)))
+                          .WithMessage("Either UserId or GuestName must be set, but not both.");
+            RuleFor(x => x.CurrentLatitude).InclusiveBetween(-90, 90).When(x => x.CurrentLatitude.HasValue);
+            RuleFor(x => x.CurrentLongitude).InclusiveBetween(-180, 180).When(x => x.CurrentLongitude.HasValue);
+        }
+    }
+}
 
 public sealed record TeamMemberUpdateRequest(
     int? UserId,
@@ -218,4 +244,19 @@ public sealed record TeamMemberUpdateRequest(
     double? CurrentLatitude,
     double? CurrentLongitude,
     Instant? LastUpdated
-);
+)
+{
+    public sealed class Validator : AbstractValidator<TeamMemberUpdateRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.UserId).GreaterThan(0).When(x => x.UserId.HasValue);
+            RuleFor(x => x.GuestName).MaximumLength(50).When(x => !string.IsNullOrWhiteSpace(x.GuestName));
+            RuleFor(x => x).Must(x => (x.UserId.HasValue && string.IsNullOrWhiteSpace(x.GuestName))
+                                  || (!x.UserId.HasValue && !string.IsNullOrWhiteSpace(x.GuestName)))
+                          .WithMessage("Either UserId or GuestName must be set, but not both.");
+            RuleFor(x => x.CurrentLatitude).InclusiveBetween(-90, 90).When(x => x.CurrentLatitude.HasValue);
+            RuleFor(x => x.CurrentLongitude).InclusiveBetween(-180, 180).When(x => x.CurrentLongitude.HasValue);
+        }
+    }
+}

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Services;
@@ -49,6 +50,11 @@ public sealed class UserController(
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async ValueTask<IActionResult> AddUser([FromBody] UserAddRequest addRequest)
     {
+        if (!ValidateRequest<UserAddRequest.Validator, UserAddRequest>(addRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -94,6 +100,11 @@ public sealed class UserController(
         [FromRoute] int userId,
         [FromBody] UserUpdateRequest updateRequest)
     {
+        if (!ValidateRequest<UserUpdateRequest.Validator, UserUpdateRequest>(updateRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -216,7 +227,20 @@ public sealed record UserAddRequest(
     Instant? SubscriptionEndDate = null,
     int TotalWins = 0,
     int TotalGamesPlayed = 0
-);
+)
+{
+    public sealed class Validator : AbstractValidator<UserAddRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Username).NotEmpty().MaximumLength(50);
+            RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(100);
+            RuleFor(x => x.AccountType).IsInEnum();
+            RuleFor(x => x.TotalWins).GreaterThanOrEqualTo(0);
+            RuleFor(x => x.TotalGamesPlayed).GreaterThanOrEqualTo(0);
+        }
+    }
+}
 
 public sealed record UserUpdateRequest(
     string Username,
@@ -225,4 +249,17 @@ public sealed record UserUpdateRequest(
     Instant? SubscriptionEndDate,
     int TotalWins,
     int TotalGamesPlayed
-);
+)
+{
+    public sealed class Validator : AbstractValidator<UserUpdateRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Username).NotEmpty().MaximumLength(50);
+            RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(100);
+            RuleFor(x => x.AccountType).IsInEnum();
+            RuleFor(x => x.TotalWins).GreaterThanOrEqualTo(0);
+            RuleFor(x => x.TotalGamesPlayed).GreaterThanOrEqualTo(0);
+        }
+    }
+}

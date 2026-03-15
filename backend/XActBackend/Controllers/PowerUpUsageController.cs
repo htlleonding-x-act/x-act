@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Services;
@@ -10,7 +11,7 @@ namespace XActBackend.Controllers;
 
 // TODO Review tracking usage
 
-[Route("api/teammembers/{memberId:int}/powerupusages")]
+[Route("api/gamesessions/{sessionId:int}/teams/{teamId:int}/members/{memberId:int}/powerupusages")]
 public sealed class PowerUpUsageController(
     ITransactionProvider transaction,
     IPowerUpUsageService powerUpUsageService,
@@ -19,9 +20,12 @@ public sealed class PowerUpUsageController(
     [HttpGet]
     [Route("")]
     [ProducesResponseType<PowerUpUsageListResponse>(StatusCodes.Status200OK)]
-    public async ValueTask<ActionResult<PowerUpUsageListResponse>> GetAllPowerUpUsages([FromRoute] int memberId)
+    public async ValueTask<ActionResult<PowerUpUsageListResponse>> GetAllPowerUpUsages(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
+        [FromRoute] int memberId)
     {
-        IReadOnlyCollection<PowerUpUsage> usages = await powerUpUsageService.GetUsagesByMemberIdAsync(memberId, tracking: false);
+        IReadOnlyCollection<PowerUpUsage> usages = await powerUpUsageService.GetUsagesByMemberIdAsync(sessionId, teamId, memberId, tracking: false);
 
         return Ok(new PowerUpUsageListResponse
         {
@@ -34,10 +38,12 @@ public sealed class PowerUpUsageController(
     [ProducesResponseType<PowerUpUsageDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<ActionResult<PowerUpUsageDto>> GetPowerUpUsageById(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromRoute] int usageId)
     {
-        OneOf<PowerUpUsage, NotFound> usageResult = await powerUpUsageService.GetPowerUpUsageByIdAsync(memberId, usageId, tracking: false);
+        OneOf<PowerUpUsage, NotFound> usageResult = await powerUpUsageService.GetPowerUpUsageByIdAsync(sessionId, teamId, memberId, usageId, tracking: false);
 
         return usageResult.Match<ActionResult<PowerUpUsageDto>>(
             usage => Ok(PowerUpUsageDto.FromPowerUpUsage(usage)),
@@ -50,9 +56,16 @@ public sealed class PowerUpUsageController(
     [ProducesResponseType<PowerUpUsageDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async ValueTask<IActionResult> AddPowerUpUsage(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromBody] PowerUpUsageAddRequest addRequest)
     {
+        if (!ValidateRequest<PowerUpUsageAddRequest.Validator, PowerUpUsageAddRequest>(addRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -70,7 +83,7 @@ public sealed class PowerUpUsageController(
                 await transaction.CommitAsync();
 
                 return CreatedAtAction(nameof(GetPowerUpUsageById),
-                    new { memberId, usageId = usage.Id },
+                    new { sessionId, teamId, memberId, usageId = usage.Id },
                     PowerUpUsageDto.FromPowerUpUsage(usage));
             }, async error =>
             {
@@ -93,15 +106,25 @@ public sealed class PowerUpUsageController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> UpdatePowerUpUsage(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromRoute] int usageId,
         [FromBody] PowerUpUsageUpdateRequest updateRequest)
     {
+        if (!ValidateRequest<PowerUpUsageUpdateRequest.Validator, PowerUpUsageUpdateRequest>(updateRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
 
             OneOf<Success, NotFound> updateResult = await powerUpUsageService.UpdatePowerUpUsageAsync(
+                sessionId,
+                teamId,
+                memberId,
                 usageId,
                 new IPowerUpUsageService.PowerUpUsageData(
                     memberId,
@@ -137,6 +160,8 @@ public sealed class PowerUpUsageController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> DeletePowerUpUsage(
+        [FromRoute] int sessionId,
+        [FromRoute] int teamId,
         [FromRoute] int memberId,
         [FromRoute] int usageId)
     {
@@ -144,7 +169,7 @@ public sealed class PowerUpUsageController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound> deleteResult = await powerUpUsageService.DeletePowerUpUsageAsync(memberId, usageId, tracking: true);
+            OneOf<Success, NotFound> deleteResult = await powerUpUsageService.DeletePowerUpUsageAsync(sessionId, teamId, memberId, usageId, tracking: true);
 
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
@@ -192,9 +217,27 @@ public sealed record PowerUpUsageDto(
 public sealed record PowerUpUsageAddRequest(
     PowerUpType PowerUpType,
     Instant UsedAt
-);
+)
+{
+    public sealed class Validator : AbstractValidator<PowerUpUsageAddRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.PowerUpType).IsInEnum();
+        }
+    }
+}
 
 public sealed record PowerUpUsageUpdateRequest(
     PowerUpType PowerUpType,
     Instant UsedAt
-);
+)
+{
+    public sealed class Validator : AbstractValidator<PowerUpUsageUpdateRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.PowerUpType).IsInEnum();
+        }
+    }
+}

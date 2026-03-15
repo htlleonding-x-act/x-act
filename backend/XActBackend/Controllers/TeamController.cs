@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using FluentValidation;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Services;
@@ -53,6 +54,11 @@ public sealed class TeamController(
         [FromRoute] int sessionId,
         [FromBody] TeamAddRequest addRequest)
     {
+        if (!ValidateRequest<TeamAddRequest.Validator, TeamAddRequest>(addRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -96,6 +102,11 @@ public sealed class TeamController(
         [FromRoute] int teamId,
         [FromBody] TeamUpdateRequest updateRequest)
     {
+        if (!ValidateRequest<TeamUpdateRequest.Validator, TeamUpdateRequest>(updateRequest))
+        {
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -181,6 +192,28 @@ public sealed record TeamDetailsDto(int Id, int SessionId, string TeamName, Team
         new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode, team.IsCaught);
 }
 
-public sealed record TeamAddRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught = false);
+public sealed record TeamAddRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught = false)
+{
+    public sealed class Validator : AbstractValidator<TeamAddRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.TeamName).NotEmpty().MaximumLength(50);
+            RuleFor(x => x.Role).IsInEnum();
+            RuleFor(x => x.ColorCode).Matches("^#[0-9A-Fa-f]{6}$");
+        }
+    }
+}
 
-public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught);
+public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught)
+{
+    public sealed class Validator : AbstractValidator<TeamUpdateRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.TeamName).NotEmpty().MaximumLength(50);
+            RuleFor(x => x.Role).IsInEnum();
+            RuleFor(x => x.ColorCode).Matches("^#[0-9A-Fa-f]{6}$");
+        }
+    }
+}
