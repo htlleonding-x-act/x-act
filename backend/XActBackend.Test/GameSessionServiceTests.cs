@@ -156,6 +156,6 @@ public sealed class GameSessionServiceTests
             error => Assert.Fail("Expected GameSession but got Error")
         );
         _teamMemberRepository.Received(1).AddTeamMember(session.Id, team.Id, user.Id, null, true);
-        await _uow.Received(1).SaveChangesAsync();
+        await _uow.Received(3).SaveChangesAsync();
     }
 }

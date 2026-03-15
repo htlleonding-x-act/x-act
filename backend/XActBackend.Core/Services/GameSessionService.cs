@@ -32,7 +32,7 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
 
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking)
-        =>  await uow.GameSessionRepository.GetAllSessionsAsync(tracking);
+        => await uow.GameSessionRepository.GetAllSessionsAsync(tracking);
 
     public async ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(int sessionId, bool tracking)
     {
@@ -69,12 +69,16 @@ internal sealed class GameSessionService(IUnitOfWork uow) : IGameSessionService
             gameSession.StartTime = newGameSession.StartTime;
             gameSession.EndTime = newGameSession.EndTime;
 
+            await uow.SaveChangesAsync();
+
             var hostTeam = uow.TeamRepository.AddTeam(
                 gameSession.Id,
                 $"{newGameSession.SessionName} Host",
                 TeamRole.MrX,
                 HostTeamColor
             );
+
+            await uow.SaveChangesAsync();
 
             uow.TeamMemberRepository.AddTeamMember(
                 gameSession.Id,
