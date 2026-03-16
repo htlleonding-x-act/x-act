@@ -75,6 +75,39 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     setState(() => _draggingIndex = -1);
   }
 
+  void _showDeleteDialog(int index) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF252A3A),
+        title: Text(
+          'Delete point ${index + 1}?',
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true && mounted) {
+        setState(() => _points.removeAt(index));
+      }
+    });
+  }
+
   void _undoLast() {
     if (_points.isEmpty) return;
     setState(() => _points.removeLast());
@@ -250,6 +283,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
                         onPanStart: (_) => _onMarkerDragStart(i),
                         onPanUpdate: (d) => _onMarkerDragUpdate(i, d),
                         onPanEnd: (_) => _onMarkerDragEnd(),
+                        onLongPress: () => _showDeleteDialog(i),
+                        onSecondaryTap: () => _showDeleteDialog(i),
                         child: _PointMarker(
                           index: i + 1,
                           isDragging: _draggingIndex == i,
