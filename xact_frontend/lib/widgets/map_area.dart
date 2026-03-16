@@ -4,13 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import '../api/api_service.dart';
+import '../services/geofence_store.dart';
 import '../services/location_service.dart';
 import 'map_header.dart';
 import 'map_legend.dart';
 
 class MapArea extends StatefulWidget {
-  const MapArea({super.key});
+  final VoidCallback? onFullscreenToggle;
+  final bool isFullscreen;
+
+  const MapArea({
+    super.key,
+    this.onFullscreenToggle,
+    this.isFullscreen = false,
+  });
 
   @override
   State<MapArea> createState() => _MapAreaState();
@@ -27,6 +34,9 @@ class _MapAreaState extends State<MapArea> {
 
   // When true, the map auto-pans to follow the player's GPS position.
   bool _followMode = true;
+
+  // When true, the control buttons are expanded (burger menu open).
+  bool _showControls = false;
 
   StreamSubscription<Position>? _positionSub;
 
@@ -63,7 +73,9 @@ class _MapAreaState extends State<MapArea> {
   void initState() {
     super.initState();
     _startListeningToGps();
-    _loadGeofence();
+    // Load geofence from the local store set by the host during lobby setup.
+    final pts = GeofenceStore.instance.points;
+    _geofencePoints = pts.length >= 3 ? List.of(pts) : [];
   }
 
   @override
@@ -99,35 +111,6 @@ class _MapAreaState extends State<MapArea> {
         _mapController.move(latLng, _mapController.camera.zoom);
       }
     });
-  }
-
-  /// Loads the geofence polygon for the active session from the backend.
-  Future<void> _loadGeofence() async {
-    try {
-      final sessionId = await ApiService.instance.getActiveSessionId();
-      if (sessionId == null || !mounted) return;
-      final points = await ApiService.instance.loadGeofencePoints(sessionId);
-      if (!mounted) return;
-      // Only show the polygon when there are at least 3 valid points.
-      final latLngs = points
-          .map((p) => LatLng(p.latitude, p.longitude))
-          .toList();
-      setState(() {
-        _geofencePoints = latLngs.length >= 3 ? latLngs : [];
-        // Re-evaluate out-of-bounds with the freshly loaded polygon.
-        if (_myPosition != null) {
-          _isOutOfBounds = _checkOutOfBounds(_myPosition!);
-        }
-      });
-    } catch (_) {
-      // Network unavailable or no session – start without a geofence.
-      if (mounted) {
-        setState(() {
-          _geofencePoints = [];
-          _isOutOfBounds = false;
-        });
-      }
-    }
   }
 
   /// Returns true when [point] lies outside the [_geofencePoints] polygon.
@@ -330,40 +313,59 @@ class _MapAreaState extends State<MapArea> {
             bottom: 16,
             right: 16,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
+                // Expanded controls – only visible when burger menu is open.
+                if (_showControls) ...[
+                  _ZoomButton(
+                    icon: Icons.add,
+                    onPressed: () {
+                      final currentZoom = _mapController.camera.zoom;
+                      _mapController.move(
+                        _mapController.camera.center,
+                        currentZoom + 1,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _ZoomButton(
+                    icon: Icons.remove,
+                    onPressed: () {
+                      final currentZoom = _mapController.camera.zoom;
+                      _mapController.move(
+                        _mapController.camera.center,
+                        currentZoom - 1,
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _ZoomButton(
+                    icon: _followMode
+                        ? Icons.my_location
+                        : Icons.location_searching,
+                    onPressed: () {
+                      final pos = _myPosition;
+                      if (pos == null) return;
+                      setState(() => _followMode = true);
+                      _mapController.move(pos, 15.0);
+                    },
+                  ),
+                  if (widget.onFullscreenToggle != null) ...[
+                    const SizedBox(height: 8),
+                    _ZoomButton(
+                      icon: widget.isFullscreen
+                          ? Icons.fullscreen_exit
+                          : Icons.fullscreen,
+                      onPressed: widget.onFullscreenToggle!,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                ],
+                // Burger / close button – always visible.
                 _ZoomButton(
-                  icon: Icons.add,
-                  onPressed: () {
-                    final currentZoom = _mapController.camera.zoom;
-                    _mapController.move(
-                      _mapController.camera.center,
-                      currentZoom + 1,
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                _ZoomButton(
-                  icon: Icons.remove,
-                  onPressed: () {
-                    final currentZoom = _mapController.camera.zoom;
-                    _mapController.move(
-                      _mapController.camera.center,
-                      currentZoom - 1,
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                // my_location button: re-enable follow mode and snap to position.
-                _ZoomButton(
-                  icon: _followMode
-                      ? Icons.my_location
-                      : Icons.location_searching,
-                  onPressed: () {
-                    final pos = _myPosition;
-                    if (pos == null) return;
-                    setState(() => _followMode = true);
-                    _mapController.move(pos, 15.0);
-                  },
+                  icon: _showControls ? Icons.close : Icons.menu,
+                  onPressed: () =>
+                      setState(() => _showControls = !_showControls),
                 ),
               ],
             ),
