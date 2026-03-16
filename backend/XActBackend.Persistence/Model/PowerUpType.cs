@@ -2,6 +2,6 @@
 
 public enum PowerUpType
 {
-    BlackTicket,
-    DoubleMove,
+    BlackTicket = 10,
+    DoubleMove = 20,
 }

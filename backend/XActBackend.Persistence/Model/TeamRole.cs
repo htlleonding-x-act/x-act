@@ -2,7 +2,7 @@
 
 public enum TeamRole
 {
-    MrX,
-    Detective,
-    Spectator,
+    MrX = 10,
+    Detective = 20,
+    Spectator = 30,
 }

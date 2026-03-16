@@ -2,7 +2,7 @@
 
 public enum SessionStatus
 {
-    Waiting,
-    Active,
-    Finished,
+    Waiting = 10,
+    Active = 20,
+    Finished = 30
 }

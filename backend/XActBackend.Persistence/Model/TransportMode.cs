@@ -2,8 +2,8 @@
 
 public enum TransportMode
 {
-    Foot,
-    Bus,
-    Tram,
-    Train,
+    Foot = 10,
+    Bus = 20,
+    Tram = 30,
+    Train = 40,
 }

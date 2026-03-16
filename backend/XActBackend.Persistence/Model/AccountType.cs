@@ -2,7 +2,7 @@
 
 public enum AccountType
 {
-    Free,
-    Pro,
-    EventPass,
+    Free = 10,
+    Pro = 20,
+    EventPass = 30
 }

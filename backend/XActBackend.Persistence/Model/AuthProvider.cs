@@ -2,7 +2,7 @@
 
 public enum AuthProvider
 {
-    Local,
-    Google,
-    Apple,
+    Local = 10,
+    Google = 20,
+    Apple = 30
 }
