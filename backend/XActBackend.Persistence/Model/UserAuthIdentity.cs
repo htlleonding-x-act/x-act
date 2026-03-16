@@ -6,11 +6,12 @@ public class UserAuthIdentity
 
     public int UserId { get; set; }
 
-    public AuthProvider Provider { get; set; }
-
+    /// <summary>
+    /// The Keycloak <c>sub</c> claim — a UUID that uniquely identifies
+    /// this user inside the Keycloak realm.
+    /// </summary>
     public required string ProviderSubject { get; set; }
 
-    public string? PasswordHash { get; set; }
 
     public Instant CreatedAt { get; set; }
 

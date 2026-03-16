@@ -41,7 +41,6 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         configurationBuilder.Conventions.Remove<TableNameFromDbSetConvention>();
 
         configurationBuilder.Properties<AccountType>().HaveConversion<string>();
-        configurationBuilder.Properties<AuthProvider>().HaveConversion<string>();
         configurationBuilder.Properties<SessionStatus>().HaveConversion<string>();
         configurationBuilder.Properties<TeamRole>().HaveConversion<string>();
         configurationBuilder.Properties<TransportMode>().HaveConversion<string>();
@@ -67,8 +66,8 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .HasForeignKey(e => e.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        authIdentity.HasIndex(e => new { e.Provider, e.ProviderSubject }).IsUnique();
-        authIdentity.HasIndex(e => new { e.UserId, e.Provider }).IsUnique();
+        authIdentity.HasIndex(e => e.ProviderSubject).IsUnique();
+        authIdentity.HasIndex(e => e.UserId).IsUnique();
     }
 
     private static void ConfigureGameSession(EntityTypeBuilder<GameSession> gameSession)

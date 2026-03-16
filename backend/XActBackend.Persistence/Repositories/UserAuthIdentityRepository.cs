@@ -12,20 +12,17 @@ public interface IUserAuthIdentityRepository
     ///     Add a new authentication identity for a user.
     /// </summary>
     /// <param name="userId">The id of the user</param>
-    /// <param name="provider">The authentication provider</param>
-    /// <param name="providerSubject">The provider subject identifier</param>
-    /// <param name="passwordHash">Optional password hash</param>
+    /// <param name="providerSubject">The Keycloak <c>sub</c> claim</param>
     /// <returns>The created authentication identity entity</returns>
-    public UserAuthIdentity AddAuthIdentity(int userId, AuthProvider provider, string providerSubject, string? passwordHash);
+    public UserAuthIdentity AddAuthIdentity(int userId, string providerSubject);
 
     /// <summary>
-    ///     Get an authentication identity by provider and provider subject.
+    ///     Get an authentication identity by Keycloak subject.
     /// </summary>
-    /// <param name="provider">The authentication provider</param>
-    /// <param name="providerSubject">The provider subject identifier</param>
+    /// <param name="providerSubject">The Keycloak <c>sub</c> claim</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>The authentication identity, if found</returns>
-    public ValueTask<UserAuthIdentity?> GetByProviderAsync(AuthProvider provider, string providerSubject, bool tracking);
+    public ValueTask<UserAuthIdentity?> GetBySubjectAsync(string providerSubject, bool tracking);
 
     /// <summary>
     ///     Get all authentication identities for a user.
@@ -41,14 +38,12 @@ internal sealed class UserAuthIdentityRepository(DbSet<UserAuthIdentity> authIde
     private IQueryable<UserAuthIdentity> AuthIdentities => authIdentitySet;
     private IQueryable<UserAuthIdentity> AuthIdentitiesNoTracking => AuthIdentities.AsNoTracking();
 
-    public UserAuthIdentity AddAuthIdentity(int userId, AuthProvider provider, string providerSubject, string? passwordHash)
+    public UserAuthIdentity AddAuthIdentity(int userId, string providerSubject)
     {
         var authIdentity = new UserAuthIdentity
         {
             UserId = userId,
-            Provider = provider,
             ProviderSubject = providerSubject,
-            PasswordHash = passwordHash,
             CreatedAt = SystemClock.Instance.GetCurrentInstant(),
         };
 
@@ -57,11 +52,11 @@ internal sealed class UserAuthIdentityRepository(DbSet<UserAuthIdentity> authIde
         return authIdentity;
     }
 
-    public async ValueTask<UserAuthIdentity?> GetByProviderAsync(AuthProvider provider, string providerSubject, bool tracking)
+    public async ValueTask<UserAuthIdentity?> GetBySubjectAsync(string providerSubject, bool tracking)
     {
         IQueryable<UserAuthIdentity> source = tracking ? AuthIdentities : AuthIdentitiesNoTracking;
 
-        return await source.FirstOrDefaultAsync(a => a.Provider == provider && a.ProviderSubject == providerSubject);
+        return await source.FirstOrDefaultAsync(a => a.ProviderSubject == providerSubject);
     }
 
     public async ValueTask<IReadOnlyCollection<UserAuthIdentity>> GetByUserIdAsync(int userId, bool tracking)
