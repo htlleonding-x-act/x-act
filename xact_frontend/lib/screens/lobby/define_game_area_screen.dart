@@ -25,7 +25,6 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
   static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
@@ -46,15 +45,12 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     }
   }
 
-  // ── Map interactions ──────────────────────────────────────────────────────
 
   void _onMapTap(TapPosition _, LatLng point) {
     // Ignore taps that are really the end of a marker drag.
     if (_draggingIndex >= 0) return;
     setState(() => _points.add(point));
   }
-
-  // ── Marker drag handlers ──────────────────────────────────────────────
 
   void _onMarkerDragStart(int index) {
     setState(() => _draggingIndex = index);
@@ -170,7 +166,6 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     return '${_points.length} points – tap map to add · drag to move';
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +313,6 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   }
 }
 
-// ── Small widgets ─────────────────────────────────────────────────────────────
 
 class _PointMarker extends StatelessWidget {
   final int index;
