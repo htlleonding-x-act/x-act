@@ -5,14 +5,68 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
+/// <summary>
+///     Provides methods to manage power-up usage events for team members.
+/// </summary>
 public interface IPowerUpUsageService
 {
+    /// <summary>
+    ///     Get all power-up usages for a member of a team in a session by member id.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All power-up usages for the member</returns>
     public ValueTask<IReadOnlyCollection<PowerUpUsage>> GetUsagesByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking);
+
+    /// <summary>
+    ///     Get a power-up usage by id of the event for a member of a team in a session.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="usageId">The id of the usage event</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The power-up usage or not found if validation fails</returns>
     public ValueTask<OneOf<PowerUpUsage, NotFound>> GetPowerUpUsageByIdAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking);
+
+    /// <summary>
+    ///     Add a new power-up usage event.
+    /// </summary>
+    /// <param name="newPowerUpUsage">The power-up usage data to create</param>
+    /// <returns>The created usage, not found or a domain error if validation fails</returns>
     public ValueTask<OneOf<PowerUpUsage, NotFound, DomainError>> AddPowerUpUsageAsync(PowerUpUsageData newPowerUpUsage);
+
+    /// <summary>
+    ///     Update an existing power-up usage event.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="usageId">The id of the usage event to update</param>
+    /// <param name="powerUpUsageData">The new power-up usage data</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the update was successful</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdatePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, PowerUpUsageData powerUpUsageData, bool tracking);
+
+    /// <summary>
+    ///     Delete a power-up usage event.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="usageId">The id of the usage event to delete</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the usage was deleted</returns>
     public ValueTask<OneOf<Success, NotFound>> DeletePowerUpUsageAsync(int sessionId, int teamId, int memberId, int usageId, bool tracking);
 
+    /// <summary>
+    ///     Data used to create or update a power-up usage event.
+    /// </summary>
+    /// <param name="MemberId">The id of the team member</param>
+    /// <param name="PowerUpType">The type of power-up used</param>
+    /// <param name="UsedAt">Timestamp when the power-up was used</param>
     public sealed record PowerUpUsageData(
         int MemberId,
         PowerUpType PowerUpType,

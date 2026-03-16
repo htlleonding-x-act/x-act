@@ -3,8 +3,22 @@ using XActBackend.Persistence.Model;
 
 namespace XActBackend.Persistence.Repositories;
 
+/// <summary>
+///     Repository for <see cref="LocationLog"/> entities.
+/// </summary>
 public interface ILocationLogRepository
 {
+    /// <summary>
+    ///     Add a new location log.
+    /// </summary>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="timestamp">Timestamp of the logged position</param>
+    /// <param name="latitude">Latitude in decimal degrees</param>
+    /// <param name="longitude">Longitude in decimal degrees</param>
+    /// <param name="accuracyMeters">Position accuracy in meters</param>
+    /// <param name="transportMode">Transport mode</param>
+    /// <param name="isRevealedPosition">Flag indicating if this is a revealed position</param>
+    /// <returns>The created location log entity</returns>
     public LocationLog AddLocationLog(
         int memberId,
         Instant timestamp,
@@ -14,9 +28,36 @@ public interface ILocationLogRepository
         TransportMode transportMode,
         bool isRevealedPosition
     );
+
+    /// <summary>
+    ///     Get all location logs for a member.
+    /// </summary>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All location logs for the member</returns>
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int memberId, bool tracking);
+
+    /// <summary>
+    ///     Get all location logs for a session.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All location logs for the session</returns>
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking);
+
+    /// <summary>
+    ///     Get a location log by member id and log id.
+    /// </summary>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="logId">The id of the location log</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The location log, if found</returns>
     public ValueTask<LocationLog?> GetLogByMemberAndIdAsync(int memberId, int logId, bool tracking);
+
+    /// <summary>
+    ///     Remove a location log from the repository.
+    /// </summary>
+    /// <param name="log">The location log to remove</param>
     public void RemoveLocationLog(LocationLog log);
 }
 

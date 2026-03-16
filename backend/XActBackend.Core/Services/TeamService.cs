@@ -5,14 +5,62 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
+/// <summary>
+///     Provides methods to manage teams in a game session.
+/// </summary>
 public interface ITeamService
 {
+    /// <summary>
+    ///     Get all teams for a session by the sessions id.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All teams of the session</returns>
     public ValueTask<IReadOnlyCollection<Team>> GetTeamsBySessionIdAsync(int sessionId, bool tracking);
+
+    /// <summary>
+    ///     Get a team by its id and session.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The team, if found</returns>
     public ValueTask<OneOf<Team, NotFound>> GetTeamByIdAsync(int sessionId, int teamId, bool tracking);
+
+    /// <summary>
+    ///     Add a new team.
+    /// </summary>
+    /// <param name="newTeam">The team data to create</param>
+    /// <returns>The created team, not found or a domain error if validation fails</returns>
     public ValueTask<OneOf<Team, NotFound, DomainError>> AddTeamAsync(TeamData newTeam);
+
+    /// <summary>
+    ///     Update an existing team.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team to update</param>
+    /// <param name="teamData">The new team data</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the update was successful</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateTeamAsync(int sessionId, int teamId, TeamData teamData, bool tracking);
+
+    /// <summary>
+    ///     Delete a team.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team to delete</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the team was deleted</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> DeleteTeamAsync(int sessionId, int teamId, bool tracking);
 
+    /// <summary>
+    ///     Data used to create or update a team.
+    /// </summary>
+    /// <param name="SessionId">The id of the session this team belongs to</param>
+    /// <param name="TeamName">The name of the team</param>
+    /// <param name="Role">The role of the team</param>
+    /// <param name="ColorCode">The color code of the team</param>
+    /// <param name="IsCaught">Flag indicating if this team has been caught</param>
     public sealed record TeamData(
         int SessionId,
         string TeamName,

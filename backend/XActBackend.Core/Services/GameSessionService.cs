@@ -5,18 +5,90 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
+/// <summary>
+///     Provides methods to manage game sessions and their lifecycle.
+/// </summary>
 public interface IGameSessionService
 {
+    /// <summary>
+    ///     Get all game sessions.
+    /// </summary>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All game sessions</returns>
     public ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking);
+
+    /// <summary>
+    ///     Get a game session by its id.
+    /// </summary>
+    /// <param name="sessionId">The id of the game session to find</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The game session, if found</returns>
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(int sessionId, bool tracking);
+
+    /// <summary>
+    ///     Add a new game session.
+    /// </summary>
+    /// <param name="newGameSession">The game session data to create</param>
+    /// <returns>The created game session, or an error if the request is invalid</returns>
     public ValueTask<OneOf<GameSession, NotFound, DomainError>> AddGameSessionAsync(GameSessionData newGameSession);
+
+    /// <summary>
+    ///     Update an existing game session.
+    /// </summary>
+    /// <param name="sessionId">The id of the game session to update</param>
+    /// <param name="gameSessionData">The new game session data</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the update was successful</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateGameSessionAsync(int sessionId, GameSessionData gameSessionData, bool tracking);
+
+    /// <summary>
+    ///     Delete a game session.
+    /// </summary>
+    /// <param name="sessionId">The id of the game session to delete</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the game session was deleted</returns>
     public ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(int sessionId, bool tracking);
+
+    /// <summary>
+    ///     Get a game session by its join code.
+    /// </summary>
+    /// <param name="joinCode">The join code of the game session</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The game session, if found</returns>
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByJoinCodeAsync(string joinCode, bool tracking);
+
+    /// <summary>
+    ///     Start a game session.
+    /// </summary>
+    /// <param name="sessionId">The id of the game session to start</param>
+    /// <returns>Result indicating if the session could be started</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId);
+
+    /// <summary>
+    ///     End a game session.
+    /// </summary>
+    /// <param name="sessionId">The id of the game session to end</param>
+    /// <returns>Result indicating if the session could be ended</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId);
+
+    /// <summary>
+    ///     Mark Mr.X as caught for a game session.
+    /// </summary>
+    /// <param name="sessionId">The id of the game session</param>
+    /// <returns>Result indicating if Mr.X could be marked as caught</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> CatchMrXAsync(int sessionId);
 
+    /// <summary>
+    ///     Data used to create or update a game session.
+    /// </summary>
+    /// <param name="HostUserId">The id of the host user</param>
+    /// <param name="SessionName">The display name of the session</param>
+    /// <param name="JoinCode">The join code used by participants</param>
+    /// <param name="Status">The session status</param>
+    /// <param name="StartTime">The optional actual start time</param>
+    /// <param name="EndTime">The optional actual end time</param>
+    /// <param name="PlannedDurationMinutes">The planned duration in minutes</param>
+    /// <param name="MrXRevealInterval">The Mr.X reveal interval in minutes</param>
     public sealed record GameSessionData(
         int HostUserId,
         string SessionName,

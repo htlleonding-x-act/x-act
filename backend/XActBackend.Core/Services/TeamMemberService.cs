@@ -5,14 +5,69 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
+/// <summary>
+///     Provides methods to manage team members in a session.
+/// </summary>
 public interface ITeamMemberService
 {
+    /// <summary>
+    ///     Get all members of a team in a session by the teams id.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All team members for the team</returns>
     public ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int sessionId, int teamId, bool tracking);
+
+    /// <summary>
+    ///     Get a team member by id for a team in a session.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The member, if found</returns>
     public ValueTask<OneOf<TeamMember, NotFound>> GetTeamMemberByIdAsync(int sessionId, int teamId, int memberId, bool tracking);
+
+    /// <summary>
+    ///     Add a new team member.
+    /// </summary>
+    /// <param name="newTeamMember">The member data to create</param>
+    /// <returns>The created team member, not found or a domain error if validation fails</returns>
     public ValueTask<OneOf<TeamMember, NotFound, DomainError>> AddTeamMemberAsync(TeamMemberData newTeamMember);
+
+    /// <summary>
+    ///     Update an existing team member.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member to update</param>
+    /// <param name="teamMemberData">The new member data</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the update was successful</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateTeamMemberAsync(int sessionId, int teamId, int memberId, TeamMemberData teamMemberData, bool tracking);
+
+    /// <summary>
+    ///     Delete a team member.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member to delete</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the member was deleted</returns>
     public ValueTask<OneOf<Success, NotFound>> DeleteTeamMemberAsync(int sessionId, int teamId, int memberId, bool tracking);
 
+    /// <summary>
+    ///     Data used to create or update a team member.
+    /// </summary>
+    /// <param name="SessionId">The id of the session</param>
+    /// <param name="TeamId">The id of the team</param>
+    /// <param name="UserId">Optional user id when the member is a registered user</param>
+    /// <param name="GuestName">Optional guest name when the member is not a registered user</param>
+    /// <param name="IsTeamLeader">Flag indicating if the member is team leader</param>
+    /// <param name="CurrentLatitude">Optional current latitude</param>
+    /// <param name="CurrentLongitude">Optional current longitude</param>
+    /// <param name="LastUpdated">Optional timestamp for the last position update</param>
     public sealed record TeamMemberData(
         int SessionId,
         int TeamId,

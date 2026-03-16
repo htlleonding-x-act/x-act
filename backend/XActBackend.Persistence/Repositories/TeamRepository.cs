@@ -3,12 +3,50 @@ using XActBackend.Persistence.Model;
 
 namespace XActBackend.Persistence.Repositories;
 
+/// <summary>
+///     Repository for <see cref="Team"/> entities.
+/// </summary>
 public interface ITeamRepository
 {
+    /// <summary>
+    ///     Add a new team.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamName">The name of the team</param>
+    /// <param name="role">The role of the team</param>
+    /// <param name="colorCode">The color code of the team</param>
+    /// <returns>The created team entity</returns>
     public Team AddTeam(int sessionId, string teamName, TeamRole role, string colorCode);
+
+    /// <summary>
+    ///     Get all teams of a session.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All teams of the session</returns>
     public ValueTask<IReadOnlyCollection<Team>> GetTeamsBySessionIdAsync(int sessionId, bool tracking);
+
+    /// <summary>
+    ///     Get a team by id.
+    /// </summary>
+    /// <param name="id">The id of the team</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The team, if found</returns>
     public ValueTask<Team?> GetTeamByIdAsync(int id, bool tracking);
+
+    /// <summary>
+    ///     Get a team by session id and role.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="role">The role of the team to search for</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The team, if found</returns>
     public ValueTask<Team?> GetTeamBySessionAndRoleAsync(int sessionId, TeamRole role, bool tracking);
+
+    /// <summary>
+    ///     Remove a team from the repository.
+    /// </summary>
+    /// <param name="team">The team to remove</param>
     public void RemoveTeam(Team team);
 }
 

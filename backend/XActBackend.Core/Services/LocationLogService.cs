@@ -5,15 +5,80 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
+/// <summary>
+///     Provides methods to manage location logs for team members.
+/// </summary>
 public interface ILocationLogService
 {
+    /// <summary>
+    ///     Get all location logs for a member of a team in a session by member id.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All location logs for the member</returns>
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking);
+
+    /// <summary>
+    ///     Get all location logs for a session by session id.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
+    /// <returns>All location logs for the session</returns>
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking);
+
+    /// <summary>
+    ///     Get a location log by the log id for a member of a team in a session.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="logId">The id of the location log</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>The location log, if found</returns>
     public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
+
+    /// <summary>
+    ///     Add a new location log.
+    /// </summary>
+    /// <param name="newLocationLog">The location log data to create</param>
+    /// <returns>The created location log, not found or a domain error if validation fails</returns>
     public ValueTask<OneOf<LocationLog, NotFound, DomainError>> AddLocationLogAsync(LocationLogData newLocationLog);
+
+    /// <summary>
+    ///     Update an existing location log.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="logId">The id of the location log to update</param>
+    /// <param name="locationLogData">The new location log data</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the update was successful</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateLocationLogAsync(int sessionId, int teamId, int memberId, int logId, LocationLogData locationLogData, bool tracking);
+
+    /// <summary>
+    ///     Delete a location log.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <param name="teamId">The id of the team</param>
+    /// <param name="memberId">The id of the member</param>
+    /// <param name="logId">The id of the location log to delete</param>
+    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
+    /// <returns>Result indicating if the location log was deleted</returns>
     public ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
 
+    /// <summary>
+    ///     Data used to create or update a location log.
+    /// </summary>
+    /// <param name="MemberId">The id of the team member</param>
+    /// <param name="Timestamp">Timestamp of the recorded position</param>
+    /// <param name="Latitude">Latitude in decimal degrees</param>
+    /// <param name="Longitude">Longitude in decimal degrees</param>
+    /// <param name="AccuracyMeters">Accuracy in meters</param>
+    /// <param name="TransportMode">The transport mode used</param>
+    /// <param name="IsRevealedPosition">Flag indicating if this position is a revealed position</param>
     public sealed record LocationLogData(
         int MemberId,
         Instant Timestamp,
