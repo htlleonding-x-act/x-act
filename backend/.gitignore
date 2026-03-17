@@ -1,4 +1,4 @@
-# Created by https://www.toptal.com/developers/gitignore/api/csharp,rider,visualstudio,visualstudiocode
+﻿# Created by https://www.toptal.com/developers/gitignore/api/csharp,rider,visualstudio,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=csharp,rider,visualstudio,visualstudiocode
 
 ### Csharp ###
@@ -673,3 +673,6 @@ fabric.properties
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp,rider,visualstudio,visualstudiocode
+
+# kate-swp files
+*.kate-swp
