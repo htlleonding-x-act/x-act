@@ -331,6 +331,23 @@ final class ApiService {
     }
   }
 
+  /// Deletes every geofence point in the backend regardless of session.
+  ///
+  /// Required before saving a new game area because the backend's in-memory
+  /// ID counter starts at 6 while seeded data already uses IDs 5–8 for
+  /// session 2. If those seeded points are not removed first, newly added
+  /// session-1 points receive the same IDs, causing
+  /// [loadGeofencePoints] to return wrong coordinates from the duplicate
+  /// session-2 entries.
+  Future<void> clearAllGeofencePoints() async {
+    final json = await _getJsonObject('/api/geofencepoints');
+    final infos = ApiListResponse.fromJson(
+      json,
+      GeofencePointInfo.fromJson,
+    ).items;
+    await Future.wait(infos.map((p) => deleteGeofencePoint(p.pointId)));
+  }
+
   /// Replaces the entire game area for [sessionId] with the given [points].
   ///
   /// Deletes all existing points for the session first, then POSTs the new
@@ -339,7 +356,7 @@ final class ApiService {
     required int sessionId,
     required List<LatLng> points,
   }) async {
-    // 1. Remove old points.
+    // 1. Remove old points for this session.
     final existing = await loadGeofencePoints(sessionId);
     await Future.wait(existing.map((p) => deleteGeofencePoint(p.pointId)));
 

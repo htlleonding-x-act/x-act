@@ -14,6 +14,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   int _selectedIndex = 0;
+  bool _isMapFullscreen = false;
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -22,33 +23,56 @@ class _GameScreenState extends State<GameScreen> {
     ReportScreen(),
   ];
 
+  void _toggleFullscreen() {
+    setState(() => _isMapFullscreen = !_isMapFullscreen);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          const Expanded(flex: 5, child: MapArea()),
-          Expanded(flex: 4, child: _screens[_selectedIndex]),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: const Color(0xFF0F172A),
-        selectedItemColor: Colors.blue.shade400,
-        unselectedItemColor: Colors.white54,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.groups), label: 'Team'),
-          BottomNavigationBarItem(icon: Icon(Icons.forum), label: 'All Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat), label: 'Team Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.warning), label: 'Report'),
-        ],
-      ),
+      body: _isMapFullscreen
+          ? MapArea(onFullscreenToggle: _toggleFullscreen, isFullscreen: true)
+          : Column(
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: MapArea(onFullscreenToggle: _toggleFullscreen),
+                ),
+                Expanded(flex: 4, child: _screens[_selectedIndex]),
+              ],
+            ),
+      bottomNavigationBar: _isMapFullscreen
+          ? null
+          : BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              onTap: (index) {
+                setState(() {
+                  _selectedIndex = index;
+                });
+              },
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: const Color(0xFF0F172A),
+              selectedItemColor: Colors.blue.shade400,
+              unselectedItemColor: Colors.white54,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.groups),
+                  label: 'Team',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.forum),
+                  label: 'All Chat',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.chat),
+                  label: 'Team Chat',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.warning),
+                  label: 'Report',
+                ),
+              ],
+            ),
     );
   }
 }

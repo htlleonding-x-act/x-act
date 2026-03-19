@@ -117,77 +117,154 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   void _renameTeam(int index) async {
     final team = _teams[index];
     final controller = TextEditingController(text: team.name);
+    var maxPlayers = team.maxPlayers;
+    final minPlayers = team.players.length > 1 ? team.players.length : 1;
 
-    final newName = await showDialog<String>(
+    final result = await showDialog<({String name, int maxPlayers})>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: XActBranding.cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Rename Team', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
-          decoration: InputDecoration(
-            hintText: 'New team name…',
-            hintStyle: const TextStyle(color: Colors.white38),
-            filled: true,
-            fillColor: XActBranding.backgroundColor,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.white24),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            backgroundColor: XActBranding.cardColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.white24),
+            title: const Text(
+              'Edit Team',
+              style: TextStyle(color: Colors.white),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.blueAccent),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                  decoration: InputDecoration(
+                    labelText: 'Team Name',
+                    labelStyle: const TextStyle(color: Colors.white70),
+                    hintText: 'New team name…',
+                    hintStyle: const TextStyle(color: Colors.white38),
+                    filled: true,
+                    fillColor: XActBranding.backgroundColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.white24),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.white24),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Colors.blueAccent),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Max Players',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: maxPlayers > minPlayers
+                          ? () => setDialogState(() => maxPlayers--)
+                          : null,
+                      icon: const Icon(Icons.remove_circle_outline),
+                      color: Colors.white54,
+                    ),
+                    Text(
+                      '$maxPlayers',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: maxPlayers < 10
+                          ? () => setDialogState(() => maxPlayers++)
+                          : null,
+                      icon: const Icon(Icons.add_circle_outline),
+                      color: Colors.white54,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Players: ${team.players.length}',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final text = controller.text.trim();
-              if (text.isNotEmpty) Navigator.of(ctx).pop(text);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: XActBranding.primaryBlue,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white54),
+                ),
               ),
-            ),
-            child: const Text('Save'),
+              ElevatedButton(
+                onPressed: () {
+                  final text = controller.text.trim();
+                  if (text.isNotEmpty) {
+                    Navigator.of(ctx).pop((name: text, maxPlayers: maxPlayers));
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: XActBranding.primaryBlue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
 
     controller.dispose();
 
-    if (newName != null && newName != team.name) {
-      setState(() => team.name = newName);
-      _updateTeamNameOnBackend(index, newName);
-    }
+    if (result == null) return;
+
+    final changed =
+        result.name != team.name || result.maxPlayers != team.maxPlayers;
+    if (!changed) return;
+
+    setState(() {
+      team.name = result.name;
+      team.maxPlayers = result.maxPlayers;
+    });
+
+    _updateTeamOnBackend(
+      index,
+      name: result.name,
+      maxPlayers: result.maxPlayers,
+    );
   }
 
-  /// Sends the updated team name to the backend.
+  /// Sends the updated team fields to the backend.
   // TODO: Replace placeholder with real API call (e.g. PUT /api/teams/:id)
-  Future<void> _updateTeamNameOnBackend(int index, String newName) async {
+  Future<void> _updateTeamOnBackend(
+    int index, {
+    required String name,
+    required int maxPlayers,
+  }) async {
     // TODO: final teamId = _teams[index].id;
-    // TODO: await ApiService.instance.updateTeamName(teamId, newName);
+    // TODO: await ApiService.instance.updateTeam(teamId, name, maxPlayers);
     debugPrint(
-      'TODO → update team name on backend: index=$index, name=$newName',
+      'TODO → update team on backend: index=$index, name=$name, maxPlayers=$maxPlayers',
     );
   }
 
@@ -202,25 +279,30 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       }
       allPlayers.shuffle();
 
-      // Distribute round-robin across teams
-      var teamIdx = 0;
-      for (final player in allPlayers) {
-        if (_teams[teamIdx].players.length >= _teams[teamIdx].maxPlayers) {
-          teamIdx = (teamIdx + 1) % _teams.length;
+      _spectators.clear();
+
+      // Fill all available team slots first (round-robin) until no seat remains.
+      var nextPlayer = 0;
+      while (nextPlayer < allPlayers.length) {
+        var assignedThisRound = false;
+
+        for (final team in _teams) {
+          if (nextPlayer >= allPlayers.length) break;
+          if (team.players.length >= team.maxPlayers) continue;
+
+          team.players.add(allPlayers[nextPlayer]);
+          nextPlayer++;
+          assignedThisRound = true;
         }
-        if (_teams[teamIdx].players.length < _teams[teamIdx].maxPlayers) {
-          _teams[teamIdx].players.add(player);
-          teamIdx = (teamIdx + 1) % _teams.length;
-        } else {
-          // Overflow → back to spectators
-          _spectators.add(player);
-        }
+
+        // No team can take more players.
+        if (!assignedThisRound) break;
       }
-      // Remove distributed players from spectators
-      for (final t in _teams) {
-        for (final p in t.players) {
-          _spectators.remove(p);
-        }
+
+      // Overflow remains in spectators.
+      while (nextPlayer < allPlayers.length) {
+        _spectators.add(allPlayers[nextPlayer]);
+        nextPlayer++;
       }
     });
   }

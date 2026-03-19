@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../api/api_service.dart';
+import '../../services/geofence_store.dart';
 import '../../services/location_service.dart';
 
 class DefineGameAreaScreen extends StatefulWidget {
@@ -20,42 +20,15 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // Points the host has placed – these form the polygon.
   final List<LatLng> _points = [];
 
-  // True while we are loading existing points from the backend.
-  bool _isLoading = true;
-
-  // True while saving to the backend.
-  bool _isSaving = false;
-
   // Index of the point currently being dragged, -1 when idle.
   int _draggingIndex = -1;
 
   static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-    _initCleanSlate();
-  }
-
-  /// Clears any old geofence points on the backend for this session and
-  /// starts with a fresh canvas.
-  Future<void> _initCleanSlate() async {
-    try {
-      // Delete any leftover points from previous attempts so the game map
-      // doesn't display stale data.
-      final existing = await ApiService.instance.loadGeofencePoints(
-        widget.sessionId,
-      );
-      await Future.wait(
-        existing.map((p) => ApiService.instance.deleteGeofencePoint(p.pointId)),
-      );
-    } catch (_) {
-      // Backend unreachable – that's fine, nothing to clear.
-    }
-    if (!mounted) return;
-    setState(() => _isLoading = false);
     _centerOnPlayer();
   }
 
@@ -72,15 +45,12 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     }
   }
 
-  // ── Map interactions ──────────────────────────────────────────────────────
 
   void _onMapTap(TapPosition _, LatLng point) {
     // Ignore taps that are really the end of a marker drag.
-    if (_isSaving || _draggingIndex >= 0) return;
+    if (_draggingIndex >= 0) return;
     setState(() => _points.add(point));
   }
-
-  // ── Marker drag handlers ──────────────────────────────────────────────
 
   void _onMarkerDragStart(int index) {
     setState(() => _draggingIndex = index);
@@ -99,6 +69,39 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
   void _onMarkerDragEnd() {
     setState(() => _draggingIndex = -1);
+  }
+
+  void _showDeleteDialog(int index) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF252A3A),
+        title: Text(
+          'Delete point ${index + 1}?',
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true && mounted) {
+        setState(() => _points.removeAt(index));
+      }
+    });
   }
 
   void _undoLast() {
@@ -136,7 +139,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     });
   }
 
-  Future<void> _save() async {
+  void _save() {
     if (_points.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -147,31 +150,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
-    try {
-      await ApiService.instance.saveGeofenceArea(
-        sessionId: widget.sessionId,
-        points: List.unmodifiable(_points),
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Game area saved!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.of(context).pop(true); // signal success to caller
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+    GeofenceStore.instance.setPoints(List.of(_points));
+    Navigator.of(context).pop(true); // signal success to caller
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -186,7 +166,6 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     return '${_points.length} points – tap map to add · drag to move';
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -201,141 +180,139 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
             IconButton(
               icon: const Icon(Icons.undo),
               tooltip: 'Undo last point',
-              onPressed: _isSaving ? null : _undoLast,
+              onPressed: _undoLast,
             ),
           if (_points.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined),
               tooltip: 'Clear all',
-              onPressed: _isSaving ? null : _clearAll,
+              onPressed: _clearAll,
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Stack(
-              children: [
-                // ── Map ────────────────────────────────────────────────
-                FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _fallbackCenter,
-                    initialZoom: 15.0,
-                    minZoom: 10.0,
-                    maxZoom: 18.0,
-                    onTap: _onMapTap,
-                    // Freeze map panning while a marker is being dragged so
-                    // the map doesn't move under the user's finger.
-                    interactionOptions: InteractionOptions(
-                      flags: _draggingIndex >= 0
-                          ? InteractiveFlag.none
-                          : InteractiveFlag.all,
-                    ),
-                  ),
-                  children: [
-                    // Dark tile layer (same style as game map)
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.xact.app',
-                      tileBuilder: (context, tileWidget, tile) {
-                        return ColorFiltered(
-                          colorFilter: const ColorFilter.matrix(<double>[
-                            0.2126,
-                            0.7152,
-                            0.0722,
-                            0,
-                            0,
-                            0.2126,
-                            0.7152,
-                            0.0722,
-                            0,
-                            0,
-                            0.2126,
-                            0.7152,
-                            0.0722,
-                            0,
-                            0,
-                            0,
-                            0,
-                            0,
-                            1,
-                            0,
-                          ]),
-                          child: tileWidget,
-                        );
-                      },
-                    ),
-                    // Filled polygon (drawn when ≥ 3 points)
-                    if (_points.length >= 3)
-                      PolygonLayer(
-                        polygons: [
-                          Polygon(
-                            points: _points,
-                            color: Colors.blue.withValues(alpha: 0.2),
-                            borderColor: Colors.blue.shade400,
-                            borderStrokeWidth: 2.5,
-                          ),
-                        ],
-                      ),
-                    // Dotted outline for < 3 points (just a polyline)
-                    if (_points.length >= 2)
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: _points,
-                            color: Colors.blue.shade400,
-                            strokeWidth: 2.5,
-                            pattern: StrokePattern.dashed(segments: [8, 6]),
-                          ),
-                        ],
-                      ),
-                    // Numbered markers for each point
-                    MarkerLayer(
-                      markers: [
-                        for (var i = 0; i < _points.length; i++)
-                          Marker(
-                            point: _points[i],
-                            width: 44,
-                            height: 44,
-                            child: GestureDetector(
-                              onPanStart: (_) => _onMarkerDragStart(i),
-                              onPanUpdate: (d) => _onMarkerDragUpdate(i, d),
-                              onPanEnd: (_) => _onMarkerDragEnd(),
-                              child: _PointMarker(
-                                index: i + 1,
-                                isDragging: _draggingIndex == i,
-                              ),
-                            ),
-                          ),
-                      ],
+      body: Stack(
+        children: [
+          // ── Map ────────────────────────────────────────────────
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _fallbackCenter,
+              initialZoom: 15.0,
+              minZoom: 10.0,
+              maxZoom: 18.0,
+              onTap: _onMapTap,
+              // Freeze map panning while a marker is being dragged so
+              // the map doesn't move under the user's finger.
+              interactionOptions: InteractionOptions(
+                flags: _draggingIndex >= 0
+                    ? InteractiveFlag.none
+                    : InteractiveFlag.all,
+              ),
+            ),
+            children: [
+              // Dark tile layer (same style as game map)
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.xact.app',
+                tileBuilder: (context, tileWidget, tile) {
+                  return ColorFiltered(
+                    colorFilter: const ColorFilter.matrix(<double>[
+                      0.2126,
+                      0.7152,
+                      0.0722,
+                      0,
+                      0,
+                      0.2126,
+                      0.7152,
+                      0.0722,
+                      0,
+                      0,
+                      0.2126,
+                      0.7152,
+                      0.0722,
+                      0,
+                      0,
+                      0,
+                      0,
+                      0,
+                      1,
+                      0,
+                    ]),
+                    child: tileWidget,
+                  );
+                },
+              ),
+              // Filled polygon (drawn when ≥ 3 points)
+              if (_points.length >= 3)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: _points,
+                      color: Colors.blue.withValues(alpha: 0.2),
+                      borderColor: Colors.blue.shade400,
+                      borderStrokeWidth: 2.5,
                     ),
                   ],
                 ),
-
-                // ── Crosshair hint overlay ──────────────────────────────
-                const Center(child: _CrosshairOverlay()),
-
-                // ── Status bar at bottom ────────────────────────────────
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: _BottomPanel(
-                    statusText: _statusText,
-                    pointCount: _points.length,
-                    isSaving: _isSaving,
-                    canSave: _points.length >= 3,
-                    onSave: _save,
-                  ),
+              // Dotted outline for < 3 points (just a polyline)
+              if (_points.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _points,
+                      color: Colors.blue.shade400,
+                      strokeWidth: 2.5,
+                      pattern: StrokePattern.dashed(segments: [8, 6]),
+                    ),
+                  ],
                 ),
-              ],
+              // Numbered markers for each point
+              MarkerLayer(
+                markers: [
+                  for (var i = 0; i < _points.length; i++)
+                    Marker(
+                      point: _points[i],
+                      width: 44,
+                      height: 44,
+                      child: GestureDetector(
+                        onPanStart: (_) => _onMarkerDragStart(i),
+                        onPanUpdate: (d) => _onMarkerDragUpdate(i, d),
+                        onPanEnd: (_) => _onMarkerDragEnd(),
+                        onLongPress: () => _showDeleteDialog(i),
+                        onSecondaryTap: () => _showDeleteDialog(i),
+                        child: _PointMarker(
+                          index: i + 1,
+                          isDragging: _draggingIndex == i,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+
+          // ── Crosshair hint overlay ──────────────────────────────
+          const Center(child: _CrosshairOverlay()),
+
+          // ── Status bar at bottom ────────────────────────────────
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _BottomPanel(
+              statusText: _statusText,
+              pointCount: _points.length,
+              isSaving: false,
+              canSave: _points.length >= 3,
+              onSave: _save,
             ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── Small widgets ─────────────────────────────────────────────────────────────
 
 class _PointMarker extends StatelessWidget {
   final int index;
