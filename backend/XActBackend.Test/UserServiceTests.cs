@@ -98,7 +98,7 @@ public sealed class UserServiceTests
         OneOf<User, NotFound> result = await _sut.GetUserByEmailAsync("test@test.com", false);
 
         result.Switch(
-            user => user.Should().BeEquivalentTo(user),
+            found => found.Should().BeEquivalentTo(user),
             notFound => Assert.Fail("Expected a user but got NotFound")
         );
     }
@@ -125,7 +125,7 @@ public sealed class UserServiceTests
         OneOf<User, NotFound> result = await _sut.GetUserByUsernameAsync("test", false);
 
         result.Switch(
-            user => user.Should().BeEquivalentTo(user),
+            found => found.Should().BeEquivalentTo(user),
             notFound => Assert.Fail("Expected a user but got NotFound")
         );
     }
@@ -154,7 +154,7 @@ public sealed class UserServiceTests
         OneOf<User, Error> result = await _sut.AddUserAsync(data);
 
         result.Switch(
-            user => user.Should().BeEquivalentTo(user),
+            found => found.Should().BeEquivalentTo(user),
             error => Assert.Fail("Expected a user but got an Error")
         );
         await _uow.Received(1).SaveChangesAsync();
