@@ -1,0 +1,14 @@
+﻿<Solution>
+    <Folder Name="/SolutionItems/">
+        <File Path=".github/workflows/build_on_push.yml" />
+        <File Path="Directory.Build.props" />
+        <File Path="ManageMigration.ps1" />
+    </Folder>
+    <Project Path="XActBackend.Core/XActBackend.Core.csproj" />
+    <Project Path="XActBackend.Persistence/XActBackend.Persistence.csproj" />
+    <Project Path="XActBackend.Importer/XActBackend.Importer.csproj" />
+    <Project Path="XActBackend.Shared/XActBackend.Shared.csproj" />
+    <Project Path="XActBackend.Test/XActBackend.Test.csproj" />
+    <Project Path="XActBackend.TestInt/XActBackend.TestInt.csproj" />
+    <Project Path="XActBackend/XActBackend.csproj" />
+</Solution>
