@@ -58,8 +58,19 @@ public static class Setup
 
             services.AddCors(o => o.AddPolicy(CorsPolicyName, builder =>
             {
-                builder.WithOrigins(settings.ClientOrigin)
-                       .AllowAnyHeader()
+                // wildcard port (e.g. http://localhost:*) is not supported by WithOrigins;
+                // use a loopback predicate so any localhost port is accepted in development
+                if (settings.ClientOrigin.EndsWith(":*"))
+                {
+                    builder.SetIsOriginAllowed(origin =>
+                        Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback);
+                }
+                else
+                {
+                    builder.WithOrigins(settings.ClientOrigin);
+                }
+
+                builder.AllowAnyHeader()
                        .AllowAnyMethod()
                        .AllowCredentials();
             }));
