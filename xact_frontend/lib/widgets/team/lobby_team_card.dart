@@ -10,7 +10,7 @@ class LobbyTeamCard extends StatelessWidget {
   final bool isLeader;
   final VoidCallback? onRename;
   final VoidCallback? onDelete;
-  final ValueChanged<String> onPlayerDropped;
+  final ValueChanged<LobbyPlayer> onPlayerDropped;
 
   const LobbyTeamCard({
     super.key,
@@ -23,10 +23,10 @@ class LobbyTeamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DragTarget<String>(
+    return DragTarget<LobbyPlayer>(
       onWillAcceptWithDetails: (details) {
         return team.players.length < team.maxPlayers &&
-            !team.players.contains(details.data);
+            !team.players.any((p) => p.memberId == details.data.memberId);
       },
       onAcceptWithDetails: (details) => onPlayerDropped(details.data),
       builder: (context, candidateData, rejectedData) {
@@ -96,7 +96,7 @@ class LobbyTeamCard extends StatelessWidget {
                 )
               else
                 ...team.players.map(
-                  (p) => DraggablePlayerTile(name: p, dotColor: team.color),
+                  (p) => DraggablePlayerTile(player: p, dotColor: team.color),
                 ),
             ],
           ),

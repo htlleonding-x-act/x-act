@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import '../api/api_service.dart';
+import '../api/models.dart';
+import '../services/app_session.dart';
 import '../services/geofence_store.dart';
 import '../services/location_service.dart';
 import 'map_header.dart';
@@ -39,6 +42,7 @@ class _MapAreaState extends State<MapArea> {
   bool _showControls = false;
 
   StreamSubscription<Position>? _positionSub;
+  Timer? _playersRefreshTimer;
 
   // ── Geofence ──────────────────────────────────────────────────────────────
   // Polygon boundary loaded from the backend for the active session.
@@ -46,42 +50,78 @@ class _MapAreaState extends State<MapArea> {
   // True when the player is outside the defined game area.
   bool _isOutOfBounds = false;
 
-  // ── Placeholder teammates (replaced by real API data in a future task) ──
-  final List<PlayerMarker> _otherPlayers = [
-    PlayerMarker(
-      id: 'player2',
-      name: 'Team Member 1',
-      position: const LatLng(48.3089, 14.2898),
-      color: Colors.green,
-    ),
-    PlayerMarker(
-      id: 'player3',
-      name: 'Team Member 2',
-      position: const LatLng(48.3049, 14.2838),
-      color: Colors.green,
-    ),
-    PlayerMarker(
-      id: 'misterx',
-      name: 'Mister X (Last Ping)',
-      position: const LatLng(48.3107, 14.2820),
-      color: Colors.red,
-      isMisterX: true,
-    ),
-  ];
+  List<PlayerMarker> _otherPlayers = [];
 
   @override
   void initState() {
     super.initState();
     _startListeningToGps();
-    // Load geofence from the local store set by the host during lobby setup.
-    final pts = GeofenceStore.instance.points;
-    _geofencePoints = pts.length >= 3 ? List.of(pts) : [];
+    _loadSessionGeofence();
+    _refreshPlayers();
+    _playersRefreshTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _refreshPlayers(),
+    );
   }
 
   @override
   void dispose() {
     _positionSub?.cancel();
+    _playersRefreshTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadSessionGeofence() async {
+    final sessionId = AppSession.instance.currentSessionId;
+    if (sessionId == null) {
+      final cached = GeofenceStore.instance.points;
+      _geofencePoints = cached.length >= 3 ? List.of(cached) : [];
+      return;
+    }
+
+    try {
+      final points = await ApiService.instance.loadGeofencePoints(sessionId);
+      if (!mounted) return;
+      setState(() {
+        _geofencePoints = points
+            .map((p) => LatLng(p.latitude, p.longitude))
+            .toList(growable: false);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      final cached = GeofenceStore.instance.points;
+      setState(() {
+        _geofencePoints = cached.length >= 3 ? List.of(cached) : [];
+      });
+    }
+  }
+
+  Future<void> _refreshPlayers() async {
+    final sessionId = AppSession.instance.currentSessionId;
+    final myMemberId = AppSession.instance.currentMemberId;
+    if (sessionId == null) return;
+
+    try {
+      final players = await ApiService.instance.loadPlayerPositions(sessionId);
+      if (!mounted) return;
+
+      setState(() {
+        _otherPlayers = players
+            .where((p) => p.memberId != myMemberId)
+            .map(
+              (p) => PlayerMarker(
+                id: p.memberId.toString(),
+                name: p.displayName,
+                position: p.position,
+                color: p.color,
+                isMisterX: p.teamRole == TeamRole.mrX,
+              ),
+            )
+            .toList(growable: false);
+      });
+    } catch (_) {
+      // Keep existing markers when refresh fails.
+    }
   }
 
   Future<void> _startListeningToGps() async {
@@ -157,7 +197,7 @@ class _MapAreaState extends State<MapArea> {
       );
     }
 
-    // Other players (currently hardcoded – will come from API later).
+    // Other players loaded from backend polling.
     markers.addAll(_otherPlayers.map(_buildMarker));
 
     return markers;

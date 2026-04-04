@@ -26,6 +26,26 @@ DateTime? tryParseIsoDateTime(Object? value) {
   return DateTime.tryParse(value);
 }
 
+int _readInt(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) {
+      return value.toInt();
+    }
+  }
+  throw FormatException('Expected one of ${keys.join(', ')} to be numeric.');
+}
+
+int? _readNullableInt(Map<String, dynamic> json, List<String> keys) {
+  for (final key in keys) {
+    final value = json[key];
+    if (value is num) {
+      return value.toInt();
+    }
+  }
+  return null;
+}
+
 final class ApiListResponse<T> {
   final List<T> items;
 
@@ -62,6 +82,9 @@ enum PowerUpType { blackTicket, doubleMove }
 
 SessionStatus? tryParseSessionStatus(String value) {
   return switch (value) {
+    'Waiting' => SessionStatus.waiting,
+    'Active' => SessionStatus.active,
+    'Finished' => SessionStatus.finished,
     'WAITING' => SessionStatus.waiting,
     'ACTIVE' => SessionStatus.active,
     'FINISHED' => SessionStatus.finished,
@@ -71,6 +94,9 @@ SessionStatus? tryParseSessionStatus(String value) {
 
 TeamRole? tryParseTeamRole(String value) {
   return switch (value) {
+    'MrX' => TeamRole.mrX,
+    'Detective' => TeamRole.detective,
+    'Spectator' => TeamRole.spectator,
     'MR_X' => TeamRole.mrX,
     'DETECTIVE' => TeamRole.detective,
     'SPECTATOR' => TeamRole.spectator,
@@ -89,6 +115,10 @@ AccountType? tryParseAccountType(String value) {
 
 TransportMode? tryParseTransportMode(String value) {
   return switch (value) {
+    'Foot' => TransportMode.foot,
+    'Bus' => TransportMode.bus,
+    'Tram' => TransportMode.tram,
+    'Train' => TransportMode.train,
     'FOOT' => TransportMode.foot,
     'BUS' => TransportMode.bus,
     'TRAM' => TransportMode.tram,
@@ -99,6 +129,8 @@ TransportMode? tryParseTransportMode(String value) {
 
 PowerUpType? tryParsePowerUpType(String value) {
   return switch (value) {
+    'BlackTicket' => PowerUpType.blackTicket,
+    'DoubleMove' => PowerUpType.doubleMove,
     'BLACK_TICKET' => PowerUpType.blackTicket,
     'DOUBLE_MOVE' => PowerUpType.doubleMove,
     _ => null,
@@ -120,7 +152,7 @@ final class UserInfo {
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
-      userId: (json['userId'] as num).toInt(),
+      userId: _readInt(json, ['id', 'userId']),
       username: json['username'] as String,
       email: json['email'] as String,
       accountType: switch (json['accountType']) {
@@ -135,7 +167,7 @@ final class UserDetails {
   final int userId;
   final String username;
   final String email;
-  final String passwordHash;
+  final String? passwordHash;
   final AccountType? accountType;
   final DateTime? subscriptionEndDate;
   final int totalWins;
@@ -154,10 +186,10 @@ final class UserDetails {
 
   factory UserDetails.fromJson(Map<String, dynamic> json) {
     return UserDetails(
-      userId: (json['userId'] as num).toInt(),
+      userId: _readInt(json, ['id', 'userId']),
       username: json['username'] as String,
       email: json['email'] as String,
-      passwordHash: json['passwordHash'] as String,
+      passwordHash: json['passwordHash'] as String?,
       accountType: switch (json['accountType']) {
         final String s => tryParseAccountType(s),
         _ => null,
@@ -171,6 +203,7 @@ final class UserDetails {
 
 final class GameSessionInfo {
   final int sessionId;
+  final String sessionName;
   final String joinCode;
   final SessionStatus? status;
   final DateTime? startTime;
@@ -178,6 +211,7 @@ final class GameSessionInfo {
 
   const GameSessionInfo({
     required this.sessionId,
+    required this.sessionName,
     required this.joinCode,
     required this.status,
     required this.startTime,
@@ -186,7 +220,8 @@ final class GameSessionInfo {
 
   factory GameSessionInfo.fromJson(Map<String, dynamic> json) {
     return GameSessionInfo(
-      sessionId: (json['sessionId'] as num).toInt(),
+      sessionId: _readInt(json, ['id', 'sessionId']),
+      sessionName: (json['sessionName'] as String?) ?? 'Session',
       joinCode: json['joinCode'] as String,
       status: switch (json['status']) {
         final String s => tryParseSessionStatus(s),
@@ -201,6 +236,7 @@ final class GameSessionInfo {
 final class GameSessionDetails {
   final int sessionId;
   final int hostUserId;
+  final String sessionName;
   final String joinCode;
   final SessionStatus? status;
   final DateTime? startTime;
@@ -211,6 +247,7 @@ final class GameSessionDetails {
   const GameSessionDetails({
     required this.sessionId,
     required this.hostUserId,
+    required this.sessionName,
     required this.joinCode,
     required this.status,
     required this.startTime,
@@ -221,8 +258,9 @@ final class GameSessionDetails {
 
   factory GameSessionDetails.fromJson(Map<String, dynamic> json) {
     return GameSessionDetails(
-      sessionId: (json['sessionId'] as num).toInt(),
+      sessionId: _readInt(json, ['id', 'sessionId']),
       hostUserId: (json['hostUserId'] as num).toInt(),
+      sessionName: (json['sessionName'] as String?) ?? 'Session',
       joinCode: json['joinCode'] as String,
       status: switch (json['status']) {
         final String s => tryParseSessionStatus(s),
@@ -238,12 +276,14 @@ final class GameSessionDetails {
 
 final class TeamInfo {
   final int teamId;
+  final int sessionId;
   final String teamName;
   final TeamRole? role;
   final String colorCode;
 
   const TeamInfo({
     required this.teamId,
+    required this.sessionId,
     required this.teamName,
     required this.role,
     required this.colorCode,
@@ -251,7 +291,8 @@ final class TeamInfo {
 
   factory TeamInfo.fromJson(Map<String, dynamic> json) {
     return TeamInfo(
-      teamId: (json['teamId'] as num).toInt(),
+      teamId: _readInt(json, ['id', 'teamId']),
+      sessionId: _readInt(json, ['sessionId']),
       teamName: json['teamName'] as String,
       role: switch (json['role']) {
         final String s => tryParseTeamRole(s),
@@ -281,8 +322,8 @@ final class TeamDetails {
 
   factory TeamDetails.fromJson(Map<String, dynamic> json) {
     return TeamDetails(
-      teamId: (json['teamId'] as num).toInt(),
-      sessionId: (json['sessionId'] as num).toInt(),
+      teamId: _readInt(json, ['id', 'teamId']),
+      sessionId: _readInt(json, ['sessionId']),
       teamName: json['teamName'] as String,
       role: switch (json['role']) {
         final String s => tryParseTeamRole(s),
@@ -297,21 +338,27 @@ final class TeamDetails {
 final class TeamMemberInfo {
   final int memberId;
   final int teamId;
-  final int userId;
+  final int sessionId;
+  final int? userId;
+  final String? guestName;
   final bool isTeamLeader;
 
   const TeamMemberInfo({
     required this.memberId,
     required this.teamId,
+    required this.sessionId,
     required this.userId,
+    required this.guestName,
     required this.isTeamLeader,
   });
 
   factory TeamMemberInfo.fromJson(Map<String, dynamic> json) {
     return TeamMemberInfo(
-      memberId: (json['memberId'] as num).toInt(),
-      teamId: (json['teamId'] as num).toInt(),
-      userId: (json['userId'] as num).toInt(),
+      memberId: _readInt(json, ['id', 'memberId']),
+      teamId: _readInt(json, ['teamId']),
+      sessionId: _readInt(json, ['sessionId']),
+      userId: _readNullableInt(json, ['userId']),
+      guestName: json['guestName'] as String?,
       isTeamLeader: json['isTeamLeader'] as bool,
     );
   }
@@ -320,7 +367,9 @@ final class TeamMemberInfo {
 final class TeamMemberDetails {
   final int memberId;
   final int teamId;
-  final int userId;
+  final int sessionId;
+  final int? userId;
+  final String? guestName;
   final bool isTeamLeader;
   final double? currentLatitude;
   final double? currentLongitude;
@@ -329,7 +378,9 @@ final class TeamMemberDetails {
   const TeamMemberDetails({
     required this.memberId,
     required this.teamId,
+    required this.sessionId,
     required this.userId,
+    required this.guestName,
     required this.isTeamLeader,
     required this.currentLatitude,
     required this.currentLongitude,
@@ -338,9 +389,11 @@ final class TeamMemberDetails {
 
   factory TeamMemberDetails.fromJson(Map<String, dynamic> json) {
     return TeamMemberDetails(
-      memberId: (json['memberId'] as num).toInt(),
-      teamId: (json['teamId'] as num).toInt(),
-      userId: (json['userId'] as num).toInt(),
+      memberId: _readInt(json, ['id', 'memberId']),
+      teamId: _readInt(json, ['teamId']),
+      sessionId: _readInt(json, ['sessionId']),
+      userId: _readNullableInt(json, ['userId']),
+      guestName: json['guestName'] as String?,
       isTeamLeader: json['isTeamLeader'] as bool,
       currentLatitude: (json['currentLatitude'] as num?)?.toDouble(),
       currentLongitude: (json['currentLongitude'] as num?)?.toDouble(),
@@ -364,7 +417,7 @@ final class GeofencePointInfo {
 
   factory GeofencePointInfo.fromJson(Map<String, dynamic> json) {
     return GeofencePointInfo(
-      pointId: (json['pointId'] as num).toInt(),
+      pointId: _readInt(json, ['id', 'pointId']),
       sessionId: (json['sessionId'] as num).toInt(),
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
@@ -389,7 +442,7 @@ final class GeofencePointDetails {
 
   factory GeofencePointDetails.fromJson(Map<String, dynamic> json) {
     return GeofencePointDetails(
-      pointId: (json['pointId'] as num).toInt(),
+      pointId: _readInt(json, ['id', 'pointId']),
       sessionId: (json['sessionId'] as num).toInt(),
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
@@ -415,7 +468,7 @@ final class LocationLogInfo {
 
   factory LocationLogInfo.fromJson(Map<String, dynamic> json) {
     return LocationLogInfo(
-      logId: (json['logId'] as num).toInt(),
+      logId: _readInt(json, ['id', 'logId']),
       memberId: (json['memberId'] as num).toInt(),
       timestamp: DateTime.parse(json['timestamp'] as String),
       latitude: (json['latitude'] as num).toDouble(),
@@ -447,7 +500,7 @@ final class LocationLogDetails {
 
   factory LocationLogDetails.fromJson(Map<String, dynamic> json) {
     return LocationLogDetails(
-      logId: (json['logId'] as num).toInt(),
+      logId: _readInt(json, ['id', 'logId']),
       memberId: (json['memberId'] as num).toInt(),
       timestamp: DateTime.parse(json['timestamp'] as String),
       latitude: (json['latitude'] as num).toDouble(),
@@ -477,7 +530,7 @@ final class PowerUpUsageInfo {
 
   factory PowerUpUsageInfo.fromJson(Map<String, dynamic> json) {
     return PowerUpUsageInfo(
-      usageId: (json['usageId'] as num).toInt(),
+      usageId: _readInt(json, ['id', 'usageId']),
       memberId: (json['memberId'] as num).toInt(),
       powerUpType: switch (json['powerUpType']) {
         final String s => tryParsePowerUpType(s),
@@ -503,7 +556,7 @@ final class PowerUpUsageDetails {
 
   factory PowerUpUsageDetails.fromJson(Map<String, dynamic> json) {
     return PowerUpUsageDetails(
-      usageId: (json['usageId'] as num).toInt(),
+      usageId: _readInt(json, ['id', 'usageId']),
       memberId: (json['memberId'] as num).toInt(),
       powerUpType: switch (json['powerUpType']) {
         final String s => tryParsePowerUpType(s),

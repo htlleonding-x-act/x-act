@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../services/app_session.dart';
 import 'api_config.dart';
 import 'models.dart';
 
@@ -36,14 +37,9 @@ final class TeamChatHeaderData {
 
 final class MapHeaderData {
   final String nextPingText;
-
-  /// Minutes remaining until the next Mr. X ping.
   final int remainingMinutes;
-
-  /// The total interval length in minutes between pings.
   final int intervalMinutes;
 
-  /// Progress from 0.0 (just pinged) to 1.0 (about to ping).
   double get progress =>
       intervalMinutes > 0 ? 1.0 - (remainingMinutes / intervalMinutes) : 0.0;
 
@@ -51,6 +47,36 @@ final class MapHeaderData {
     required this.nextPingText,
     this.remainingMinutes = 0,
     this.intervalMinutes = 0,
+  });
+}
+
+final class PlayerPositionData {
+  final int memberId;
+  final int teamId;
+  final String displayName;
+  final TeamRole? teamRole;
+  final Color color;
+  final LatLng position;
+
+  const PlayerPositionData({
+    required this.memberId,
+    required this.teamId,
+    required this.displayName,
+    required this.teamRole,
+    required this.color,
+    required this.position,
+  });
+}
+
+final class LobbySnapshot {
+  final List<TeamDetails> teams;
+  final Map<int, List<TeamMemberDetails>> membersByTeamId;
+  final Map<int, UserInfo> usersById;
+
+  const LobbySnapshot({
+    required this.teams,
+    required this.membersByTeamId,
+    required this.usersById,
   });
 }
 
@@ -63,34 +89,34 @@ final class ApiService {
 
   final Uri _baseUri;
   final http.Client _http;
+  final AppSession _session = AppSession.instance;
 
   Future<List<TeamCardData>> loadTeamCards() async {
     final sessionId = await getActiveSessionId();
-
-    final teams = await _listTeams();
-    final teamMembers = await _listTeamMembers();
-    final users = await _listUsers();
-
-    final usersById = {for (final u in users) u.userId: u};
-    final membersByTeamId = <int, List<TeamMemberInfo>>{};
-    for (final member in teamMembers) {
-      membersByTeamId.putIfAbsent(member.teamId, () => []).add(member);
+    if (sessionId == null) {
+      return const [];
     }
 
-    final teamsForSession = await _filterTeamsForSession(teams, sessionId);
+    final snapshot = await loadLobbySnapshot(sessionId);
 
-    return teamsForSession
+    return snapshot.teams
         .map((team) {
           final color = tryParseHexColor(team.colorCode) ?? Colors.white;
-          final memberNames = (membersByTeamId[team.teamId] ?? const [])
-              .map((m) => usersById[m.userId]?.username ?? m.userId.toString())
+          final members = (snapshot.membersByTeamId[team.teamId] ?? const [])
+              .map((member) {
+                if (member.userId != null) {
+                  return snapshot.usersById[member.userId!]?.username ??
+                      'User ${member.userId}';
+                }
+                return member.guestName ?? 'Guest';
+              })
               .toList(growable: false);
 
           return TeamCardData(
             teamName: team.teamName,
             color: color,
             isMisterX: team.role == TeamRole.mrX,
-            members: memberNames,
+            members: members,
           );
         })
         .toList(growable: false);
@@ -98,36 +124,30 @@ final class ApiService {
 
   Future<TeamChatHeaderData> loadTeamChatHeader() async {
     final sessionId = await getActiveSessionId();
-
-    final teams = await _listTeams();
-    final teamMembers = await _listTeamMembers();
-
-    final teamsForSession = await _filterTeamsForSession(teams, sessionId);
-    if (teamsForSession.isEmpty) {
-      throw StateError('No teams found.');
+    if (sessionId == null) {
+      throw StateError('No active session found.');
     }
 
-    final team = teamsForSession.firstWhere(
-      (t) => t.role == TeamRole.detective,
-      orElse: () => teamsForSession.first,
+    final snapshot = await loadLobbySnapshot(sessionId);
+    final team = snapshot.teams.firstWhere(
+      (t) => t.teamId == _session.currentTeamId,
+      orElse: () => snapshot.teams.first,
     );
 
-    final memberCount = teamMembers
-        .where((m) => m.teamId == team.teamId)
-        .length;
-    final color = tryParseHexColor(team.colorCode) ?? Colors.blue;
+    final memberCount =
+        (snapshot.membersByTeamId[team.teamId] ?? const []).length;
 
     return TeamChatHeaderData(
       teamName: team.teamName,
       memberCount: memberCount,
-      teamColor: color,
+      teamColor: tryParseHexColor(team.colorCode) ?? Colors.blue,
     );
   }
 
   Future<MapHeaderData> loadMapHeader() async {
     final sessionId = await getActiveSessionId();
     if (sessionId == null) {
-      return const MapHeaderData(nextPingText: 'Next ping: —');
+      return const MapHeaderData(nextPingText: 'Next ping: -');
     }
 
     final details = await _getGameSession(sessionId);
@@ -135,7 +155,7 @@ final class ApiService {
     final interval = details.mrXRevealInterval;
 
     if (start == null || interval <= 0) {
-      return const MapHeaderData(nextPingText: 'Next ping: —');
+      return const MapHeaderData(nextPingText: 'Next ping: -');
     }
 
     final now = DateTime.now().toUtc();
@@ -151,12 +171,296 @@ final class ApiService {
     );
   }
 
-  /// Sends the current player's GPS position to the backend.
-  ///
-  /// The backend requires the full [TeamMemberUpdateRequest] body, so you also
-  /// need to pass [teamId], [userId] and [isTeamLeader] – fetch those once
-  /// when the game starts and cache them locally.
+  Future<GameSessionDetails> createLobby({required String lobbyName}) async {
+    final hostUserId = await ensureMvpUser(
+      preferredName: _session.currentUsername ?? 'Host',
+    );
+
+    // Retry a few times to avoid accidental join-code collisions.
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final response = await _postJsonObject('/api/gamesessions', {
+        'hostUserId': hostUserId,
+        'sessionName': lobbyName,
+        'joinCode': _generateJoinCode(),
+        'status': 'WAITING',
+        'plannedDurationMinutes': 60,
+        'mrXRevealInterval': 5,
+      });
+
+      if (response != null) {
+        final details = GameSessionDetails.fromJson(response);
+        _session.setSession(
+          sessionId: details.sessionId,
+          joinCode: details.joinCode,
+        );
+        return details;
+      }
+    }
+
+    throw Exception('Failed to create lobby after retries.');
+  }
+
+  Future<int> ensureMvpUser({required String preferredName}) async {
+    final users = await _listUsers();
+
+    if (_session.currentUserId != null &&
+        users.any((u) => u.userId == _session.currentUserId)) {
+      return _session.currentUserId!;
+    }
+
+    final preferredByName = users.where(
+      (u) => u.username.toLowerCase() == preferredName.toLowerCase(),
+    );
+    if (preferredByName.isNotEmpty) {
+      final user = preferredByName.first;
+      _session.setIdentity(userId: user.userId, username: user.username);
+      return user.userId;
+    }
+
+    try {
+      final created = await _postJsonObjectOrThrow('/api/users', {
+        'username': preferredName,
+        'email': '${preferredName.toLowerCase()}@xact.local',
+        'accountType': 'FREE',
+        'subscriptionEndDate': null,
+        'totalWins': 0,
+        'totalGamesPlayed': 0,
+      });
+
+      final user = UserDetails.fromJson(created);
+      _session.setIdentity(userId: user.userId, username: user.username);
+      return user.userId;
+    } catch (_) {
+      if (users.isNotEmpty) {
+        final user = users.first;
+        _session.setIdentity(userId: user.userId, username: user.username);
+        return user.userId;
+      }
+      rethrow;
+    }
+  }
+
+  Future<GameSessionDetails> joinLobbyByCode(String joinCode) async {
+    final json = await _getJsonObject('/api/gamesessions/join/$joinCode');
+    final session = GameSessionDetails.fromJson(json);
+    _session.setSession(
+      sessionId: session.sessionId,
+      joinCode: session.joinCode,
+    );
+    return session;
+  }
+
+  Future<LobbySnapshot> loadLobbySnapshot(int sessionId) async {
+    final teams = await _listTeams(sessionId);
+    final users = await _listUsers();
+    final usersById = {for (final user in users) user.userId: user};
+
+    final membersByTeamId = <int, List<TeamMemberDetails>>{};
+    for (final team in teams) {
+      final infos = await _listTeamMembersByTeam(sessionId, team.teamId);
+      final details = <TeamMemberDetails>[];
+      for (final info in infos) {
+        details.add(
+          await _getTeamMemberById(sessionId, team.teamId, info.memberId),
+        );
+      }
+      membersByTeamId[team.teamId] = details;
+    }
+
+    return LobbySnapshot(
+      teams: teams,
+      membersByTeamId: membersByTeamId,
+      usersById: usersById,
+    );
+  }
+
+  Future<TeamDetails> addTeam({
+    required int sessionId,
+    required String teamName,
+    required TeamRole role,
+    required String colorCode,
+  }) async {
+    final json =
+        await _postJsonObjectOrThrow('/api/gamesessions/$sessionId/teams', {
+          'teamName': teamName,
+          'role': _roleToApi(role),
+          'colorCode': colorCode,
+          'isCaught': false,
+        });
+
+    return TeamDetails.fromJson(json);
+  }
+
+  Future<void> updateTeam({
+    required int sessionId,
+    required int teamId,
+    required String teamName,
+    required TeamRole role,
+    required String colorCode,
+    required bool isCaught,
+  }) async {
+    await _putJsonNoContent('/api/gamesessions/$sessionId/teams/$teamId', {
+      'teamName': teamName,
+      'role': _roleToApi(role),
+      'colorCode': colorCode,
+      'isCaught': isCaught,
+    });
+  }
+
+  Future<void> deleteTeam({required int sessionId, required int teamId}) async {
+    await _deleteNoContent('/api/gamesessions/$sessionId/teams/$teamId');
+  }
+
+  Future<TeamMemberDetails> addGuestMember({
+    required int sessionId,
+    required int teamId,
+    required String guestName,
+    bool isTeamLeader = false,
+  }) async {
+    final json = await _postJsonObjectOrThrow(
+      '/api/gamesessions/$sessionId/teams/$teamId/members',
+      {
+        'userId': null,
+        'guestName': guestName,
+        'isTeamLeader': isTeamLeader,
+        'currentLatitude': null,
+        'currentLongitude': null,
+        'lastUpdated': null,
+      },
+    );
+
+    return TeamMemberDetails.fromJson(json);
+  }
+
+  Future<TeamMemberDetails> addUserMember({
+    required int sessionId,
+    required int teamId,
+    required int userId,
+    bool isTeamLeader = false,
+  }) async {
+    final json = await _postJsonObjectOrThrow(
+      '/api/gamesessions/$sessionId/teams/$teamId/members',
+      {
+        'userId': userId,
+        'guestName': null,
+        'isTeamLeader': isTeamLeader,
+        'currentLatitude': null,
+        'currentLongitude': null,
+        'lastUpdated': null,
+      },
+    );
+
+    return TeamMemberDetails.fromJson(json);
+  }
+
+  Future<void> removeMember({
+    required int sessionId,
+    required int teamId,
+    required int memberId,
+  }) async {
+    await _deleteNoContent(
+      '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId',
+    );
+  }
+
+  Future<TeamMemberDetails> moveMemberToTeam({
+    required int sessionId,
+    required TeamMemberDetails member,
+    required int sourceTeamId,
+    required int targetTeamId,
+  }) async {
+    if (sourceTeamId == targetTeamId) {
+      return member;
+    }
+
+    await removeMember(
+      sessionId: sessionId,
+      teamId: sourceTeamId,
+      memberId: member.memberId,
+    );
+
+    if (member.userId != null) {
+      return addUserMember(
+        sessionId: sessionId,
+        teamId: targetTeamId,
+        userId: member.userId!,
+        isTeamLeader: member.isTeamLeader,
+      );
+    }
+
+    return addGuestMember(
+      sessionId: sessionId,
+      teamId: targetTeamId,
+      guestName: member.guestName ?? 'Guest',
+      isTeamLeader: member.isTeamLeader,
+    );
+  }
+
+  Future<void> startGameSession(int sessionId) async {
+    await _postNoContent('/api/gamesessions/$sessionId/start');
+  }
+
+  Future<int?> getActiveSessionId() async {
+    if (_session.currentSessionId != null) {
+      return _session.currentSessionId;
+    }
+
+    final sessions = await _listGameSessions();
+    final active = sessions
+        .where((s) => s.status == SessionStatus.active)
+        .toList();
+    if (active.isNotEmpty) {
+      _session.currentSessionId = active.first.sessionId;
+      _session.currentJoinCode = active.first.joinCode;
+      return active.first.sessionId;
+    }
+
+    if (sessions.isEmpty) {
+      return null;
+    }
+
+    _session.currentSessionId = sessions.first.sessionId;
+    _session.currentJoinCode = sessions.first.joinCode;
+    return sessions.first.sessionId;
+  }
+
+  Future<List<PlayerPositionData>> loadPlayerPositions(int sessionId) async {
+    final snapshot = await loadLobbySnapshot(sessionId);
+    final out = <PlayerPositionData>[];
+
+    for (final team in snapshot.teams) {
+      final color = tryParseHexColor(team.colorCode) ?? Colors.blueGrey;
+      final members = snapshot.membersByTeamId[team.teamId] ?? const [];
+      for (final member in members) {
+        final lat = member.currentLatitude;
+        final lon = member.currentLongitude;
+        if (lat == null || lon == null) {
+          continue;
+        }
+
+        final name = member.userId != null
+            ? (snapshot.usersById[member.userId!]?.username ??
+                  'User ${member.userId}')
+            : (member.guestName ?? 'Guest');
+
+        out.add(
+          PlayerPositionData(
+            memberId: member.memberId,
+            teamId: team.teamId,
+            displayName: name,
+            teamRole: team.role,
+            color: color,
+            position: LatLng(lat, lon),
+          ),
+        );
+      }
+    }
+
+    return out;
+  }
+
   Future<void> updateTeamMemberLocation({
+    required int sessionId,
     required int memberId,
     required int teamId,
     required int userId,
@@ -164,78 +468,86 @@ final class ApiService {
     required double latitude,
     required double longitude,
   }) async {
-    final body = jsonEncode({
-      'teamId': teamId,
-      'userId': userId,
-      'isTeamLeader': isTeamLeader,
-      'currentLatitude': latitude,
-      'currentLongitude': longitude,
-      'lastUpdated': DateTime.now().toUtc().toIso8601String(),
-    });
-
-    final uri = _baseUri.resolve('/api/teammembers/$memberId');
-    final response = await _http.put(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
+    await _putJsonNoContent(
+      '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId',
+      {
+        'userId': userId,
+        'guestName': null,
+        'isTeamLeader': isTeamLeader,
+        'currentLatitude': latitude,
+        'currentLongitude': longitude,
+        'lastUpdated': DateTime.now().toUtc().toIso8601String(),
       },
-      body: body,
+    );
+  }
+
+  Future<List<GeofencePointDetails>> loadGeofencePoints(int sessionId) async {
+    final json = await _getJsonObject(
+      '/api/gamesessions/$sessionId/geofencepoints',
+    );
+    final infos = ApiListResponse.fromJson(
+      json,
+      GeofencePointInfo.fromJson,
+    ).items;
+
+    final details = await Future.wait(
+      infos.map((p) async {
+        final point = await _getJsonObject(
+          '/api/gamesessions/$sessionId/geofencepoints/${p.pointId}',
+        );
+        return GeofencePointDetails.fromJson(point);
+      }),
     );
 
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'HTTP ${response.statusCode} when updating location for member $memberId',
+    return details..sort((a, b) => a.sequenceOrder.compareTo(b.sequenceOrder));
+  }
+
+  Future<GeofencePointDetails> addGeofencePoint({
+    required int sessionId,
+    required double latitude,
+    required double longitude,
+    required int sequenceOrder,
+  }) async {
+    final json = await _postJsonObjectOrThrow(
+      '/api/gamesessions/$sessionId/geofencepoints',
+      {
+        'latitude': latitude,
+        'longitude': longitude,
+        'sequenceOrder': sequenceOrder,
+      },
+    );
+
+    return GeofencePointDetails.fromJson(json);
+  }
+
+  Future<void> deleteGeofencePoint({
+    required int sessionId,
+    required int pointId,
+  }) async {
+    await _deleteNoContent(
+      '/api/gamesessions/$sessionId/geofencepoints/$pointId',
+    );
+  }
+
+  Future<void> saveGeofenceArea({
+    required int sessionId,
+    required List<LatLng> points,
+  }) async {
+    final existing = await loadGeofencePoints(sessionId);
+    await Future.wait(
+      existing.map(
+        (p) => deleteGeofencePoint(sessionId: sessionId, pointId: p.pointId),
+      ),
+    );
+
+    for (var i = 0; i < points.length; i++) {
+      await addGeofencePoint(
+        sessionId: sessionId,
+        latitude: points[i].latitude,
+        longitude: points[i].longitude,
+        sequenceOrder: i,
       );
     }
-  }
-
-  /// Pseudo method that creates a new lobby and returns a [GameSessionDetails]
-  /// with a random 6-digit join code and sensible defaults.
-  ///
-  /// TODO: Replace with a real POST /api/gamesessions call once the backend
-  /// endpoint is wired up.
-  Future<GameSessionDetails> createLobby({required String lobbyName}) async {
-    final random = Random();
-    final joinCode = (100000 + random.nextInt(900000)).toString();
-
-    return GameSessionDetails(
-      sessionId: 1,
-      hostUserId: 1,
-      joinCode: joinCode,
-      status: SessionStatus.waiting,
-      startTime: null,
-      endTime: null,
-      plannedDurationMinutes: 60,
-      mrXRevealInterval: 5,
-    );
-  }
-
-  Future<int?> getActiveSessionId() async {
-    final sessions = await _listGameSessions();
-    final active = sessions
-        .where((s) => s.status == SessionStatus.active)
-        .toList();
-    if (active.isNotEmpty) {
-      return active.first.sessionId;
-    }
-    return sessions.isEmpty ? null : sessions.first.sessionId;
-  }
-
-  Future<List<TeamInfo>> _filterTeamsForSession(
-    List<TeamInfo> teams,
-    int? sessionId,
-  ) async {
-    if (sessionId == null) {
-      return teams;
-    }
-
-    final details = await Future.wait(teams.map((t) => _getTeam(t.teamId)));
-    final byId = {for (final d in details) d.teamId: d};
-
-    return teams
-        .where((t) => byId[t.teamId]?.sessionId == sessionId)
-        .toList(growable: false);
   }
 
   Future<List<UserInfo>> _listUsers() async {
@@ -253,122 +565,42 @@ final class ApiService {
     return GameSessionDetails.fromJson(json);
   }
 
-  Future<List<TeamInfo>> _listTeams() async {
-    final json = await _getJsonObject('/api/teams');
-    return ApiListResponse.fromJson(json, TeamInfo.fromJson).items;
+  Future<List<TeamDetails>> _listTeams(int sessionId) async {
+    final json = await _getJsonObject('/api/gamesessions/$sessionId/teams');
+    final items = ApiListResponse.fromJson(json, TeamInfo.fromJson).items;
+
+    final details = await Future.wait(
+      items.map((team) => _getTeam(sessionId, team.teamId)),
+    );
+    return details;
   }
 
-  Future<TeamDetails> _getTeam(int teamId) async {
-    final json = await _getJsonObject('/api/teams/$teamId');
+  Future<TeamDetails> _getTeam(int sessionId, int teamId) async {
+    final json = await _getJsonObject(
+      '/api/gamesessions/$sessionId/teams/$teamId',
+    );
     return TeamDetails.fromJson(json);
   }
 
-  Future<List<TeamMemberInfo>> _listTeamMembers() async {
-    final json = await _getJsonObject('/api/teammembers');
+  Future<List<TeamMemberInfo>> _listTeamMembersByTeam(
+    int sessionId,
+    int teamId,
+  ) async {
+    final json = await _getJsonObject(
+      '/api/gamesessions/$sessionId/teams/$teamId/members',
+    );
     return ApiListResponse.fromJson(json, TeamMemberInfo.fromJson).items;
   }
 
-  // ── Geofence ─────────────────────────────────────────────────────────────
-
-  /// Returns all geofence points for [sessionId], sorted by sequenceOrder.
-  Future<List<GeofencePointDetails>> loadGeofencePoints(int sessionId) async {
-    final json = await _getJsonObject('/api/geofencepoints');
-    final infos = ApiListResponse.fromJson(
-      json,
-      GeofencePointInfo.fromJson,
-    ).items;
-    final forSession = infos.where((p) => p.sessionId == sessionId).toList();
-
-    // Fetch full details (includes sequenceOrder) for each point.
-    final details = await Future.wait(
-      forSession.map((p) async {
-        final detailJson = await _getJsonObject(
-          '/api/geofencepoints/${p.pointId}',
-        );
-        return GeofencePointDetails.fromJson(detailJson);
-      }),
+  Future<TeamMemberDetails> _getTeamMemberById(
+    int sessionId,
+    int teamId,
+    int memberId,
+  ) async {
+    final json = await _getJsonObject(
+      '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId',
     );
-    return details..sort((a, b) => a.sequenceOrder.compareTo(b.sequenceOrder));
-  }
-
-  /// Adds a single geofence point and returns the created object.
-  Future<GeofencePointDetails> addGeofencePoint({
-    required int sessionId,
-    required double latitude,
-    required double longitude,
-    required int sequenceOrder,
-  }) async {
-    final uri = _baseUri.resolve('/api/geofencepoints');
-    final response = await _http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode({
-        'sessionId': sessionId,
-        'latitude': latitude,
-        'longitude': longitude,
-        'sequenceOrder': sequenceOrder,
-      }),
-    );
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} adding geofence point');
-    }
-    return GeofencePointDetails.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
-    );
-  }
-
-  /// Deletes a single geofence point by its ID.
-  Future<void> deleteGeofencePoint(int pointId) async {
-    final uri = _baseUri.resolve('/api/geofencepoints/$pointId');
-    final response = await _http.delete(uri);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(
-        'HTTP ${response.statusCode} deleting geofence point $pointId',
-      );
-    }
-  }
-
-  /// Deletes every geofence point in the backend regardless of session.
-  ///
-  /// Required before saving a new game area because the backend's in-memory
-  /// ID counter starts at 6 while seeded data already uses IDs 5–8 for
-  /// session 2. If those seeded points are not removed first, newly added
-  /// session-1 points receive the same IDs, causing
-  /// [loadGeofencePoints] to return wrong coordinates from the duplicate
-  /// session-2 entries.
-  Future<void> clearAllGeofencePoints() async {
-    final json = await _getJsonObject('/api/geofencepoints');
-    final infos = ApiListResponse.fromJson(
-      json,
-      GeofencePointInfo.fromJson,
-    ).items;
-    await Future.wait(infos.map((p) => deleteGeofencePoint(p.pointId)));
-  }
-
-  /// Replaces the entire game area for [sessionId] with the given [points].
-  ///
-  /// Deletes all existing points for the session first, then POSTs the new
-  /// list in order (sequenceOrder = 1-based index).
-  Future<void> saveGeofenceArea({
-    required int sessionId,
-    required List<LatLng> points,
-  }) async {
-    // 1. Remove old points for this session.
-    final existing = await loadGeofencePoints(sessionId);
-    await Future.wait(existing.map((p) => deleteGeofencePoint(p.pointId)));
-
-    // 2. Add new points in order.
-    for (var i = 0; i < points.length; i++) {
-      await addGeofencePoint(
-        sessionId: sessionId,
-        latitude: points[i].latitude,
-        longitude: points[i].longitude,
-        sequenceOrder: i + 1,
-      );
-    }
+    return TeamMemberDetails.fromJson(json);
   }
 
   Future<Map<String, dynamic>> _getJsonObject(String path) async {
@@ -379,7 +611,7 @@ final class ApiService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for $path');
+      throw Exception('HTTP ${response.statusCode} for GET $path');
     }
 
     final decoded = jsonDecode(response.body);
@@ -387,6 +619,103 @@ final class ApiService {
       return decoded;
     }
 
-    throw const FormatException('Expected a JSON object.');
+    throw const FormatException('Expected JSON object response.');
+  }
+
+  Future<Map<String, dynamic>?> _postJsonObject(
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
+    final uri = _baseUri.resolve(path);
+    final response = await _http.post(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.body.isEmpty) {
+        return <String, dynamic>{};
+      }
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      throw const FormatException('Expected JSON object response.');
+    }
+
+    return null;
+  }
+
+  Future<Map<String, dynamic>> _postJsonObjectOrThrow(
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
+    final json = await _postJsonObject(path, payload);
+    if (json == null) {
+      throw Exception('POST $path failed');
+    }
+    return json;
+  }
+
+  Future<void> _postNoContent(String path) async {
+    final uri = _baseUri.resolve(path);
+    final response = await _http.post(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode} for POST $path');
+    }
+  }
+
+  Future<void> _putJsonNoContent(
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
+    final uri = _baseUri.resolve(path);
+    final response = await _http.put(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode} for PUT $path');
+    }
+  }
+
+  Future<void> _deleteNoContent(String path) async {
+    final uri = _baseUri.resolve(path);
+    final response = await _http.delete(
+      uri,
+      headers: {'Accept': 'application/json'},
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode} for DELETE $path');
+    }
+  }
+
+  String _generateJoinCode() {
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random();
+    return List.generate(
+      6,
+      (_) => alphabet[random.nextInt(alphabet.length)],
+    ).join();
+  }
+
+  String _roleToApi(TeamRole role) {
+    return switch (role) {
+      TeamRole.mrX => 'MR_X',
+      TeamRole.detective => 'DETECTIVE',
+      TeamRole.spectator => 'SPECTATOR',
+    };
   }
 }

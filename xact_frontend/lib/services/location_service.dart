@@ -19,6 +19,7 @@ final class LocationService {
   // ── Member info set when tracking starts ──────────────────────────────────
 
   int? _memberId;
+  int? _sessionId;
   int? _teamId;
   int? _userId;
   bool _isTeamLeader = false;
@@ -81,15 +82,14 @@ final class LocationService {
       distanceFilter: 5,
     );
 
-    _positionSub = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) {
-        lastKnownPosition = position;
-        _positionController.add(position);
-      },
-      onError: (_) {},
-    );
+    _positionSub =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (position) {
+            lastKnownPosition = position;
+            _positionController.add(position);
+          },
+          onError: (_) {},
+        );
   }
 
   /// Starts continuous GPS tracking and periodic upload to the backend.
@@ -100,6 +100,7 @@ final class LocationService {
   /// [uploadInterval] controls how often the position is pushed to the API
   /// (default: every 5 seconds).
   Future<void> startTracking({
+    required int sessionId,
     required int memberId,
     required int teamId,
     required int userId,
@@ -110,6 +111,7 @@ final class LocationService {
     stopTracking();
 
     _memberId = memberId;
+    _sessionId = sessionId;
     _teamId = teamId;
     _userId = userId;
     _isTeamLeader = isTeamLeader;
@@ -123,17 +125,16 @@ final class LocationService {
       distanceFilter: 5,
     );
 
-    _positionSub = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) {
-        lastKnownPosition = position;
-        _positionController.add(position);
-      },
-      onError: (Object error) {
-        // Swallow errors so the stream stays alive.
-      },
-    );
+    _positionSub =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (position) {
+            lastKnownPosition = position;
+            _positionController.add(position);
+          },
+          onError: (Object error) {
+            // Swallow errors so the stream stays alive.
+          },
+        );
 
     // Upload on a fixed interval so the backend is always up-to-date even
     // when the player is standing still (distanceFilter would skip those).
@@ -158,16 +159,22 @@ final class LocationService {
 
   Future<void> _uploadPosition() async {
     final position = lastKnownPosition;
+    final sessionId = _sessionId;
     final memberId = _memberId;
     final teamId = _teamId;
     final userId = _userId;
 
-    if (position == null || memberId == null || teamId == null || userId == null) {
+    if (position == null ||
+        sessionId == null ||
+        memberId == null ||
+        teamId == null ||
+        userId == null) {
       return;
     }
 
     try {
       await ApiService.instance.updateTeamMemberLocation(
+        sessionId: sessionId,
         memberId: memberId,
         teamId: teamId,
         userId: userId,
