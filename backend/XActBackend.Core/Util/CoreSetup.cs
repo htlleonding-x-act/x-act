@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using XActBackend.Realtime;
 using XActBackend.Core.Services;
 
 namespace XActBackend.Core.Util;
@@ -15,5 +16,6 @@ public static class CoreSetup
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITeamService, TeamService>();
         services.AddScoped<ITeamMemberService, TeamMemberService>();
+        services.AddScoped<IGameSessionSnapshotService, GameSessionSnapshotService>();
     }
 }
