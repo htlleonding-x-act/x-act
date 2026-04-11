@@ -1,4 +1,4 @@
-using XActBackend.Persistence;
+﻿using XActBackend.Persistence;
 using XActBackend.Persistence.Util;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
@@ -31,6 +31,8 @@ public sealed class WebApiTestFixture : IAsyncLifetime
         get => field ?? throw new InvalidOperationException("Factory not created");
         set;
     }
+
+    internal WebAppFactory AppFactory => Factory;
 
     public async ValueTask InitializeAsync()
     {
