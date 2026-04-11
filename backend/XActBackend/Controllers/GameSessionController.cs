@@ -5,6 +5,7 @@ using OneOf.Types;
 using XActBackend.Core.Services;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
+using XActBackend.Realtime;
 using XActBackend.Util;
 
 namespace XActBackend.Controllers;
@@ -13,6 +14,7 @@ namespace XActBackend.Controllers;
 public sealed class GameSessionController(
     ITransactionProvider transaction,
     IGameSessionService gameSessionService,
+    IGameSessionRealtimePublisher realtimePublisher,
     ILogger<GameSessionController> logger) : BaseController
 {
     [HttpGet]
@@ -231,6 +233,12 @@ public sealed class GameSessionController(
             return await result.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetGameSessionByIdAsync(sessionId, tracking: false);
+                await sessionResult.Match(
+                    gameSession => realtimePublisher.PublishGameSessionStartedAsync(gameSession),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Started game session {SessionId}", sessionId);
 
                 return NoContent();

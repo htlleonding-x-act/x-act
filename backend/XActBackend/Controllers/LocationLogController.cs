@@ -5,6 +5,7 @@ using OneOf.Types;
 using XActBackend.Core.Services;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
+using XActBackend.Realtime;
 using XActBackend.Util;
 
 namespace XActBackend.Controllers;
@@ -13,6 +14,7 @@ namespace XActBackend.Controllers;
 public sealed class LocationLogController(
     ITransactionProvider transaction,
     ILocationLogService locationLogService,
+    IGameSessionRealtimePublisher realtimePublisher,
     ILogger<LocationLogController> logger) : BaseController
 {
     [HttpGet]
@@ -86,6 +88,7 @@ public sealed class LocationLogController(
             return await addResult.Match<ValueTask<IActionResult>>(async locationLog =>
             {
                 await transaction.CommitAsync();
+                await realtimePublisher.PublishLocationLogRecordedAsync(sessionId, teamId, locationLog);
                 logger.LogInformation("Created location log {LogId} for member {MemberId}", locationLog.Id, memberId);
 
                 return CreatedAtAction(nameof(GetLocationLogById),

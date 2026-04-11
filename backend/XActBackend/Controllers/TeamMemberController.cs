@@ -5,6 +5,7 @@ using OneOf.Types;
 using XActBackend.Core.Services;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
+using XActBackend.Realtime;
 using XActBackend.Util;
 
 namespace XActBackend.Controllers;
@@ -13,6 +14,8 @@ namespace XActBackend.Controllers;
 public sealed class TeamMemberController(
     ITransactionProvider transaction,
     ITeamMemberService teamMemberService,
+    IGameSessionRealtimePublisher realtimePublisher,
+    IClock clock,
     ILogger<TeamMemberController> logger) : BaseController
 {
     [HttpGet]
@@ -82,6 +85,7 @@ public sealed class TeamMemberController(
             return await addResult.Match<ValueTask<IActionResult>>(async member =>
             {
                 await transaction.CommitAsync();
+                await realtimePublisher.PublishTeamMemberJoinedAsync(member);
                 logger.LogInformation("Created team member {MemberId} in session {SessionId}, team {TeamId}", member.Id, sessionId, teamId);
                 return CreatedAtAction(nameof(GetTeamMemberById),
                     new { sessionId, teamId, memberId = member.Id },
@@ -147,6 +151,12 @@ public sealed class TeamMemberController(
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                var updatedMemberResult = await teamMemberService.GetTeamMemberByIdAsync(sessionId, teamId, memberId, tracking: false);
+                await updatedMemberResult.Match(
+                    member => realtimePublisher.PublishTeamMemberUpdatedAsync(member),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Updated team member {MemberId} in session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
                 return NoContent();
             }, async notFound =>
@@ -178,6 +188,9 @@ public sealed class TeamMemberController(
         [FromRoute] int teamId,
         [FromRoute] int memberId)
     {
+        OneOf<TeamMember, NotFound> existingMemberResult =
+            await teamMemberService.GetTeamMemberByIdAsync(sessionId, teamId, memberId, tracking: false);
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -187,6 +200,17 @@ public sealed class TeamMemberController(
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                await existingMemberResult.Match(
+                    member => realtimePublisher.PublishTeamMemberLeftAsync(
+                        sessionId,
+                        teamId,
+                        member.Id,
+                        member.UserId,
+                        member.GuestName,
+                        clock.GetCurrentInstant()),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Deleted team member {MemberId} from session {SessionId}, team {TeamId}", memberId, sessionId, teamId);
                 return NoContent();
             }, async notFound =>

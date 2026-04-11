@@ -1,5 +1,7 @@
-using XActBackend.Core.Util;
+﻿using XActBackend.Core.Util;
 using XActBackend.Persistence.Util;
+using XActBackend.Realtime;
+using XActBackend.Shared;
 using XActBackend.Util;
 using Serilog;
 
@@ -85,6 +87,14 @@ public static class Setup
                 options.ConstraintMap.Add(nameof(LocalDate),
                                           typeof(LocalDateRouteConstraint));
             });
+        }
+
+        public void AddRealtime(bool isDev)
+        {
+            services.AddSignalR()
+                    .AddJsonProtocol(o => JsonConfig.ConfigureJsonSerialization(o.PayloadSerializerOptions, isDev));
+
+            services.AddScoped<IGameSessionRealtimePublisher, GameSessionRealtimePublisher>();
         }
     }
 }
