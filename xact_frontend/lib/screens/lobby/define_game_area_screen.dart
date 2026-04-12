@@ -20,11 +20,13 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // Points the host has placed – these form the polygon.
   final List<LatLng> _points = [];
 
-  // Index of the point currently being dragged, -1 when idle.
-  int _draggingIndex = -1;
+  // Index of the currently selected point, -1 when none is selected.
+  int _selectedIndex = -1;
+
+  // When true, the next map tap repositions the selected point.
+  bool _isMoveMode = false;
 
   static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
-
 
   @override
   void initState() {
@@ -45,30 +47,94 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     }
   }
 
-
   void _onMapTap(TapPosition _, LatLng point) {
-    // Ignore taps that are really the end of a marker drag.
-    if (_draggingIndex >= 0) return;
-    setState(() => _points.add(point));
+    if (_isMoveMode && _selectedIndex >= 0 && _selectedIndex < _points.length) {
+      setState(() {
+        _points[_selectedIndex] = point;
+        _isMoveMode = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _points.add(point);
+      _selectedIndex = -1;
+      _isMoveMode = false;
+    });
   }
 
-  void _onMarkerDragStart(int index) {
-    setState(() => _draggingIndex = index);
+  void _deletePointAt(int index) {
+    if (index < 0 || index >= _points.length) return;
+    setState(() {
+      _points.removeAt(index);
+
+      if (_selectedIndex == index) {
+        _selectedIndex = -1;
+        _isMoveMode = false;
+      } else if (_selectedIndex > index) {
+        _selectedIndex -= 1;
+      }
+    });
   }
 
-  void _onMarkerDragUpdate(int index, DragUpdateDetails details) {
-    final camera = _mapController.camera;
-    // getOffsetFromOrigin converts LatLng → screen Offset (origin = top-left).
-    // offsetToCrs is the exact inverse: screen Offset → LatLng.
-    // The drag delta from Flutter is already in screen pixels, so adding it
-    // directly gives the correct new position.
-    final currentOffset = camera.getOffsetFromOrigin(_points[index]);
-    final newOffset = currentOffset + details.delta;
-    setState(() => _points[index] = camera.offsetToCrs(newOffset));
-  }
+  Future<void> _showPointMenu(int index, Offset globalPosition) async {
+    if (index < 0 || index >= _points.length) return;
 
-  void _onMarkerDragEnd() {
-    setState(() => _draggingIndex = -1);
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selection = await showMenu<_PointAction>(
+      context: context,
+      color: const Color(0xFF252A3A),
+      position: RelativeRect.fromRect(
+        Rect.fromCenter(center: globalPosition, width: 1, height: 1),
+        Offset.zero & overlay.size,
+      ),
+      items: const [
+        PopupMenuItem<_PointAction>(
+          value: _PointAction.move,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.open_with, color: Colors.white),
+            title: Text('Move point', style: TextStyle(color: Colors.white)),
+          ),
+        ),
+        PopupMenuItem<_PointAction>(
+          value: _PointAction.delete,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.delete_outline, color: Colors.redAccent),
+            title: Text('Delete point', style: TextStyle(color: Colors.white)),
+          ),
+        ),
+        PopupMenuItem<_PointAction>(
+          value: _PointAction.deselect,
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.close, color: Colors.white70),
+            title: Text('Deselect', style: TextStyle(color: Colors.white70)),
+          ),
+        ),
+      ],
+    );
+
+    if (!mounted) return;
+
+    switch (selection) {
+      case _PointAction.move:
+        setState(() => _isMoveMode = true);
+      case _PointAction.delete:
+        _showDeleteDialog(index);
+      case _PointAction.deselect:
+        setState(() {
+          _selectedIndex = -1;
+          _isMoveMode = false;
+        });
+      case null:
+        break;
+    }
   }
 
   void _showDeleteDialog(int index) {
@@ -90,23 +156,20 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     ).then((confirmed) {
       if (confirmed == true && mounted) {
-        setState(() => _points.removeAt(index));
+        _deletePointAt(index);
       }
     });
   }
 
   void _undoLast() {
     if (_points.isEmpty) return;
-    setState(() => _points.removeLast());
+    _deletePointAt(_points.length - 1);
   }
 
   void _clearAll() {
@@ -135,7 +198,13 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
         ],
       ),
     ).then((confirmed) {
-      if (confirmed == true) setState(() => _points.clear());
+      if (confirmed == true) {
+        setState(() {
+          _points.clear();
+          _selectedIndex = -1;
+          _isMoveMode = false;
+        });
+      }
     });
   }
 
@@ -158,14 +227,16 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
   String get _statusText {
     if (_points.isEmpty) return 'Tap on the map to place the first corner';
-    if (_draggingIndex >= 0) {
-      return 'Drag to reposition point ${_draggingIndex + 1}';
+    if (_isMoveMode && _selectedIndex >= 0) {
+      return 'Move mode: tap on map to set point ${_selectedIndex + 1}';
+    }
+    if (_selectedIndex >= 0) {
+      return 'Point ${_selectedIndex + 1} selected · choose action from menu';
     }
     if (_points.length == 1) return '1 point placed – add at least 2 more';
     if (_points.length == 2) return '2 points placed – add at least 1 more';
-    return '${_points.length} points – tap map to add · drag to move';
+    return '${_points.length} points – tap point to select · tap map to add';
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -201,12 +272,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
               minZoom: 10.0,
               maxZoom: 18.0,
               onTap: _onMapTap,
-              // Freeze map panning while a marker is being dragged so
-              // the map doesn't move under the user's finger.
-              interactionOptions: InteractionOptions(
-                flags: _draggingIndex >= 0
-                    ? InteractiveFlag.none
-                    : InteractiveFlag.all,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all,
               ),
             ),
             children: [
@@ -275,14 +342,14 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
                       width: 44,
                       height: 44,
                       child: GestureDetector(
-                        onPanStart: (_) => _onMarkerDragStart(i),
-                        onPanUpdate: (d) => _onMarkerDragUpdate(i, d),
-                        onPanEnd: (_) => _onMarkerDragEnd(),
-                        onLongPress: () => _showDeleteDialog(i),
-                        onSecondaryTap: () => _showDeleteDialog(i),
+                        onTapDown: (details) =>
+                            _showPointMenu(i, details.globalPosition),
+                        onSecondaryTapDown: (details) =>
+                            _showPointMenu(i, details.globalPosition),
                         child: _PointMarker(
                           index: i + 1,
-                          isDragging: _draggingIndex == i,
+                          isSelected: _selectedIndex == i,
+                          isMoveMode: _isMoveMode && _selectedIndex == i,
                         ),
                       ),
                     ),
@@ -313,17 +380,25 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   }
 }
 
-
 class _PointMarker extends StatelessWidget {
   final int index;
-  final bool isDragging;
+  final bool isSelected;
+  final bool isMoveMode;
 
-  const _PointMarker({required this.index, this.isDragging = false});
+  const _PointMarker({
+    required this.index,
+    this.isSelected = false,
+    this.isMoveMode = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final size = isDragging ? 44.0 : 34.0;
-    final color = isDragging ? Colors.orange.shade600 : Colors.blue.shade700;
+    final size = isMoveMode ? 44.0 : 34.0;
+    final color = isMoveMode
+        ? Colors.orange.shade600
+        : isSelected
+        ? Colors.teal.shade600
+        : Colors.blue.shade700;
     return Center(
       child: Container(
         width: size,
@@ -332,14 +407,36 @@ class _PointMarker extends StatelessWidget {
           color: color,
           shape: BoxShape.circle,
           border: Border.all(
-            color: isDragging ? Colors.white : Colors.white70,
-            width: isDragging ? 3 : 2,
+            color: isMoveMode
+                ? Colors.white
+                : isSelected
+                ? Colors.tealAccent
+                : Colors.white70,
+            width: isMoveMode
+                ? 3
+                : isSelected
+                ? 3
+                : 2,
           ),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: isDragging ? 0.9 : 0.6),
-              blurRadius: isDragging ? 14 : 6,
-              spreadRadius: isDragging ? 3 : 1,
+              color: color.withValues(
+                alpha: isMoveMode
+                    ? 0.9
+                    : isSelected
+                    ? 0.8
+                    : 0.6,
+              ),
+              blurRadius: isMoveMode
+                  ? 14
+                  : isSelected
+                  ? 10
+                  : 6,
+              spreadRadius: isMoveMode
+                  ? 3
+                  : isSelected
+                  ? 2
+                  : 1,
             ),
           ],
         ),
@@ -348,7 +445,7 @@ class _PointMarker extends StatelessWidget {
             '$index',
             style: TextStyle(
               color: Colors.white,
-              fontSize: isDragging ? 15 : 13,
+              fontSize: isMoveMode ? 15 : 13,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -476,3 +573,5 @@ class _BottomPanel extends StatelessWidget {
     );
   }
 }
+
+enum _PointAction { move, delete, deselect }
