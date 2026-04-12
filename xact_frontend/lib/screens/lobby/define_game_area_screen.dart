@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../services/geofence_store.dart';
 import '../../services/location_service.dart';
+import '../../widgets/lobby/define_game_area_widgets.dart';
 
 class DefineGameAreaScreen extends StatefulWidget {
   final int sessionId;
@@ -263,309 +264,31 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
       ),
       body: Stack(
         children: [
-          // ── Map ────────────────────────────────────────────────
-          FlutterMap(
+          DefineGameAreaMap(
             mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _fallbackCenter,
-              initialZoom: 15.0,
-              minZoom: 10.0,
-              maxZoom: 18.0,
-              onTap: _onMapTap,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all,
-              ),
-            ),
-            children: [
-              // Dark tile layer (same style as game map)
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.xact.app',
-                tileBuilder: (context, tileWidget, tile) {
-                  return ColorFiltered(
-                    colorFilter: const ColorFilter.matrix(<double>[
-                      0.2126,
-                      0.7152,
-                      0.0722,
-                      0,
-                      0,
-                      0.2126,
-                      0.7152,
-                      0.0722,
-                      0,
-                      0,
-                      0.2126,
-                      0.7152,
-                      0.0722,
-                      0,
-                      0,
-                      0,
-                      0,
-                      0,
-                      1,
-                      0,
-                    ]),
-                    child: tileWidget,
-                  );
-                },
-              ),
-              // Filled polygon (drawn when ≥ 3 points)
-              if (_points.length >= 3)
-                PolygonLayer(
-                  polygons: [
-                    Polygon(
-                      points: _points,
-                      color: Colors.blue.withValues(alpha: 0.2),
-                      borderColor: Colors.blue.shade400,
-                      borderStrokeWidth: 2.5,
-                    ),
-                  ],
-                ),
-              // Dotted outline for < 3 points (just a polyline)
-              if (_points.length >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: _points,
-                      color: Colors.blue.shade400,
-                      strokeWidth: 2.5,
-                      pattern: StrokePattern.dashed(segments: [8, 6]),
-                    ),
-                  ],
-                ),
-              // Numbered markers for each point
-              MarkerLayer(
-                markers: [
-                  for (var i = 0; i < _points.length; i++)
-                    Marker(
-                      point: _points[i],
-                      width: 44,
-                      height: 44,
-                      child: GestureDetector(
-                        onTapDown: (details) =>
-                            _showPointMenu(i, details.globalPosition),
-                        onSecondaryTapDown: (details) =>
-                            _showPointMenu(i, details.globalPosition),
-                        child: _PointMarker(
-                          index: i + 1,
-                          isSelected: _selectedIndex == i,
-                          isMoveMode: _isMoveMode && _selectedIndex == i,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
+            fallbackCenter: _fallbackCenter,
+            points: _points,
+            selectedIndex: _selectedIndex,
+            isMoveMode: _isMoveMode,
+            onMapTap: _onMapTap,
+            onPointTapDown: (index) =>
+                (details) => _showPointMenu(index, details.globalPosition),
           ),
 
           // ── Crosshair hint overlay ──────────────────────────────
-          const Center(child: _CrosshairOverlay()),
+          const Center(child: DefineGameAreaCrosshairOverlay()),
 
           // ── Status bar at bottom ────────────────────────────────
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _BottomPanel(
+            child: DefineGameAreaBottomPanel(
               statusText: _statusText,
               pointCount: _points.length,
               isSaving: false,
               canSave: _points.length >= 3,
               onSave: _save,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PointMarker extends StatelessWidget {
-  final int index;
-  final bool isSelected;
-  final bool isMoveMode;
-
-  const _PointMarker({
-    required this.index,
-    this.isSelected = false,
-    this.isMoveMode = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final size = isMoveMode ? 44.0 : 34.0;
-    final color = isMoveMode
-        ? Colors.orange.shade600
-        : isSelected
-        ? Colors.teal.shade600
-        : Colors.blue.shade700;
-    return Center(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isMoveMode
-                ? Colors.white
-                : isSelected
-                ? Colors.tealAccent
-                : Colors.white70,
-            width: isMoveMode
-                ? 3
-                : isSelected
-                ? 3
-                : 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(
-                alpha: isMoveMode
-                    ? 0.9
-                    : isSelected
-                    ? 0.8
-                    : 0.6,
-              ),
-              blurRadius: isMoveMode
-                  ? 14
-                  : isSelected
-                  ? 10
-                  : 6,
-              spreadRadius: isMoveMode
-                  ? 3
-                  : isSelected
-                  ? 2
-                  : 1,
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            '$index',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: isMoveMode ? 15 : 13,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CrosshairOverlay extends StatelessWidget {
-  const _CrosshairOverlay();
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: CustomPaint(painter: _CrosshairPainter()),
-      ),
-    );
-  }
-}
-
-class _CrosshairPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..strokeWidth = 1.0;
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    canvas.drawLine(Offset(cx - 10, cy), Offset(cx + 10, cy), paint);
-    canvas.drawLine(Offset(cx, cy - 10), Offset(cx, cy + 10), paint);
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
-}
-
-class _BottomPanel extends StatelessWidget {
-  final String statusText;
-  final int pointCount;
-  final bool isSaving;
-  final bool canSave;
-  final VoidCallback onSave;
-
-  const _BottomPanel({
-    required this.statusText,
-    required this.pointCount,
-    required this.isSaving,
-    required this.canSave,
-    required this.onSave,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-        border: const Border(
-          top: BorderSide(color: Color(0xFF1E3A5F), width: 1),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  statusText,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                if (pointCount > 0) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '$pointCount ${pointCount == 1 ? 'point' : 'points'} placed',
-                    style: TextStyle(
-                      color: Colors.blue.shade300,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: (canSave && !isSaving) ? onSave : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
-                disabledBackgroundColor: Colors.blue.shade900.withValues(
-                  alpha: 0.4,
-                ),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-              ),
-              icon: isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(isSaving ? 'Saving…' : 'Save Area'),
             ),
           ),
         ],
