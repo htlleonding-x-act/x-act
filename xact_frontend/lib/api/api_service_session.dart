@@ -305,6 +305,8 @@ extension ApiServiceSessionMethods on ApiService {
   }
 
   Future<void> endGameSession(int sessionId) async {
+    // TODO Change Immedaitly when the endpoint is updated
+    await _postNoContent('/api/gamesessions/$sessionId/start');
     await _postNoContent('/api/gamesessions/$sessionId/end');
   }
 
