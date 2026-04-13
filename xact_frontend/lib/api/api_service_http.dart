@@ -169,9 +169,9 @@ extension ApiServiceHttpMethods on ApiService {
 
   String _roleToApi(TeamRole role) {
     return switch (role) {
-      TeamRole.mrX => 'MR_X',
-      TeamRole.detective => 'DETECTIVE',
-      TeamRole.spectator => 'SPECTATOR',
+      TeamRole.mrX => 'MrX',
+      TeamRole.detective => 'Detective',
+      TeamRole.spectator => 'Spectator',
     };
   }
 }
