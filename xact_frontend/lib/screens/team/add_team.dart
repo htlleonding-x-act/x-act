@@ -24,16 +24,35 @@ class AddTeamResult {
 /// );
 /// ```
 class AddTeamDialog extends StatefulWidget {
-  const AddTeamDialog({super.key});
+  final String title;
+  final String submitLabel;
+  final String initialName;
+  final int initialMaxPlayers;
+  final Color initialColor;
+
+  const AddTeamDialog.edit({
+    super.key,
+    required this.initialName,
+    required this.initialMaxPlayers,
+    required this.initialColor,
+  }) : title = 'Edit Team',
+       submitLabel = 'Save';
+
+  const AddTeamDialog.create({super.key})
+    : title = 'Add New Team',
+      submitLabel = 'Create',
+      initialName = '',
+      initialMaxPlayers = 3,
+      initialColor = Colors.teal;
 
   @override
   State<AddTeamDialog> createState() => _AddTeamDialogState();
 }
 
 class _AddTeamDialogState extends State<AddTeamDialog> {
-  final _nameController = TextEditingController();
-  int _maxPlayers = 3;
-  Color _selectedColor = Colors.teal;
+  late final TextEditingController _nameController;
+  late int _maxPlayers;
+  late Color _selectedColor;
 
   // ── Available team colors ───────────────────────────────────────────────
   static const List<Color> _colorOptions = [
@@ -46,6 +65,14 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
     Colors.lime,
     Colors.deepOrange,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _maxPlayers = widget.initialMaxPlayers;
+    _selectedColor = widget.initialColor;
+  }
 
   @override
   void dispose() {
@@ -79,8 +106,8 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Title ────────────────────────────────────────────────────
-            const Text(
-              'Add New Team',
+            Text(
+              widget.title,
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -184,7 +211,7 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('Create'),
+                    child: Text(widget.submitLabel),
                   ),
                 ),
               ],

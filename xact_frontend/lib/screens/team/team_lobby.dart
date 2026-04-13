@@ -37,6 +37,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   List<LobbyPlayer> _spectators = [];
   List<TeamData> _teams = [];
   int? _spectatorTeamId;
+  final Map<int, _TeamUiConfig> _teamUiConfigById = {};
 
   bool isLobbyLeader() => widget.isLeader;
 
@@ -72,7 +73,11 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       int? spectatorTeamId;
 
       for (final team in snapshot.teams) {
-        final teamColor = tryParseHexColor(team.colorCode) ?? Colors.blueGrey;
+        final configuredUi = _teamUiConfigById[team.teamId];
+        final teamColor =
+            configuredUi?.color ??
+            (tryParseHexColor(team.colorCode) ?? Colors.blueGrey);
+        final maxPlayers = configuredUi?.maxPlayers ?? 6;
         final members = (snapshot.membersByTeamId[team.teamId] ?? const [])
             .map((m) {
               final displayName = m.userId != null
@@ -102,12 +107,17 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
             role: team.role ?? TeamRole.detective,
             name: team.teamName,
             color: teamColor,
-            maxPlayers: 6,
+            maxPlayers: maxPlayers,
             players: members,
             isDeletable: team.role != TeamRole.mrX,
           ),
         );
       }
+
+      final currentTeamIds = teams.map((team) => team.teamId).toSet();
+      _teamUiConfigById.removeWhere(
+        (teamId, _) => !currentTeamIds.contains(teamId),
+      );
 
       setState(() {
         _teams = teams;
@@ -136,18 +146,22 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   Future<void> _addTeam() async {
     final result = await showDialog<AddTeamResult>(
       context: context,
-      builder: (_) => const AddTeamDialog(),
+      builder: (_) => const AddTeamDialog.create(),
     );
 
     if (result == null) return;
 
     setState(() => _working = true);
     try {
-      await ApiService.instance.addTeam(
+      final created = await ApiService.instance.addTeam(
         sessionId: widget.sessionId,
         teamName: result.name,
         role: TeamRole.detective,
         colorCode: _toHexColor(result.color),
+      );
+      _teamUiConfigById[created.teamId] = _TeamUiConfig(
+        color: result.color,
+        maxPlayers: result.maxPlayers,
       );
       await _refreshLobby();
     } catch (error) {
@@ -171,6 +185,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         sessionId: widget.sessionId,
         teamId: team.teamId,
       );
+      _teamUiConfigById.remove(team.teamId);
       await _refreshLobby();
     } catch (error) {
       if (!mounted) return;
@@ -186,67 +201,36 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
 
   Future<void> _renameTeam(int index) async {
     final team = _teams[index];
-    var draftName = team.name;
-
-    final name = await showDialog<String>(
+    final edited = await showDialog<AddTeamResult>(
       context: context,
-      useRootNavigator: true,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: XActBranding.cardColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text('Edit Team', style: TextStyle(color: Colors.white)),
-          content: TextFormField(
-            initialValue: team.name,
-            onChanged: (value) => draftName = value,
-            autofocus: false,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            decoration: InputDecoration(
-              labelText: 'Team Name',
-              labelStyle: const TextStyle(color: Colors.white70),
-              filled: true,
-              fillColor: XActBranding.backgroundColor,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.white24),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white54),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () =>
-                  Navigator.of(ctx, rootNavigator: true).pop(draftName.trim()),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: XActBranding.primaryBlue,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => AddTeamDialog.edit(
+        initialName: team.name,
+        initialMaxPlayers: team.maxPlayers,
+        initialColor: team.color,
+      ),
     );
 
-    if (name == null || name.isEmpty || name == team.name) return;
+    if (edited == null) return;
+
+    final hasChanged =
+        edited.name != team.name ||
+        edited.maxPlayers != team.maxPlayers ||
+        edited.color.toARGB32() != team.color.toARGB32();
+    if (!hasChanged) return;
 
     setState(() => _working = true);
     try {
       await ApiService.instance.updateTeam(
         sessionId: widget.sessionId,
         teamId: team.teamId,
-        teamName: name,
+        teamName: edited.name,
         role: team.role,
-        colorCode: _toHexColor(team.color),
+        colorCode: _toHexColor(edited.color),
         isCaught: false,
+      );
+      _teamUiConfigById[team.teamId] = _TeamUiConfig(
+        color: edited.color,
+        maxPlayers: edited.maxPlayers,
       );
       await _refreshLobby();
     } catch (error) {
@@ -441,4 +425,11 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     final rgb = color.toARGB32() & 0x00FFFFFF;
     return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
+}
+
+class _TeamUiConfig {
+  final Color color;
+  final int maxPlayers;
+
+  const _TeamUiConfig({required this.color, required this.maxPlayers});
 }

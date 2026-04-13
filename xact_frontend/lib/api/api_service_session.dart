@@ -162,12 +162,21 @@ extension ApiServiceSessionMethods on ApiService {
     final membersByTeamId = <int, List<TeamMemberDetails>>{};
     for (final team in teams) {
       final infos = await _listTeamMembersByTeam(sessionId, team.teamId);
-      final details = <TeamMemberDetails>[];
-      for (final info in infos) {
-        details.add(
-          await _getTeamMemberById(sessionId, team.teamId, info.memberId),
-        );
-      }
+      final details = infos
+          .map(
+            (info) => TeamMemberDetails(
+              memberId: info.memberId,
+              teamId: info.teamId,
+              sessionId: info.sessionId,
+              userId: info.userId,
+              guestName: info.guestName,
+              isTeamLeader: info.isTeamLeader,
+              currentLatitude: null,
+              currentLongitude: null,
+              lastUpdated: null,
+            ),
+          )
+          .toList(growable: false);
       membersByTeamId[team.teamId] = details;
     }
 
@@ -308,6 +317,7 @@ extension ApiServiceSessionMethods on ApiService {
     // TODO Change Immedaitly when the endpoint is updated
     await _postNoContent('/api/gamesessions/$sessionId/start');
     await _postNoContent('/api/gamesessions/$sessionId/end');
+    await _deleteNoContent('/api/gamesessions/$sessionId');
   }
 
   Future<void> closeCurrentSession() async {
