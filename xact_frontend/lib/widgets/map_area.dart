@@ -42,7 +42,7 @@ class _MapAreaState extends State<MapArea> {
   bool _showControls = false;
 
   StreamSubscription<Position>? _positionSub;
-  Timer? _playersRefreshTimer;
+  StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
 
   // ── Geofence ──────────────────────────────────────────────────────────────
   // Polygon boundary loaded from the backend for the active session.
@@ -58,17 +58,36 @@ class _MapAreaState extends State<MapArea> {
     _startListeningToGps();
     _loadSessionGeofence();
     _refreshPlayers();
-    _playersRefreshTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _refreshPlayers(),
-    );
+    _listenToRealtimeUpdates();
   }
 
   @override
   void dispose() {
     _positionSub?.cancel();
-    _playersRefreshTimer?.cancel();
+    _realtimeEventSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _listenToRealtimeUpdates() async {
+    final sessionId = AppSession.instance.currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+
+    try {
+      await ApiService.instance.ensureRealtimeSessionSubscription(sessionId);
+
+      _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
+        if (event.type == RealtimeEvents.teamMemberJoined ||
+            event.type == RealtimeEvents.teamMemberUpdated ||
+            event.type == RealtimeEvents.teamMemberLeft ||
+            event.type == RealtimeEvents.locationLogRecorded) {
+          _refreshPlayers();
+        }
+      });
+    } catch (_) {
+      // Keep map functional with regular HTTP fallback paths.
+    }
   }
 
   Future<void> _loadSessionGeofence() async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xact_frontend/api/api_service.dart';
@@ -34,6 +36,10 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   bool _loading = true;
   bool _working = false;
 
+  StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
+  StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
+  Timer? _realtimeRefreshDebounce;
+
   List<LobbyPlayer> _spectators = [];
   List<TeamData> _teams = [];
   int? _spectatorTeamId;
@@ -57,10 +63,21 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   void initState() {
     super.initState();
     _refreshLobby();
+    _initRealtime();
   }
 
-  Future<void> _refreshLobby() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _realtimeEventSub?.cancel();
+    _realtimeSnapshotSub?.cancel();
+    _realtimeRefreshDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshLobby({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _loading = true);
+    }
 
     try {
       final snapshot = await ApiService.instance.loadLobbySnapshot(
@@ -130,10 +147,57 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text('Failed to load lobby: $error')));
     } finally {
-      if (mounted) {
+      if (mounted && !silent) {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _initRealtime() async {
+    try {
+      await ApiService.instance.ensureRealtimeSessionSubscription(
+        widget.sessionId,
+      );
+
+      _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
+        if (_isLobbyRealtimeEvent(event.type)) {
+          _queueRealtimeRefresh();
+        }
+      });
+
+      _realtimeSnapshotSub = ApiService.instance.realtimeSnapshots.listen((
+        snapshot,
+      ) {
+        if (snapshot.sessionId == widget.sessionId) {
+          _queueRealtimeRefresh();
+        }
+      });
+    } catch (_) {
+      // Lobby still works with manual refresh and HTTP fallback.
+    }
+  }
+
+  bool _isLobbyRealtimeEvent(String eventType) {
+    return eventType == RealtimeEvents.teamMemberJoined ||
+        eventType == RealtimeEvents.teamMemberUpdated ||
+        eventType == RealtimeEvents.teamMemberLeft ||
+        eventType == RealtimeEvents.gameSessionStarted ||
+        eventType == RealtimeEvents.locationLogRecorded;
+  }
+
+  void _queueRealtimeRefresh() {
+    if (!mounted || _working) {
+      return;
+    }
+
+    _realtimeRefreshDebounce?.cancel();
+    _realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+
+      _refreshLobby(silent: true);
+    });
   }
 
   void _copyLobbyCode() {

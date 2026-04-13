@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
 import '../services/app_session.dart';
+import '../services/realtime_service.dart';
 import 'api_config.dart';
 import 'models.dart';
 
@@ -24,6 +25,9 @@ final class ApiService {
   final Uri _baseUri;
   final http.Client _http;
   final AppSession _session = AppSession.instance;
+  final RealtimeService _realtime = RealtimeService.instance;
 
- 
+  Stream<RealtimeEventEnvelope> get realtimeEvents => _realtime.eventStream;
+
+  Stream<GameSessionSnapshot> get realtimeSnapshots => _realtime.snapshotStream;
 }
