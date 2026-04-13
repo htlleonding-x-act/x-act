@@ -120,17 +120,22 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
     return Scaffold(
       backgroundColor: XActBranding.backgroundColor,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 40),
               XActBranding.buildHeader(),
-              const Spacer(),
+              const SizedBox(height: 32),
               _buildCreateForm(),
-              const Spacer(),
-              XActBranding.buildFooter(),
               const SizedBox(height: 16),
+              XActBranding.buildFooter(),
             ],
           ),
         ),

@@ -96,127 +96,138 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+
     return Dialog(
       backgroundColor: XActBranding.cardColor,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Title ────────────────────────────────────────────────────
-            Text(
-              widget.title,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 420,
+          maxHeight: screenHeight * 0.85 - keyboardInset,
+        ),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Title ────────────────────────────────────────────────────
+              Text(
+                widget.title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            // ── Team name ────────────────────────────────────────────────
-            XActBranding.buildTextField(
-              label: 'Team Name',
-              hintText: 'e.g. Detectives Delta',
-              controller: _nameController,
-            ),
-            const SizedBox(height: 16),
+              // ── Team name ────────────────────────────────────────────────
+              XActBranding.buildTextField(
+                label: 'Team Name',
+                hintText: 'e.g. Detectives Delta',
+                controller: _nameController,
+              ),
+              const SizedBox(height: 16),
 
-            // ── Max players ──────────────────────────────────────────────
-            const Text(
-              'Max Players',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                IconButton(
-                  onPressed: _maxPlayers > 1
-                      ? () => setState(() => _maxPlayers--)
-                      : null,
-                  icon: const Icon(Icons.remove_circle_outline),
-                  color: Colors.white54,
-                ),
-                Text(
-                  '$_maxPlayers',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+              // ── Max players ──────────────────────────────────────────────
+              const Text(
+                'Max Players',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: _maxPlayers > 1
+                        ? () => setState(() => _maxPlayers--)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                    color: Colors.white54,
                   ),
-                ),
-                IconButton(
-                  onPressed: _maxPlayers < 10
-                      ? () => setState(() => _maxPlayers++)
-                      : null,
-                  icon: const Icon(Icons.add_circle_outline),
-                  color: Colors.white54,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // ── Color picker ─────────────────────────────────────────────
-            const Text(
-              'Team Color',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _colorOptions.map((c) {
-                final isSelected = c == _selectedColor;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedColor = c),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: c,
-                      shape: BoxShape.circle,
-                      border: isSelected
-                          ? Border.all(color: Colors.white, width: 3)
-                          : null,
+                  Text(
+                    '$_maxPlayers',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 24),
-
-            // ── Action buttons ───────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.white54),
-                    ),
+                  IconButton(
+                    onPressed: _maxPlayers < 10
+                        ? () => setState(() => _maxPlayers++)
+                        : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                    color: Colors.white54,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: XActBranding.primaryBlue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ── Color picker ─────────────────────────────────────────────
+              const Text(
+                'Team Color',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _colorOptions.map((c) {
+                  final isSelected = c == _selectedColor;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedColor = c),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                        border: isSelected
+                            ? Border.all(color: Colors.white, width: 3)
+                            : null,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: Text(widget.submitLabel),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+
+              // ── Action buttons ───────────────────────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _submit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: XActBranding.primaryBlue,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text(widget.submitLabel),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
