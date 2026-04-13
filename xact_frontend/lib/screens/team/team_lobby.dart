@@ -285,6 +285,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   Future<void> _movePlayer({
     required LobbyPlayer player,
     required int targetTeamId,
+    bool refreshAfterMove = true,
   }) async {
     setState(() => _working = true);
     try {
@@ -304,7 +305,9 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         sourceTeamId: player.teamId,
         targetTeamId: targetTeamId,
       );
-      await _refreshLobby();
+      if (refreshAfterMove) {
+        await _refreshLobby();
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -326,9 +329,46 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       return;
     }
 
-    for (final player in players) {
-      final team = targets[players.indexOf(player) % targets.length];
-      _movePlayerToTeam(player, team);
+    _randomizeTeamsAsync(players, targets);
+  }
+
+  Future<void> _randomizeTeamsAsync(
+    List<LobbyPlayer> players,
+    List<TeamData> targets,
+  ) async {
+    setState(() => _working = true);
+    try {
+      for (var i = 0; i < players.length; i++) {
+        final player = players[i];
+        final team = targets[i % targets.length];
+        await ApiService.instance.moveMemberToTeam(
+          sessionId: widget.sessionId,
+          member: TeamMemberDetails(
+            memberId: player.memberId,
+            teamId: player.teamId,
+            sessionId: widget.sessionId,
+            userId: player.userId,
+            guestName: player.userId == null ? player.name : null,
+            isTeamLeader: player.isTeamLeader,
+            currentLatitude: null,
+            currentLongitude: null,
+            lastUpdated: null,
+          ),
+          sourceTeamId: player.teamId,
+          targetTeamId: team.teamId,
+        );
+      }
+
+      await _refreshLobby();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not randomize teams: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _working = false);
+      }
     }
   }
 
