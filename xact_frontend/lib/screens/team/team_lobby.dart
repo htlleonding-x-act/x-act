@@ -7,6 +7,7 @@ import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
 import 'package:xact_frontend/services/app_session.dart';
+import 'package:xact_frontend/services/game_start_transition_service.dart';
 import 'package:xact_frontend/widgets/team/add_team_button.dart';
 import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
@@ -183,7 +184,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
 
       _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
         if (event.type == RealtimeEvents.gameSessionStarted) {
-          _openGameForAll();
+          unawaited(_openGameForAll());
         }
 
         if (_isLobbyRealtimeEvent(event.type)) {
@@ -196,7 +197,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       ) {
         if (snapshot.sessionId == widget.sessionId) {
           if (snapshot.status == SessionStatus.active) {
-            _openGameForAll();
+            unawaited(_openGameForAll());
           }
 
           _queueRealtimeRefresh();
@@ -345,7 +346,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     setState(() => _working = true);
     try {
       await ApiService.instance.startGameSession(widget.sessionId);
-      _openGameForAll();
+      await _openGameForAll();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -589,12 +590,18 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 
-  void _openGameForAll() {
+  Future<void> _openGameForAll() async {
     if (!mounted || _gameTransitionStarted) {
       return;
     }
 
     _gameTransitionStarted = true;
+    await GameStartTransitionService.instance.playCountdown(seconds: 3);
+
+    if (!mounted) {
+      return;
+    }
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const GameScreen()),
