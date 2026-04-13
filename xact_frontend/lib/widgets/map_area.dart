@@ -84,8 +84,9 @@ class _MapAreaState extends State<MapArea> {
       if (!mounted) return;
       setState(() {
         _geofencePoints = points
-            .map((p) => LatLng(p.latitude, p.longitude))
-            .toList(growable: false);
+                ?.map((p) => LatLng(p.latitude, p.longitude))
+                .toList(growable: false) ??
+            [];
       });
     } catch (_) {
       if (!mounted) return;

@@ -1,12 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
 
 void main() {
   runApp(const MainApp());
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends StatefulWidget {
   const MainApp({super.key});
+
+  @override
+  State<MainApp> createState() => _MainAppState();
+}
+
+class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
+  bool _isClosingSession = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached && !_isClosingSession) {
+      _isClosingSession = true;
+      ApiService.instance.closeCurrentSession().whenComplete(() {
+        _isClosingSession = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +47,6 @@ class MainApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const StartScreen(),
-    );
+    );           
   }
 }

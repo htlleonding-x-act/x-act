@@ -173,6 +173,7 @@ final class LocationService {
     }
 
     try {
+      /*
       await ApiService.instance.updateTeamMemberLocation(
         sessionId: sessionId,
         memberId: memberId,
@@ -181,7 +182,8 @@ final class LocationService {
         isTeamLeader: _isTeamLeader,
         latitude: position.latitude,
         longitude: position.longitude,
-      );
+      );*/
+      // Waiting for implementation of updateTeamMemberLocation in ApiService.
     } catch (_) {
       // Don't crash – network may be temporarily unavailable.
     }

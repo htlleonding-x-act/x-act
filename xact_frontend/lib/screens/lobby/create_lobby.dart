@@ -90,6 +90,8 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
         points: GeofenceStore.instance.points,
       );
 
+      if (!mounted) return;
+
       // Step 2: Enter the game.
       Navigator.push(
         context,
