@@ -70,7 +70,8 @@ public sealed class TeamController(
                     addRequest.TeamName,
                     addRequest.Role,
                     addRequest.ColorCode,
-                    addRequest.IsCaught
+                    addRequest.IsCaught,
+                    addRequest.MaxPlayerCount
                 )
             );
 
@@ -129,7 +130,8 @@ public sealed class TeamController(
                     updateRequest.TeamName,
                     updateRequest.Role,
                     updateRequest.ColorCode,
-                    updateRequest.IsCaught
+                    updateRequest.IsCaught,
+                    updateRequest.MaxPlayerCount
                 ),
                 tracking: true
             );
@@ -205,19 +207,19 @@ public sealed class TeamListResponse
     public required List<TeamInformationDto> Items { get; init; }
 }
 
-public sealed record TeamInformationDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode)
+public sealed record TeamInformationDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode, int MaxPlayerCount)
 {
     public static TeamInformationDto FromTeam(Team team) =>
-        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode);
+        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode, team.MaxPlayerCount);
 }
 
-public sealed record TeamDetailsDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode, bool IsCaught)
+public sealed record TeamDetailsDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode, bool IsCaught, int MaxPlayerCount)
 {
     public static TeamDetailsDto FromTeam(Team team) =>
-        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode, team.IsCaught);
+        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode, team.IsCaught, team.MaxPlayerCount);
 }
 
-public sealed record TeamAddRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught = false)
+public sealed record TeamAddRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught = false, int MaxPlayerCount = Team.DefaultMaxPlayerCount)
 {
     public sealed class Validator : AbstractValidator<TeamAddRequest>
     {
@@ -226,11 +228,12 @@ public sealed record TeamAddRequest(string TeamName, TeamRole Role, string Color
             RuleFor(x => x.TeamName).NotEmpty().MaximumLength(50);
             RuleFor(x => x.Role).IsInEnum();
             RuleFor(x => x.ColorCode).Matches("^#[0-9A-Fa-f]{6}$");
+            RuleFor(x => x.MaxPlayerCount).GreaterThan(0);
         }
     }
 }
 
-public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught)
+public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught, int MaxPlayerCount = Team.DefaultMaxPlayerCount)
 {
     public sealed class Validator : AbstractValidator<TeamUpdateRequest>
     {
@@ -239,6 +242,7 @@ public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string Co
             RuleFor(x => x.TeamName).NotEmpty().MaximumLength(50);
             RuleFor(x => x.Role).IsInEnum();
             RuleFor(x => x.ColorCode).Matches("^#[0-9A-Fa-f]{6}$");
+            RuleFor(x => x.MaxPlayerCount).GreaterThan(0);
         }
     }
 }

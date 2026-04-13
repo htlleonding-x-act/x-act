@@ -153,7 +153,7 @@ public sealed class GameSessionServiceTests
         _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
         _gameSessionRepository.GetSessionByJoinCodeAsync(DefaultJoinCode, false).Returns((GameSession?) null);
         _gameSessionRepository.AddGameSession(DefaultUserId, DefaultSessionName, DefaultJoinCode, 60, 5).Returns(session);
-        _teamRepository.AddTeam(session.Id, "Game 1 Host", TeamRole.MrX, "#000000").Returns(team);
+        _teamRepository.AddTeam(session.Id, "Game 1 Host", TeamRole.MrX, "#000000", Team.DefaultMaxPlayerCount).Returns(team);
 
         OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
 

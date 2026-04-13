@@ -140,6 +140,7 @@ internal static class Seeder
                 TeamName = "MrX",
                 Role = TeamRole.MrX,
                 ColorCode = "#000000",
+                MaxPlayerCount = Team.DefaultMaxPlayerCount,
                 IsCaught = false
             },
             new Team
@@ -149,6 +150,7 @@ internal static class Seeder
                 TeamName = "Detectives",
                 Role = TeamRole.Detective,
                 ColorCode = "#ff0000",
+                MaxPlayerCount = Team.DefaultMaxPlayerCount,
                 IsCaught = false
             },
             new Team
@@ -158,6 +160,7 @@ internal static class Seeder
                 TeamName = "Bravo Team",
                 Role = TeamRole.Detective,
                 ColorCode = "#00ff00",
+                MaxPlayerCount = Team.DefaultMaxPlayerCount,
                 IsCaught = false
             }
         );

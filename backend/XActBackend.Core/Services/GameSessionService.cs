@@ -171,7 +171,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
                 gameSession.Id,
                 $"{newGameSession.SessionName} Host",
                 TeamRole.MrX,
-                HostTeamColor
+                HostTeamColor,
+                Team.DefaultMaxPlayerCount
             );
 
             await uow.SaveChangesAsync();
