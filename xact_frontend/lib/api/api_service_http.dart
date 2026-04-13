@@ -174,4 +174,28 @@ extension ApiServiceHttpMethods on ApiService {
       TeamRole.spectator => 'Spectator',
     };
   }
+
+  Future<void> addLocationLog({
+    required int sessionId,
+    required int teamId,
+    required int memberId,
+    required DateTime timestamp,
+    required double latitude,
+    required double longitude,
+    required double accuracyMeters,
+    required String transportMode,
+    bool isRevealedPosition = false,
+  }) async {
+    await _postJsonObject(
+      '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId/locationlogs',
+      {
+        'timestamp': timestamp.toIso8601String(),
+        'latitude': latitude,
+        'longitude': longitude,
+        'accuracyMeters': accuracyMeters,
+        'transportMode': transportMode,
+        'isRevealedPosition': isRevealedPosition,
+      },
+    );
+  }
 }

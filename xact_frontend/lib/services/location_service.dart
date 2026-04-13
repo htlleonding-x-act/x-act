@@ -173,17 +173,17 @@ final class LocationService {
     }
 
     try {
-      /*
-      await ApiService.instance.updateTeamMemberLocation(
+      await ApiService.instance.addLocationLog(
         sessionId: sessionId,
-        memberId: memberId,
         teamId: teamId,
-        userId: userId,
-        isTeamLeader: _isTeamLeader,
+        memberId: memberId,
+        timestamp: DateTime.now(),
         latitude: position.latitude,
         longitude: position.longitude,
-      );*/
-      // Waiting for implementation of updateTeamMemberLocation in ApiService.
+        accuracyMeters: position.accuracy ?? 0.0,
+        transportMode: 'Foot',
+        isRevealedPosition: false,
+      );
     } catch (_) {
       // Don't crash – network may be temporarily unavailable.
     }
