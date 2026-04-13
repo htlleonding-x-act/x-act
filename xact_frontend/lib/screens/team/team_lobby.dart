@@ -186,10 +186,11 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
 
   Future<void> _renameTeam(int index) async {
     final team = _teams[index];
-    final controller = TextEditingController(text: team.name);
+    var draftName = team.name;
 
     final name = await showDialog<String>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: XActBranding.cardColor,
@@ -197,9 +198,10 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text('Edit Team', style: TextStyle(color: Colors.white)),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
+          content: TextFormField(
+            initialValue: team.name,
+            onChanged: (value) => draftName = value,
+            autofocus: false,
             style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
               labelText: 'Team Name',
@@ -214,14 +216,15 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
+              onPressed: () => Navigator.of(ctx, rootNavigator: true).pop(),
               child: const Text(
                 'Cancel',
                 style: TextStyle(color: Colors.white54),
               ),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+              onPressed: () =>
+                  Navigator.of(ctx, rootNavigator: true).pop(draftName.trim()),
               style: ElevatedButton.styleFrom(
                 backgroundColor: XActBranding.primaryBlue,
                 foregroundColor: Colors.white,
@@ -232,8 +235,6 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         );
       },
     );
-
-    controller.dispose();
 
     if (name == null || name.isEmpty || name == team.name) return;
 
