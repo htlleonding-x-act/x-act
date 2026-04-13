@@ -36,6 +36,7 @@ class TeamLobbyScreen extends StatefulWidget {
 class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   bool _loading = true;
   bool _working = false;
+  bool _gameTransitionStarted = false;
 
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
@@ -181,6 +182,10 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       await ApiService.instance.registerCurrentMemberPresence();
 
       _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
+        if (event.type == RealtimeEvents.gameSessionStarted) {
+          _openGameForAll();
+        }
+
         if (_isLobbyRealtimeEvent(event.type)) {
           _queueRealtimeRefresh();
         }
@@ -190,6 +195,10 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         snapshot,
       ) {
         if (snapshot.sessionId == widget.sessionId) {
+          if (snapshot.status == SessionStatus.active) {
+            _openGameForAll();
+          }
+
           _queueRealtimeRefresh();
         }
       });
@@ -336,11 +345,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     setState(() => _working = true);
     try {
       await ApiService.instance.startGameSession(widget.sessionId);
-      if (!mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const GameScreen()),
-      );
+      _openGameForAll();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -408,41 +413,72 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
   }
 
   void _randomizeTeams() {
-    final players = [..._spectators, ..._teams.expand((team) => team.players)];
-    players.shuffle();
+    final misterXTeams = _teams.where((team) => team.isMisterX).toList(growable: false);
+    final detectiveTeams = _teams
+        .where((team) => !team.isMisterX && !team.isSpectator)
+        .toList(growable: false);
 
-    final targets = _teams.where((t) => !t.isMisterX).toList(growable: false);
-    if (targets.isEmpty) {
+    if (misterXTeams.isEmpty || detectiveTeams.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Randomize requires one Mister X and one detective team.'),
+        ),
+      );
       return;
     }
 
-    _randomizeTeamsAsync(players, targets);
+    final misterXTeam = misterXTeams.first;
+
+    final players = [..._spectators, ..._teams.expand((team) => team.players)]
+        .toList(growable: true);
+
+    if (players.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not enough players to randomize teams.')),
+      );
+      return;
+    }
+
+    players.shuffle();
+
+    final moves = <_PlannedMove>[];
+
+    final mrXPlayer = players.removeAt(0);
+    moves.add(_PlannedMove(player: mrXPlayer, targetTeamId: misterXTeam.teamId));
+
+    for (var i = 0; i < players.length; i++) {
+      final targetTeam = detectiveTeams[i % detectiveTeams.length];
+      moves.add(
+        _PlannedMove(player: players[i], targetTeamId: targetTeam.teamId),
+      );
+    }
+
+    _randomizeTeamsAsync(moves);
   }
 
-  Future<void> _randomizeTeamsAsync(
-    List<LobbyPlayer> players,
-    List<TeamData> targets,
-  ) async {
+  Future<void> _randomizeTeamsAsync(List<_PlannedMove> moves) async {
     setState(() => _working = true);
     try {
-      for (var i = 0; i < players.length; i++) {
-        final player = players[i];
-        final team = targets[i % targets.length];
+      for (final move in moves) {
+        if (move.player.teamId == move.targetTeamId) {
+          continue;
+        }
+
         await ApiService.instance.moveMemberToTeam(
           sessionId: widget.sessionId,
           member: TeamMemberDetails(
-            memberId: player.memberId,
-            teamId: player.teamId,
+            memberId: move.player.memberId,
+            teamId: move.player.teamId,
             sessionId: widget.sessionId,
-            userId: player.userId,
-            guestName: player.userId == null ? player.name : null,
-            isTeamLeader: player.isTeamLeader,
+            userId: move.player.userId,
+            guestName: move.player.userId == null ? move.player.name : null,
+            isTeamLeader: move.player.isTeamLeader,
             currentLatitude: null,
             currentLongitude: null,
             lastUpdated: null,
           ),
-          sourceTeamId: player.teamId,
-          targetTeamId: team.teamId,
+          sourceTeamId: move.player.teamId,
+          targetTeamId: move.targetTeamId,
         );
       }
 
@@ -552,6 +588,18 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     final rgb = color.toARGB32() & 0x00FFFFFF;
     return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
+
+  void _openGameForAll() {
+    if (!mounted || _gameTransitionStarted) {
+      return;
+    }
+
+    _gameTransitionStarted = true;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const GameScreen()),
+    );
+  }
 }
 
 class _TeamUiConfig {
@@ -559,4 +607,11 @@ class _TeamUiConfig {
   final int maxPlayers;
 
   const _TeamUiConfig({required this.color, required this.maxPlayers});
+}
+
+class _PlannedMove {
+  final LobbyPlayer player;
+  final int targetTeamId;
+
+  const _PlannedMove({required this.player, required this.targetTeamId});
 }
