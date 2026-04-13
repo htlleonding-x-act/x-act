@@ -47,6 +47,29 @@ internal sealed class SignalRTestClient : IAsyncDisposable
     public ValueTask<GameSessionSnapshot> SubscribeSessionAndGetSnapshotAsync(int sessionId, CancellationToken cancellationToken) =>
         new(_connection.InvokeAsync<GameSessionSnapshot>(nameof(GameSessionHub.SubscribeSession), sessionId, cancellationToken));
 
+    public async ValueTask RegisterMemberPresenceAsync(
+        int sessionId,
+        int teamId,
+        int memberId,
+        int? userId,
+        string? guestName,
+        CancellationToken cancellationToken)
+    {
+        await _connection.InvokeAsync(
+            nameof(GameSessionHub.RegisterMemberPresence),
+            sessionId,
+            teamId,
+            memberId,
+            userId,
+            guestName,
+            cancellationToken);
+    }
+
+    public async ValueTask UnregisterMemberPresenceAsync(CancellationToken cancellationToken)
+    {
+        await _connection.InvokeAsync(nameof(GameSessionHub.UnregisterMemberPresence), cancellationToken);
+    }
+
     public ValueTask<RealtimeEventEnvelope?> TryReadEventAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
         TryReadAsync(_events.Reader, timeout, cancellationToken);
 

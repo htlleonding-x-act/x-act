@@ -280,6 +280,7 @@ final class TeamInfo {
   final String teamName;
   final TeamRole? role;
   final String colorCode;
+  final int maxPlayerCount;
 
   const TeamInfo({
     required this.teamId,
@@ -287,6 +288,7 @@ final class TeamInfo {
     required this.teamName,
     required this.role,
     required this.colorCode,
+    required this.maxPlayerCount,
   });
 
   factory TeamInfo.fromJson(Map<String, dynamic> json) {
@@ -299,6 +301,7 @@ final class TeamInfo {
         _ => null,
       },
       colorCode: json['colorCode'] as String,
+      maxPlayerCount: _readInt(json, ['maxPlayerCount']),
     );
   }
 }
@@ -310,6 +313,7 @@ final class TeamDetails {
   final TeamRole? role;
   final String colorCode;
   final bool isCaught;
+  final int maxPlayerCount;
 
   const TeamDetails({
     required this.teamId,
@@ -318,6 +322,7 @@ final class TeamDetails {
     required this.role,
     required this.colorCode,
     required this.isCaught,
+    required this.maxPlayerCount,
   });
 
   factory TeamDetails.fromJson(Map<String, dynamic> json) {
@@ -331,6 +336,7 @@ final class TeamDetails {
       },
       colorCode: json['colorCode'] as String,
       isCaught: json['isCaught'] as bool,
+      maxPlayerCount: _readInt(json, ['maxPlayerCount']),
     );
   }
 }
@@ -573,6 +579,9 @@ final class RealtimeMethods {
 }
 
 final class RealtimeEvents {
+  static const String teamAdded = 'team_added';
+  static const String teamUpdated = 'team_updated';
+  static const String teamDeleted = 'team_deleted';
   static const String teamMemberJoined = 'team_member_joined';
   static const String teamMemberUpdated = 'team_member_updated';
   static const String teamMemberLeft = 'team_member_left';
@@ -684,6 +693,7 @@ final class SnapshotTeam {
   final TeamRole? role;
   final String colorCode;
   final bool isCaught;
+  final int maxPlayerCount;
 
   const SnapshotTeam({
     required this.id,
@@ -692,6 +702,7 @@ final class SnapshotTeam {
     required this.role,
     required this.colorCode,
     required this.isCaught,
+    required this.maxPlayerCount,
   });
 
   factory SnapshotTeam.fromJson(Map<String, dynamic> json) {
@@ -705,6 +716,91 @@ final class SnapshotTeam {
       },
       colorCode: (json['colorCode'] as String?) ?? '#64748B',
       isCaught: (json['isCaught'] as bool?) ?? false,
+      maxPlayerCount: _readInt(json, ['maxPlayerCount']),
+    );
+  }
+}
+
+final class TeamAddedPayload {
+  final int teamId;
+  final int sessionId;
+  final String teamName;
+  final TeamRole? role;
+  final String colorCode;
+  final bool isCaught;
+  final int maxPlayerCount;
+
+  const TeamAddedPayload({
+    required this.teamId,
+    required this.sessionId,
+    required this.teamName,
+    required this.role,
+    required this.colorCode,
+    required this.isCaught,
+    required this.maxPlayerCount,
+  });
+
+  factory TeamAddedPayload.fromJson(Map<String, dynamic> json) {
+    return TeamAddedPayload(
+      teamId: _readInt(json, ['teamId', 'id']),
+      sessionId: _readInt(json, ['sessionId']),
+      teamName: (json['teamName'] as String?) ?? 'Team',
+      role: switch (json['role']) {
+        final String s => tryParseTeamRole(s),
+        _ => null,
+      },
+      colorCode: (json['colorCode'] as String?) ?? '#64748B',
+      isCaught: (json['isCaught'] as bool?) ?? false,
+      maxPlayerCount: _readInt(json, ['maxPlayerCount']),
+    );
+  }
+}
+
+final class TeamUpdatedPayload {
+  final int teamId;
+  final int sessionId;
+  final String teamName;
+  final TeamRole? role;
+  final String colorCode;
+  final bool isCaught;
+  final int maxPlayerCount;
+
+  const TeamUpdatedPayload({
+    required this.teamId,
+    required this.sessionId,
+    required this.teamName,
+    required this.role,
+    required this.colorCode,
+    required this.isCaught,
+    required this.maxPlayerCount,
+  });
+
+  factory TeamUpdatedPayload.fromJson(Map<String, dynamic> json) {
+    return TeamUpdatedPayload(
+      teamId: _readInt(json, ['teamId', 'id']),
+      sessionId: _readInt(json, ['sessionId']),
+      teamName: (json['teamName'] as String?) ?? 'Team',
+      role: switch (json['role']) {
+        final String s => tryParseTeamRole(s),
+        _ => null,
+      },
+      colorCode: (json['colorCode'] as String?) ?? '#64748B',
+      isCaught: (json['isCaught'] as bool?) ?? false,
+      maxPlayerCount: _readInt(json, ['maxPlayerCount']),
+    );
+  }
+}
+
+final class TeamDeletedPayload {
+  final int teamId;
+  final int sessionId;
+
+  const TeamDeletedPayload({required this.teamId, required this.sessionId});
+
+  factory TeamDeletedPayload.fromJson(Map<String, dynamic> json) {
+    return TeamDeletedPayload(
+      teamId: _readInt(json, ['teamId', 'id']),
+      sessionId: _readInt(json, ['sessionId']),
     );
   }
 }

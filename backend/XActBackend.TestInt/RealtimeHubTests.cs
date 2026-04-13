@@ -126,4 +126,140 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
         payload.GetProperty("sessionId").GetInt32().Should().Be(SeedData.SessionId);
         payload.GetProperty("memberId").GetInt32().Should().Be(SeedData.DetectiveMemberId);
     }
+
+    [Fact]
+    public async ValueTask AddTeam_PublishesTeamAddedEvent()
+    {
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        TeamAddRequest request = new(
+            TeamName: "Realtime Team",
+            Role: TeamRole.Detective,
+            ColorCode: "#112233",
+            IsCaught: false,
+            MaxPlayerCount: 5);
+
+        HttpResponseMessage response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams",
+            request,
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+
+        realtimeEvent.Should().NotBeNull();
+        realtimeEvent!.Type.Should().Be(RealtimeEvents.TeamAdded);
+
+        JsonElement payload = (JsonElement)realtimeEvent.Payload;
+        payload.GetProperty("sessionId").GetInt32().Should().Be(SeedData.SessionId);
+        payload.GetProperty("maxPlayerCount").GetInt32().Should().Be(5);
+    }
+
+    [Fact]
+    public async ValueTask UpdateTeam_PublishesTeamUpdatedEvent()
+    {
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        TeamUpdateRequest request = new(
+            TeamName: "Detectives Prime",
+            Role: TeamRole.Detective,
+            ColorCode: "#123456",
+            IsCaught: false,
+            MaxPlayerCount: 7);
+
+        HttpResponseMessage response = await ApiClient.PutAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}",
+            request,
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+
+        realtimeEvent.Should().NotBeNull();
+        realtimeEvent!.Type.Should().Be(RealtimeEvents.TeamUpdated);
+
+        JsonElement payload = (JsonElement)realtimeEvent.Payload;
+        payload.GetProperty("teamId").GetInt32().Should().Be(SeedData.DetectiveTeamId);
+        payload.GetProperty("maxPlayerCount").GetInt32().Should().Be(7);
+    }
+
+    [Fact]
+    public async ValueTask DeleteTeam_PublishesTeamDeletedEvent()
+    {
+        const int TeamId = 300;
+
+        await ModifyDatabaseContentAsync(context =>
+        {
+            context.Teams.Add(new Team
+            {
+                Id = TeamId,
+                SessionId = SeedData.SessionId,
+                TeamName = "Disposable Team",
+                Role = TeamRole.Detective,
+                ColorCode = "#445566",
+                MaxPlayerCount = 4,
+                IsCaught = false,
+            });
+
+            return new ValueTask(context.SaveChangesAsync(TestCancellationToken));
+        });
+
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        HttpResponseMessage response = await ApiClient.DeleteAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{TeamId}",
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+
+        realtimeEvent.Should().NotBeNull();
+        realtimeEvent!.Type.Should().Be(RealtimeEvents.TeamDeleted);
+
+        JsonElement payload = (JsonElement)realtimeEvent.Payload;
+        payload.GetProperty("teamId").GetInt32().Should().Be(TeamId);
+    }
+
+    [Fact]
+    public async ValueTask DisconnectInWaitingLobby_RemovesRegisteredMember()
+    {
+        await using (var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken))
+        {
+            await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+            await realtimeClient.RegisterMemberPresenceAsync(
+                SeedData.SessionId,
+                SeedData.DetectiveTeamId,
+                SeedData.GuestMemberId,
+                userId: null,
+                guestName: "guest_player",
+                TestCancellationToken);
+        }
+
+        var memberStillExists = true;
+        for (var i = 0; i < 12; i++)
+        {
+            HttpResponseMessage checkResponse = await ApiClient.GetAsync(
+                $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.GuestMemberId}",
+                TestCancellationToken);
+
+            if (checkResponse.StatusCode == HttpStatusCode.NotFound)
+            {
+                memberStillExists = false;
+                break;
+            }
+
+            await Task.Delay(100, TestCancellationToken);
+        }
+
+        memberStillExists.Should().BeFalse();
+    }
 }

@@ -129,6 +129,7 @@ extension ApiServiceSessionMethods on ApiService {
         role: TeamRole.mrX,
         colorCode: misterXTeam.colorCode,
         isCaught: false,
+        maxPlayerCount: misterXTeam.maxPlayerCount,
       );
     }
 
@@ -147,6 +148,7 @@ extension ApiServiceSessionMethods on ApiService {
         role: TeamRole.detective,
         colorCode: detectiveTeam.colorCode,
         isCaught: false,
+        maxPlayerCount: detectiveTeam.maxPlayerCount,
       );
     }
 
@@ -209,6 +211,7 @@ extension ApiServiceSessionMethods on ApiService {
     required String teamName,
     required TeamRole role,
     required String colorCode,
+    int maxPlayerCount = 6,
   }) async {
     final json =
         await _postJsonObjectOrThrow('/api/gamesessions/$sessionId/teams', {
@@ -216,6 +219,7 @@ extension ApiServiceSessionMethods on ApiService {
           'role': _roleToApi(role),
           'colorCode': colorCode,
           'isCaught': false,
+          'maxPlayerCount': maxPlayerCount,
         });
 
     return TeamDetails.fromJson(json);
@@ -228,13 +232,36 @@ extension ApiServiceSessionMethods on ApiService {
     required TeamRole role,
     required String colorCode,
     required bool isCaught,
+    required int maxPlayerCount,
   }) async {
     await _putJsonNoContent('/api/gamesessions/$sessionId/teams/$teamId', {
       'teamName': teamName,
       'role': _roleToApi(role),
       'colorCode': colorCode,
       'isCaught': isCaught,
+      'maxPlayerCount': maxPlayerCount,
     });
+  }
+
+  Future<void> registerCurrentMemberPresence() async {
+    final sessionId = _session.currentSessionId;
+    final teamId = _session.currentTeamId;
+    final memberId = _session.currentMemberId;
+    if (sessionId == null || teamId == null || memberId == null) {
+      return;
+    }
+
+    await _realtime.registerMemberPresence(
+      sessionId: sessionId,
+      teamId: teamId,
+      memberId: memberId,
+      userId: _session.currentUserId,
+      guestName: _session.currentUserId == null ? _session.currentUsername : null,
+    );
+  }
+
+  Future<void> unregisterCurrentMemberPresence() async {
+    await _realtime.unregisterMemberPresence();
   }
 
   Future<void> deleteTeam({required int sessionId, required int teamId}) async {
@@ -443,6 +470,7 @@ extension ApiServiceSessionMethods on ApiService {
             role: team.role,
             colorCode: team.colorCode,
             isCaught: team.isCaught,
+            maxPlayerCount: team.maxPlayerCount,
           ),
         )
         .toList(growable: false);

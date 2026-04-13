@@ -7,6 +7,38 @@ internal sealed class GameSessionRealtimePublisher(
     IHubContext<GameSessionHub> hubContext,
     ILogger<GameSessionRealtimePublisher> logger) : IGameSessionRealtimePublisher
 {
+    public ValueTask PublishTeamAddedAsync(Team team) =>
+        PublishToSessionAsync(
+            team.SessionId,
+            RealtimeEvents.TeamAdded,
+            new TeamAddedPayload(
+                team.Id,
+                team.SessionId,
+                team.TeamName,
+                team.Role,
+                team.ColorCode,
+                team.IsCaught,
+                team.MaxPlayerCount));
+
+    public ValueTask PublishTeamUpdatedAsync(Team team) =>
+        PublishToSessionAsync(
+            team.SessionId,
+            RealtimeEvents.TeamUpdated,
+            new TeamUpdatedPayload(
+                team.Id,
+                team.SessionId,
+                team.TeamName,
+                team.Role,
+                team.ColorCode,
+                team.IsCaught,
+                team.MaxPlayerCount));
+
+    public ValueTask PublishTeamDeletedAsync(int sessionId, int teamId) =>
+        PublishToSessionAsync(
+            sessionId,
+            RealtimeEvents.TeamDeleted,
+            new TeamDeletedPayload(teamId, sessionId));
+
     public ValueTask PublishTeamMemberJoinedAsync(TeamMember member) =>
         PublishToSessionAsync(
             member.SessionId,

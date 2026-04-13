@@ -133,6 +133,40 @@ final class RealtimeService {
     }
   }
 
+  Future<void> registerMemberPresence({
+    required int sessionId,
+    required int teamId,
+    required int memberId,
+    int? userId,
+    String? guestName,
+  }) async {
+    final connection = _connection;
+    if (connection == null || !isConnected) {
+      return;
+    }
+
+    await connection.invoke(
+      'RegisterMemberPresence',
+      // signalr_netcore expects non-null Object entries in args.
+      args: [
+        sessionId,
+        teamId,
+        memberId,
+        userId ?? 0,
+        guestName ?? '',
+      ],
+    );
+  }
+
+  Future<void> unregisterMemberPresence() async {
+    final connection = _connection;
+    if (connection == null || !isConnected) {
+      return;
+    }
+
+    await connection.invoke('UnregisterMemberPresence');
+  }
+
   Future<void> disconnect() async {
     final connection = _connection;
     _connection = null;
@@ -152,6 +186,60 @@ final class RealtimeService {
     }
 
     switch (envelope.type) {
+      case RealtimeEvents.teamAdded:
+        final payload = TeamAddedPayload.fromJson(envelope.payload);
+        final teams = List<SnapshotTeam>.of(snapshot.teams)
+          ..removeWhere((team) => team.id == payload.teamId)
+          ..add(
+            SnapshotTeam(
+              id: payload.teamId,
+              sessionId: payload.sessionId,
+              teamName: payload.teamName,
+              role: payload.role,
+              colorCode: payload.colorCode,
+              isCaught: payload.isCaught,
+              maxPlayerCount: payload.maxPlayerCount,
+            ),
+          );
+
+        _latestSnapshot = snapshot.copyWith(teams: teams);
+        break;
+
+      case RealtimeEvents.teamUpdated:
+        final payload = TeamUpdatedPayload.fromJson(envelope.payload);
+        final teams = snapshot.teams
+            .map((team) {
+              if (team.id != payload.teamId) {
+                return team;
+              }
+
+              return SnapshotTeam(
+                id: payload.teamId,
+                sessionId: payload.sessionId,
+                teamName: payload.teamName,
+                role: payload.role,
+                colorCode: payload.colorCode,
+                isCaught: payload.isCaught,
+                maxPlayerCount: payload.maxPlayerCount,
+              );
+            })
+            .toList(growable: false);
+
+        _latestSnapshot = snapshot.copyWith(teams: teams);
+        break;
+
+      case RealtimeEvents.teamDeleted:
+        final payload = TeamDeletedPayload.fromJson(envelope.payload);
+        final teams = snapshot.teams
+            .where((team) => team.id != payload.teamId)
+            .toList(growable: false);
+        final members = snapshot.members
+            .where((member) => member.teamId != payload.teamId)
+            .toList(growable: false);
+
+        _latestSnapshot = snapshot.copyWith(teams: teams, members: members);
+        break;
+
       case RealtimeEvents.teamMemberJoined:
         final payload = TeamMemberJoinedPayload.fromJson(envelope.payload);
         final members = List<SnapshotTeamMember>.of(snapshot.members)

@@ -10,6 +10,9 @@ public interface IGameSessionSnapshotService
 
 public interface IGameSessionRealtimePublisher
 {
+    public ValueTask PublishTeamAddedAsync(Team team);
+    public ValueTask PublishTeamUpdatedAsync(Team team);
+    public ValueTask PublishTeamDeletedAsync(int sessionId, int teamId);
     public ValueTask PublishTeamMemberJoinedAsync(TeamMember member);
     public ValueTask PublishTeamMemberUpdatedAsync(TeamMember member);
     public ValueTask PublishTeamMemberLeftAsync(int sessionId, int teamId, int memberId, int? userId, string? guestName, Instant leftAt);
@@ -81,7 +84,8 @@ internal sealed class GameSessionSnapshotService(
                 team.TeamName,
                 team.Role,
                 team.ColorCode,
-                team.IsCaught))],
+                team.IsCaught,
+                team.MaxPlayerCount))],
             [.. members.Select(member => new SnapshotTeamMemberDto(
                 member.Id,
                 member.SessionId,

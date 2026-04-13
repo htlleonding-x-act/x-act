@@ -10,6 +10,9 @@ public static class RealtimeMethods
 
 public static class RealtimeEvents
 {
+    public const string TeamAdded = "team_added";
+    public const string TeamUpdated = "team_updated";
+    public const string TeamDeleted = "team_deleted";
     public const string TeamMemberJoined = "team_member_joined";
     public const string TeamMemberUpdated = "team_member_updated";
     public const string TeamMemberLeft = "team_member_left";
@@ -43,7 +46,33 @@ public sealed record SnapshotTeamDto(
     string TeamName,
     TeamRole Role,
     string ColorCode,
-    bool IsCaught
+    bool IsCaught,
+    int MaxPlayerCount
+);
+
+public sealed record TeamAddedPayload(
+    int TeamId,
+    int SessionId,
+    string TeamName,
+    TeamRole Role,
+    string ColorCode,
+    bool IsCaught,
+    int MaxPlayerCount
+);
+
+public sealed record TeamUpdatedPayload(
+    int TeamId,
+    int SessionId,
+    string TeamName,
+    TeamRole Role,
+    string ColorCode,
+    bool IsCaught,
+    int MaxPlayerCount
+);
+
+public sealed record TeamDeletedPayload(
+    int TeamId,
+    int SessionId
 );
 
 public sealed record SnapshotTeamMemberDto(

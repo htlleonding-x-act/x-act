@@ -6,6 +6,7 @@ import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
+import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/widgets/team/add_team_button.dart';
 import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
@@ -85,18 +86,24 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       );
 
       final usersById = snapshot.usersById;
+      final currentUserId = AppSession.instance.currentUserId;
       final teams = <TeamData>[];
       final spectators = <LobbyPlayer>[];
       int? spectatorTeamId;
+      TeamMemberDetails? currentMembership;
 
       for (final team in snapshot.teams) {
         final configuredUi = _teamUiConfigById[team.teamId];
         final teamColor =
             configuredUi?.color ??
             (tryParseHexColor(team.colorCode) ?? Colors.blueGrey);
-        final maxPlayers = configuredUi?.maxPlayers ?? 6;
+        final maxPlayers = configuredUi?.maxPlayers ?? team.maxPlayerCount;
         final members = (snapshot.membersByTeamId[team.teamId] ?? const [])
             .map((m) {
+              if (currentUserId != null && m.userId == currentUserId) {
+                currentMembership = m;
+              }
+
               final displayName = m.userId != null
                   ? (usersById[m.userId!]?.username ?? 'User ${m.userId}')
                   : (m.guestName ?? 'Guest');
@@ -106,7 +113,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
                 teamId: team.teamId,
                 userId: m.userId,
                 name: displayName,
-                isCurrentUser: false,
+                isCurrentUser: currentUserId != null && m.userId == currentUserId,
                 isTeamLeader: m.isTeamLeader,
               );
             })
@@ -136,6 +143,19 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         (teamId, _) => !currentTeamIds.contains(teamId),
       );
 
+      if (currentMembership != null) {
+        AppSession.instance.setMembership(
+          teamId: currentMembership!.teamId,
+          memberId: currentMembership!.memberId,
+          teamLeader: currentMembership!.isTeamLeader,
+        );
+
+        try {
+          await ApiService.instance.registerCurrentMemberPresence();
+        } catch (_) {
+        }
+      }
+
       setState(() {
         _teams = teams;
         _spectators = spectators;
@@ -158,6 +178,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       await ApiService.instance.ensureRealtimeSessionSubscription(
         widget.sessionId,
       );
+      await ApiService.instance.registerCurrentMemberPresence();
 
       _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
         if (_isLobbyRealtimeEvent(event.type)) {
@@ -222,6 +243,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         teamName: result.name,
         role: TeamRole.detective,
         colorCode: _toHexColor(result.color),
+        maxPlayerCount: result.maxPlayers,
       );
       _teamUiConfigById[created.teamId] = _TeamUiConfig(
         color: result.color,
@@ -291,6 +313,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         role: team.role,
         colorCode: _toHexColor(edited.color),
         isCaught: false,
+        maxPlayerCount: edited.maxPlayers,
       );
       _teamUiConfigById[team.teamId] = _TeamUiConfig(
         color: edited.color,
