@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class XActBranding {
   XActBranding._();
@@ -146,6 +147,8 @@ class XActBranding {
     required TextEditingController controller,
     TextInputType? keyboardType,
     int? maxLength,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,6 +162,8 @@ class XActBranding {
           controller: controller,
           keyboardType: keyboardType,
           maxLength: maxLength,
+          inputFormatters: inputFormatters,
+          textCapitalization: textCapitalization,
           style: const TextStyle(color: Colors.white, fontSize: 18),
           decoration: InputDecoration(
             hintText: hintText,

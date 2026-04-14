@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/team/team_lobby.dart';
@@ -25,12 +26,23 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
   }
 
   void _onJoin() async {
-    final lobbyCode = _lobbyCodeController.text.trim();
+    final lobbyCode = _lobbyCodeController.text.trim().toUpperCase();
     final username = _usernameController.text.trim();
 
     if (lobbyCode.isEmpty || username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
+      );
+      return;
+    }
+
+    if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(lobbyCode)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Lobby code must be 6 characters using uppercase letters and numbers',
+          ),
+        ),
       );
       return;
     }
@@ -155,10 +167,15 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
           const SizedBox(height: 20),
           XActBranding.buildTextField(
             label: 'Lobby Code',
-            hintText: 'Enter 6-digit code...',
+            hintText: 'Enter 6-character code...',
             controller: _lobbyCodeController,
-            keyboardType: TextInputType.number,
+            keyboardType: TextInputType.text,
             maxLength: 6,
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+              UpperCaseTextFormatter(),
+            ],
           ),
           const SizedBox(height: 16),
           XActBranding.buildTextField(
@@ -187,5 +204,15 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
         ],
       ),
     );
+  }
+}
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return newValue.copyWith(text: newValue.text.toUpperCase());
   }
 }
