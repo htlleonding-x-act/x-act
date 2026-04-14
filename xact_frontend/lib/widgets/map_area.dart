@@ -490,7 +490,7 @@ class _PlayerMarkerWidget extends StatelessWidget {
       ),
       child: Icon(
         player.isMisterX
-            ? Icons.help_outline
+            ? Icons.location_on
             : (player.isCurrentUser ? Icons.person : Icons.person_outline),
         color: Colors.white,
         size: iconSize,

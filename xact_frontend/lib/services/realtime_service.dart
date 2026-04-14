@@ -312,6 +312,31 @@ final class RealtimeService {
       case RealtimeEvents.locationLogRecorded:
         final payload = LocationLogRecordedPayload.fromJson(envelope.payload);
 
+        SnapshotTeamMember? targetMember;
+        for (final member in snapshot.members) {
+          if (member.id == payload.memberId) {
+            targetMember = member;
+            break;
+          }
+        }
+
+        SnapshotTeam? targetTeam;
+        if (targetMember != null) {
+          for (final team in snapshot.teams) {
+            if (team.id == targetMember.teamId) {
+              targetTeam = team;
+              break;
+            }
+          }
+        }
+        final isMisterX = targetTeam?.role == TeamRole.mrX;
+
+        // Keep last reveal ping visible between intervals.
+        if (isMisterX && !payload.isRevealedPosition) {
+          _latestSnapshot = snapshot;
+          break;
+        }
+
         final latestLocations = List<SnapshotLatestLocation>.of(
           snapshot.latestLocations,
         )..removeWhere((location) => location.memberId == payload.memberId);

@@ -203,6 +203,7 @@ extension ApiServiceSessionMethods on ApiService {
       teams: teams,
       membersByTeamId: membersByTeamId,
       usersById: usersById,
+      latestLocations: const [],
     );
   }
 
@@ -509,6 +510,7 @@ extension ApiServiceSessionMethods on ApiService {
       teams: teams,
       membersByTeamId: membersByTeamId,
       usersById: usersById,
+      latestLocations: snapshot.latestLocations,
     );
   }
 

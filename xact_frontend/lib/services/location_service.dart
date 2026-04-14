@@ -21,8 +21,6 @@ final class LocationService {
   int? _memberId;
   int? _sessionId;
   int? _teamId;
-  int? _userId;
-  bool _isTeamLeader = false;
 
   // ── GPS subscription & upload timer ───────────────────────────────────────
 
@@ -35,6 +33,8 @@ final class LocationService {
 
   /// Emits every time a new GPS position is received.
   Stream<Position> get positionStream => _positionController.stream;
+
+  bool get isTracking => _uploadTimer != null;
 
   /// The most recently received GPS position, or `null` before tracking starts.
   Position? lastKnownPosition;
@@ -94,8 +94,8 @@ final class LocationService {
 
   /// Starts continuous GPS tracking and periodic upload to the backend.
   ///
-  /// [memberId], [teamId], [userId] and [isTeamLeader] must match the current
-  /// player's `TeamMember` record in the backend.
+  /// [memberId] and [teamId] must match the current player's `TeamMember`
+  /// record in the backend.
   ///
   /// [uploadInterval] controls how often the position is pushed to the API
   /// (default: every 5 seconds).
@@ -103,8 +103,6 @@ final class LocationService {
     required int sessionId,
     required int memberId,
     required int teamId,
-    required int userId,
-    required bool isTeamLeader,
     Duration uploadInterval = const Duration(seconds: 5),
   }) async {
     // If already tracking, stop first.
@@ -113,8 +111,6 @@ final class LocationService {
     _memberId = memberId;
     _sessionId = sessionId;
     _teamId = teamId;
-    _userId = userId;
-    _isTeamLeader = isTeamLeader;
 
     final granted = await requestPermission();
     if (!granted) return;
@@ -162,13 +158,11 @@ final class LocationService {
     final sessionId = _sessionId;
     final memberId = _memberId;
     final teamId = _teamId;
-    final userId = _userId;
 
     if (position == null ||
         sessionId == null ||
         memberId == null ||
-        teamId == null ||
-        userId == null) {
+        teamId == null) {
       return;
     }
 
@@ -177,10 +171,10 @@ final class LocationService {
         sessionId: sessionId,
         teamId: teamId,
         memberId: memberId,
-        timestamp: DateTime.now(),
+        timestamp: DateTime.now().toUtc(),
         latitude: position.latitude,
         longitude: position.longitude,
-        accuracyMeters: position.accuracy ?? 0.0,
+        accuracyMeters: position.accuracy,
         transportMode: 'Foot',
         isRevealedPosition: false,
       );

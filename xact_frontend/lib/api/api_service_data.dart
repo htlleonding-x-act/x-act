@@ -61,23 +61,15 @@ extension ApiServiceDataMethods on ApiService {
     }
 
     final details = await _getGameSession(sessionId);
-    final start = details.startTime;
-    final interval = details.mrXRevealInterval;
-
-    if (start == null || interval <= 0) {
+    if (details.revealIntervalSeconds <= 0 || details.revealSecondsRemaining <= 0) {
       return const MapHeaderData(nextPingText: 'Next ping: -');
     }
 
-    final now = DateTime.now().toUtc();
-    final elapsedMinutes = now.difference(start.toUtc()).inMinutes;
-    final minutesIntoCycle = elapsedMinutes % interval;
-    final remaining = (interval - minutesIntoCycle) % interval;
-
-    final display = remaining == 0 ? interval : remaining;
+    final display = _formatDuration(details.revealSecondsRemaining);
     return MapHeaderData(
-      nextPingText: 'Next ping: ${display}m',
-      remainingMinutes: display,
-      intervalMinutes: interval,
+      nextPingText: 'Next ping: $display',
+      remainingSeconds: details.revealSecondsRemaining,
+      intervalSeconds: details.revealIntervalSeconds,
     );
   }
 
@@ -85,14 +77,43 @@ extension ApiServiceDataMethods on ApiService {
     final snapshot = await loadLobbySnapshot(sessionId);
     final out = <PlayerPositionData>[];
 
+    final currentTeamId = _session.currentTeamId;
+    final currentTeamRole = currentTeamId == null
+        ? null
+        : snapshot.teams
+              .where((team) => team.teamId == currentTeamId)
+              .map((team) => team.role)
+              .firstOrNull;
+
+    // Create a map of memberId -> latest location for reveal check
+    final latestLocationByMemberId = <int, SnapshotLatestLocation>{};
+    for (final location in snapshot.latestLocations) {
+      latestLocationByMemberId[location.memberId] = location;
+    }
+
     for (final team in snapshot.teams) {
       final color = tryParseHexColor(team.colorCode) ?? Colors.blueGrey;
       final members = snapshot.membersByTeamId[team.teamId] ?? const [];
+
+      // TODO: Final visibility rules are not fully defined yet.
+      // Temporary behavior: Mister X should not see detective pings.
+      if (currentTeamRole == TeamRole.mrX && team.role != TeamRole.mrX) {
+        continue;
+      }
+
       for (final member in members) {
         final lat = member.currentLatitude;
         final lon = member.currentLongitude;
         if (lat == null || lon == null) {
           continue;
+        }
+
+        // For Mr. X team, only show position if it's a revealed position
+        if (team.role == TeamRole.mrX) {
+          final latestLocation = latestLocationByMemberId[member.memberId];
+          if (latestLocation == null || !latestLocation.isRevealedPosition) {
+            continue;
+          }
         }
 
         final name = member.userId != null
@@ -115,4 +136,17 @@ extension ApiServiceDataMethods on ApiService {
 
     return out;
   }
+}
+
+String _formatDuration(int totalSeconds) {
+  final minutes = totalSeconds ~/ 60;
+  final seconds = totalSeconds % 60;
+
+  if (minutes <= 0) {
+    return '${seconds}s';
+  }
+
+  return seconds == 0
+      ? '${minutes}m'
+      : '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
 }

@@ -37,8 +37,8 @@ class _MapHeaderState extends State<MapHeader> {
   void _startCountdown(MapHeaderData data) {
     if (!mounted) return;
     setState(() {
-      _totalSeconds = data.intervalMinutes * 60;
-      _secondsRemaining = data.remainingMinutes * 60;
+      _totalSeconds = data.intervalSeconds;
+      _secondsRemaining = data.remainingSeconds;
     });
 
     _timer?.cancel();
@@ -52,9 +52,9 @@ class _MapHeaderState extends State<MapHeader> {
       setState(() {
         if (_secondsRemaining > 0) {
           _secondsRemaining--;
-        } else {
-          // Reset cycle when it reaches zero.
-          _secondsRemaining = _totalSeconds;
+          if (_secondsRemaining == 0) {
+            _timer?.cancel();
+          }
         }
       });
     });

@@ -28,16 +28,16 @@ final class TeamChatHeaderData {
 
 final class MapHeaderData {
   final String nextPingText;
-  final int remainingMinutes;
-  final int intervalMinutes;
+  final int remainingSeconds;
+  final int intervalSeconds;
 
   double get progress =>
-      intervalMinutes > 0 ? 1.0 - (remainingMinutes / intervalMinutes) : 0.0;
+      intervalSeconds > 0 ? 1.0 - (remainingSeconds / intervalSeconds) : 0.0;
 
   const MapHeaderData({
     required this.nextPingText,
-    this.remainingMinutes = 0,
-    this.intervalMinutes = 0,
+    this.remainingSeconds = 0,
+    this.intervalSeconds = 0,
   });
 }
 
@@ -63,10 +63,12 @@ final class LobbySnapshot {
   final List<TeamDetails> teams;
   final Map<int, List<TeamMemberDetails>> membersByTeamId;
   final Map<int, UserInfo> usersById;
+  final List<SnapshotLatestLocation> latestLocations;
 
   const LobbySnapshot({
     required this.teams,
     required this.membersByTeamId,
     required this.usersById,
+    this.latestLocations = const [],
   });
 }

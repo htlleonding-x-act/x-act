@@ -51,14 +51,29 @@ internal sealed class GameSessionSnapshotService(
 
         IReadOnlyCollection<LocationLog> locationLogs = await locationLogService.GetLogsBySessionIdAsync(sessionId, tracking: false);
 
+        var teamRoleByTeamId = teams.ToDictionary(team => team.Id, team => team.Role);
+        var isMisterXMemberById = members.ToDictionary(
+            member => member.Id,
+            member => teamRoleByTeamId.GetValueOrDefault(member.TeamId) == TeamRole.MrX);
+
         IReadOnlyCollection<SnapshotLatestLocationDto> latestLocations =
         [
             .. locationLogs
                 .GroupBy(log => log.MemberId)
-                .Select(group => group
-                    .OrderByDescending(log => log.Timestamp)
-                    .ThenByDescending(log => log.Id)
-                    .First())
+                .Select(group =>
+                {
+                    bool isMisterX = isMisterXMemberById.GetValueOrDefault(group.Key);
+                    IEnumerable<LocationLog> candidates = isMisterX
+                        ? group.Where(log => log.IsRevealedPosition)
+                        : group;
+
+                    return candidates
+                        .OrderByDescending(log => log.Timestamp)
+                        .ThenByDescending(log => log.Id)
+                        .FirstOrDefault();
+                })
+                .Where(log => log is not null)
+                .Select(log => log!)
                 .Select(log => new SnapshotLatestLocationDto(
                     log.Id,
                     log.MemberId,

@@ -186,7 +186,7 @@ extension ApiServiceHttpMethods on ApiService {
     required String transportMode,
     bool isRevealedPosition = false,
   }) async {
-    await _postJsonObject(
+    await _postJsonObjectOrThrow(
       '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId/locationlogs',
       {
         'timestamp': timestamp.toIso8601String(),

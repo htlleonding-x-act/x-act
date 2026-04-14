@@ -234,7 +234,7 @@ public sealed class LocationLogServiceTests
             domainError => Assert.Fail("Expected Success but got DomainError")
         );
         log.Latitude.Should().Be(data.Latitude);
-        log.IsRevealedPosition.Should().BeTrue();
+        log.IsRevealedPosition.Should().BeFalse();
         await _uow.Received(1).SaveChangesAsync();
     }
 

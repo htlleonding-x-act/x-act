@@ -243,6 +243,10 @@ final class GameSessionDetails {
   final DateTime? endTime;
   final int plannedDurationMinutes;
   final int mrXRevealInterval;
+  final DateTime serverNow;
+  final DateTime? nextRevealAt;
+  final int revealSecondsRemaining;
+  final int revealIntervalSeconds;
 
   const GameSessionDetails({
     required this.sessionId,
@@ -254,6 +258,10 @@ final class GameSessionDetails {
     required this.endTime,
     required this.plannedDurationMinutes,
     required this.mrXRevealInterval,
+    required this.serverNow,
+    required this.nextRevealAt,
+    required this.revealSecondsRemaining,
+    required this.revealIntervalSeconds,
   });
 
   factory GameSessionDetails.fromJson(Map<String, dynamic> json) {
@@ -270,6 +278,10 @@ final class GameSessionDetails {
       endTime: tryParseIsoDateTime(json['endTime']),
       plannedDurationMinutes: (json['plannedDurationMinutes'] as num).toInt(),
       mrXRevealInterval: (json['mrXRevealInterval'] as num).toInt(),
+      serverNow: tryParseIsoDateTime(json['serverNow']) ?? DateTime.now().toUtc(),
+      nextRevealAt: tryParseIsoDateTime(json['nextRevealAt']),
+      revealSecondsRemaining: _readInt(json, ['revealSecondsRemaining']),
+      revealIntervalSeconds: _readInt(json, ['revealIntervalSeconds']),
     );
   }
 }
