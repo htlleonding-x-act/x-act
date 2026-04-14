@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using XActBackend.Core.Realtime;
 using XActBackend.Persistence.Model;
 
 namespace XActBackend.Realtime;

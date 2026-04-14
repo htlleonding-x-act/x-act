@@ -1,6 +1,6 @@
 ﻿using XActBackend.Persistence.Model;
 
-namespace XActBackend.Realtime;
+namespace XActBackend.Core.Realtime;
 
 public static class RealtimeMethods
 {

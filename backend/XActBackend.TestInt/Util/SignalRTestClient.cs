@@ -1,6 +1,7 @@
 ﻿using System.Threading.Channels;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
+using XActBackend.Core.Realtime;
 using XActBackend.Realtime;
 using XActBackend.Shared;
 

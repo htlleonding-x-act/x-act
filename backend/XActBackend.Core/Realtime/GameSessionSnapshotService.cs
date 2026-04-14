@@ -1,7 +1,7 @@
 ﻿using XActBackend.Core.Services;
 using XActBackend.Persistence.Model;
 
-namespace XActBackend.Realtime;
+namespace XActBackend.Core.Realtime;
 
 public interface IGameSessionSnapshotService
 {

@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using XActBackend.Realtime;
+using XActBackend.Core.Realtime;
 using XActBackend.Core.Services;
 
 namespace XActBackend.Core.Util;
