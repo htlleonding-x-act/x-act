@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
+using XActBackend.Core.Realtime;
 using XActBackend.Core.Services;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
@@ -13,6 +14,7 @@ namespace XActBackend.Controllers;
 public sealed class TeamController(
     ITransactionProvider transaction,
     ITeamService teamService,
+    IGameSessionRealtimePublisher realtimePublisher,
     ILogger<TeamController> logger) : BaseController
 {
     [HttpGet]
@@ -70,13 +72,15 @@ public sealed class TeamController(
                     addRequest.TeamName,
                     addRequest.Role,
                     addRequest.ColorCode,
-                    addRequest.IsCaught
+                    addRequest.IsCaught,
+                    addRequest.MaxPlayerCount
                 )
             );
 
             return await addResult.Match<ValueTask<IActionResult>>(async team =>
             {
                 await transaction.CommitAsync();
+                await realtimePublisher.PublishTeamAddedAsync(team);
                 logger.LogInformation("Created team {TeamId} in session {SessionId}", team.Id, sessionId);
                 return CreatedAtAction(nameof(GetTeamById),
                     new { sessionId, teamId = team.Id },
@@ -129,7 +133,8 @@ public sealed class TeamController(
                     updateRequest.TeamName,
                     updateRequest.Role,
                     updateRequest.ColorCode,
-                    updateRequest.IsCaught
+                    updateRequest.IsCaught,
+                    updateRequest.MaxPlayerCount
                 ),
                 tracking: true
             );
@@ -137,6 +142,12 @@ public sealed class TeamController(
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                var updatedTeamResult = await teamService.GetTeamByIdAsync(sessionId, teamId, tracking: false);
+                await updatedTeamResult.Match(
+                    team => realtimePublisher.PublishTeamUpdatedAsync(team),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Updated team {TeamId} in session {SessionId}", teamId, sessionId);
                 return NoContent();
             }, async notFound =>
@@ -168,6 +179,8 @@ public sealed class TeamController(
         [FromRoute] int sessionId,
         [FromRoute] int teamId)
     {
+        OneOf<Team, NotFound> existingTeamResult = await teamService.GetTeamByIdAsync(sessionId, teamId, tracking: false);
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -177,6 +190,11 @@ public sealed class TeamController(
             return await deleteResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                await existingTeamResult.Match(
+                    team => realtimePublisher.PublishTeamDeletedAsync(team.SessionId, team.Id),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Deleted team {TeamId} from session {SessionId}", teamId, sessionId);
                 return NoContent();
             }, async notFound =>
@@ -205,19 +223,19 @@ public sealed class TeamListResponse
     public required List<TeamInformationDto> Items { get; init; }
 }
 
-public sealed record TeamInformationDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode)
+public sealed record TeamInformationDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode, int MaxPlayerCount)
 {
     public static TeamInformationDto FromTeam(Team team) =>
-        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode);
+        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode, team.MaxPlayerCount);
 }
 
-public sealed record TeamDetailsDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode, bool IsCaught)
+public sealed record TeamDetailsDto(int Id, int SessionId, string TeamName, TeamRole Role, string ColorCode, bool IsCaught, int MaxPlayerCount)
 {
     public static TeamDetailsDto FromTeam(Team team) =>
-        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode, team.IsCaught);
+        new(team.Id, team.SessionId, team.TeamName, team.Role, team.ColorCode, team.IsCaught, team.MaxPlayerCount);
 }
 
-public sealed record TeamAddRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught = false)
+public sealed record TeamAddRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught = false, int MaxPlayerCount = Team.DefaultMaxPlayerCount)
 {
     public sealed class Validator : AbstractValidator<TeamAddRequest>
     {
@@ -226,11 +244,12 @@ public sealed record TeamAddRequest(string TeamName, TeamRole Role, string Color
             RuleFor(x => x.TeamName).NotEmpty().MaximumLength(50);
             RuleFor(x => x.Role).IsInEnum();
             RuleFor(x => x.ColorCode).Matches("^#[0-9A-Fa-f]{6}$");
+            RuleFor(x => x.MaxPlayerCount).GreaterThan(0);
         }
     }
 }
 
-public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught)
+public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string ColorCode, bool IsCaught, int MaxPlayerCount = Team.DefaultMaxPlayerCount)
 {
     public sealed class Validator : AbstractValidator<TeamUpdateRequest>
     {
@@ -239,6 +258,7 @@ public sealed record TeamUpdateRequest(string TeamName, TeamRole Role, string Co
             RuleFor(x => x.TeamName).NotEmpty().MaximumLength(50);
             RuleFor(x => x.Role).IsInEnum();
             RuleFor(x => x.ColorCode).Matches("^#[0-9A-Fa-f]{6}$");
+            RuleFor(x => x.MaxPlayerCount).GreaterThan(0);
         }
     }
 }

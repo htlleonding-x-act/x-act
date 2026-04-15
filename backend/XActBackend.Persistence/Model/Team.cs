@@ -2,6 +2,8 @@
 
 public class Team
 {
+    public const int DefaultMaxPlayerCount = 6;
+
     public int Id { get; set; }
 
     public int SessionId { get; set; }
@@ -11,6 +13,8 @@ public class Team
     public TeamRole Role { get; set; }
 
     public required string ColorCode { get; set; }
+
+    public int MaxPlayerCount { get; set; } = DefaultMaxPlayerCount;
 
     public bool IsCaught { get; set; }
 

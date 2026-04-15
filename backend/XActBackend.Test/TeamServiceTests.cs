@@ -50,7 +50,8 @@ public sealed class TeamServiceTests
         int sessionId = DefaultSessionId,
         string name = "Red Team",
         string colorCode = "#ff0000",
-        TeamRole role = TeamRole.Detective
+        TeamRole role = TeamRole.Detective,
+        int maxPlayerCount = Team.DefaultMaxPlayerCount
     ) =>
         new()
         {
@@ -59,6 +60,7 @@ public sealed class TeamServiceTests
             TeamName = name,
             ColorCode = colorCode,
             Role = role,
+            MaxPlayerCount = maxPlayerCount,
         };
 
     private static List<Team> CreateTeams() =>
@@ -127,7 +129,7 @@ public sealed class TeamServiceTests
 
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
         _teamRepository.GetTeamBySessionAndRoleAsync(DefaultSessionId, TeamRole.MrX, false).Returns((Team?) null);
-        _teamRepository.AddTeam(data.SessionId, data.TeamName, data.Role, data.ColorCode).Returns(team);
+        _teamRepository.AddTeam(data.SessionId, data.TeamName, data.Role, data.ColorCode, data.MaxPlayerCount).Returns(team);
 
         OneOf<Team, NotFound, DomainError> result = await _sut.AddTeamAsync(data);
 
@@ -137,6 +139,7 @@ public sealed class TeamServiceTests
             domainError => Assert.Fail("Expected a team but got DomainError")
         );
         team.IsCaught.Should().BeTrue();
+        team.MaxPlayerCount.Should().Be(Team.DefaultMaxPlayerCount);
         await _uow.Received(1).SaveChangesAsync();
     }
 
@@ -216,7 +219,7 @@ public sealed class TeamServiceTests
     {
         var team = CreateTeam(DefaultTeamId, DefaultSessionId, "Old Name", "#ff0000", TeamRole.Detective);
         team.IsCaught = false;
-        var data = new ITeamService.TeamData(DefaultSessionId, "New Name", TeamRole.Detective, "#00ff00", true);
+        var data = new ITeamService.TeamData(DefaultSessionId, "New Name", TeamRole.Detective, "#00ff00", true, 8);
 
         _teamRepository.GetTeamByIdAsync(DefaultTeamId, true).Returns(team);
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
@@ -231,6 +234,7 @@ public sealed class TeamServiceTests
         team.TeamName.Should().Be("New Name");
         team.ColorCode.Should().Be("#00ff00");
         team.IsCaught.Should().BeTrue();
+        team.MaxPlayerCount.Should().Be(8);
         await _uow.Received(1).SaveChangesAsync();
     }
 

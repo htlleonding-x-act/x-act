@@ -1,5 +1,8 @@
 ﻿using OneOf;
 using OneOf.Types;
+using System.Collections.Concurrent;
+using System.Threading;
+using XActBackend.Core.Util;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
 
@@ -92,6 +95,8 @@ public interface ILocationLogService
 
 internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogService> logger) : ILocationLogService
 {
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> MemberLocks = new();
+
     public async ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking)
     {
         var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking: false);
@@ -132,20 +137,34 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
             return await validationResult.Match<ValueTask<OneOf<LocationLog, NotFound, DomainError>>>(
                 async _ =>
                 {
-                    var log = uow.LocationLogRepository.AddLocationLog(
-                        newLocationLog.MemberId,
-                        newLocationLog.Timestamp,
-                        newLocationLog.Latitude,
-                        newLocationLog.Longitude,
-                        newLocationLog.AccuracyMeters,
-                        newLocationLog.TransportMode,
-                        newLocationLog.IsRevealedPosition);
+                    // Serialize add+reveal decision per member to reduce duplicate reveal pings under concurrent requests.
+                    SemaphoreSlim memberLock = MemberLocks.GetOrAdd(newLocationLog.MemberId, _ => new SemaphoreSlim(1, 1));
+                    await memberLock.WaitAsync();
+                    try
+                    {
+                        // Reveal timing is derived from server time so clients cannot force reveal windows via payload timestamps.
+                        Instant serverNow = SystemClock.Instance.GetCurrentInstant();
+                        bool isRevealed = await DetermineIfRevealedPositionAsync(newLocationLog.MemberId, serverNow);
 
-                    await uow.SaveChangesAsync();
+                        var log = uow.LocationLogRepository.AddLocationLog(
+                            newLocationLog.MemberId,
+                            newLocationLog.Timestamp,
+                            newLocationLog.Latitude,
+                            newLocationLog.Longitude,
+                            newLocationLog.AccuracyMeters,
+                            newLocationLog.TransportMode,
+                            isRevealed);
 
-                    logger.LogInformation("Created location log {LogId} for member {MemberId}", log.Id, newLocationLog.MemberId);
+                        await uow.SaveChangesAsync();
 
-                    return log;
+                        logger.LogInformation("Created location log {LogId} for member {MemberId} (revealed: {IsRevealed})", log.Id, newLocationLog.MemberId, isRevealed);
+
+                        return log;
+                    }
+                    finally
+                    {
+                        memberLock.Release();
+                    }
                 },
                 notFound => ValueTask.FromResult<OneOf<LocationLog, NotFound, DomainError>>(notFound),
                 domainError => ValueTask.FromResult<OneOf<LocationLog, NotFound, DomainError>>(domainError)
@@ -182,7 +201,6 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
                 log.Longitude = locationLogData.Longitude;
                 log.AccuracyMeters = locationLogData.AccuracyMeters;
                 log.TransportMode = locationLogData.TransportMode;
-                log.IsRevealedPosition = locationLogData.IsRevealedPosition;
 
                 await uow.SaveChangesAsync();
 
@@ -254,5 +272,56 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
         }
 
         return new Success();
+    }
+
+    private async ValueTask<bool> DetermineIfRevealedPositionAsync(int memberId, Instant logTimestamp)
+    {
+        try
+        {
+            var member = await uow.TeamMemberRepository.GetMemberByIdAsync(memberId, tracking: false);
+            if (member is null)
+            {
+                return false;
+            }
+
+            var team = await uow.TeamRepository.GetTeamByIdAsync(member.TeamId, tracking: false);
+            if (team is null || team.Role != TeamRole.MrX)
+            {
+                return false;
+            }
+
+            var session = await uow.GameSessionRepository.GetSessionByIdAsync(member.SessionId, tracking: false);
+            if (session is null || session.StartTime is null || session.Status != SessionStatus.Active)
+            {
+                return false;
+            }
+
+            if (!RevealTimingCalculator.TryGetRevealWindow(
+                    session.StartTime.Value,
+                    logTimestamp,
+                    session.MrXRevealInterval,
+                    out var intervalStart,
+                    out var intervalEnd,
+                    out _,
+                    out _))
+            {
+                return false;
+            }
+
+            // Tie reveal directly to the ping cycle: first Mr. X log in each interval is the reveal ping.
+
+            IEnumerable<LocationLog> memberLogs = await uow.LocationLogRepository.GetLogsByMemberIdAsync(memberId, tracking: false);
+            var alreadyRevealedInInterval = memberLogs.Any(log =>
+                log.IsRevealedPosition &&
+                log.Timestamp >= intervalStart &&
+                log.Timestamp < intervalEnd);
+
+            return !alreadyRevealedInInterval;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to determine if position should be revealed for member {MemberId}", memberId);
+            return false;
+        }
     }
 }

@@ -15,8 +15,9 @@ public interface ITeamRepository
     /// <param name="teamName">The name of the team</param>
     /// <param name="role">The role of the team</param>
     /// <param name="colorCode">The color code of the team</param>
+    /// <param name="maxPlayerCount">The maximum amount of players allowed in this team</param>
     /// <returns>The created team entity</returns>
-    public Team AddTeam(int sessionId, string teamName, TeamRole role, string colorCode);
+    public Team AddTeam(int sessionId, string teamName, TeamRole role, string colorCode, int maxPlayerCount);
 
     /// <summary>
     ///     Get all teams of a session.
@@ -55,7 +56,7 @@ internal sealed class TeamRepository(DbSet<Team> teamSet) : ITeamRepository
     private IQueryable<Team> Teams => teamSet;
     private IQueryable<Team> TeamsNoTracking => Teams.AsNoTracking();
 
-    public Team AddTeam(int sessionId, string teamName, TeamRole role, string colorCode)
+    public Team AddTeam(int sessionId, string teamName, TeamRole role, string colorCode, int maxPlayerCount)
     {
         var team = new Team
         {
@@ -63,6 +64,7 @@ internal sealed class TeamRepository(DbSet<Team> teamSet) : ITeamRepository
             TeamName = teamName,
             Role = role,
             ColorCode = colorCode,
+            MaxPlayerCount = maxPlayerCount,
         };
 
         teamSet.Add(team);

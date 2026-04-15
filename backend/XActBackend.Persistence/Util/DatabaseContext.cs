@@ -96,6 +96,12 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
     private static void ConfigureTeam(EntityTypeBuilder<Team> team)
     {
         team.Property(e => e.ColorCode).HasMaxLength(7);
+        team.Property(e => e.MaxPlayerCount).HasDefaultValue(Team.DefaultMaxPlayerCount);
+
+        team.ToTable(t => t.HasCheckConstraint(
+            "CK_Team_MaxPlayerCount_Positive",
+            "\"MaxPlayerCount\" > 0"
+        ));
 
         team
             .HasOne(e => e.Session)

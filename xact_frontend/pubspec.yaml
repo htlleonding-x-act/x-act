@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
+  signalr_netcore: ^1.4.4
   flutter_map: ^8.2.2
   latlong2: ^0.9.1
   geolocator: ^14.0.2

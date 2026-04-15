@@ -32,86 +32,18 @@ class AllChatScreen extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                const SizedBox(height: 12),
-                _ChatMessage(
-                  senderName: 'Mister X',
-                  teamName: 'Mister X',
-                  message: 'You\'ll never catch me! 😎',
-                  timeAgo: 3,
-                  nameColor: Colors.red,
+            child: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'All-chat is waiting for backend realtime integration.',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
-                _ChatMessage(
-                  senderName: 'Sophie',
-                  teamName: 'Detectives Beta',
-                  message: 'Challenge accepted!',
-                  timeAgo: 1,
-                  nameColor: Colors.green,
-                ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
           ),
-          ChatInputBar(hintText: 'Message all chat...', onSend: () {}),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChatMessage extends StatelessWidget {
-  final String senderName;
-  final String teamName;
-  final String message;
-  final int timeAgo;
-  final Color nameColor;
-
-  const _ChatMessage({
-    required this.senderName,
-    required this.teamName,
-    required this.message,
-    required this.timeAgo,
-    required this.nameColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF334155),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                senderName,
-                style: TextStyle(
-                  color: nameColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                teamName,
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-              const Spacer(),
-              Text(
-                '${timeAgo}m ago',
-                style: TextStyle(color: Colors.white38, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(message, style: TextStyle(color: Colors.white, fontSize: 15)),
+          ChatInputBar(hintText: 'Message all chat...', onSend: null),
         ],
       ),
     );

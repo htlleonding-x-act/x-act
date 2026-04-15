@@ -2,7 +2,9 @@
 using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using OneOf.Types;
+using XActBackend.Core.Util;
 using XActBackend.Core.Services;
+using XActBackend.Core.Realtime;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
 using XActBackend.Util;
@@ -13,6 +15,8 @@ namespace XActBackend.Controllers;
 public sealed class GameSessionController(
     ITransactionProvider transaction,
     IGameSessionService gameSessionService,
+    IGameSessionRealtimePublisher realtimePublisher,
+    IClock clock,
     ILogger<GameSessionController> logger) : BaseController
 {
     [HttpGet]
@@ -37,7 +41,7 @@ public sealed class GameSessionController(
         OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetGameSessionByIdAsync(sessionId, tracking: false);
 
         return sessionResult.Match<ActionResult<GameSessionDetailsDto>>(
-            gameSession => Ok(GameSessionDetailsDto.FromGameSession(gameSession)),
+            gameSession => Ok(GameSessionDetailsDto.FromGameSession(gameSession, clock.GetCurrentInstant())),
             notFound => NotFound()
         );
     }
@@ -51,7 +55,7 @@ public sealed class GameSessionController(
         OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetGameSessionByJoinCodeAsync(joinCode, tracking: false);
 
         return sessionResult.Match<ActionResult<GameSessionDetailsDto>>(
-            gameSession => Ok(GameSessionDetailsDto.FromGameSession(gameSession)),
+            gameSession => Ok(GameSessionDetailsDto.FromGameSession(gameSession, clock.GetCurrentInstant())),
             notFound => NotFound()
         );
     }
@@ -93,7 +97,7 @@ public sealed class GameSessionController(
                 logger.LogInformation("Created game session {SessionId} for host user {HostUserId}", gameSession.Id, gameSession.HostUserId);
 
                 return CreatedAtAction(nameof(GetGameSessionById), new { sessionId = gameSession.Id },
-                    GameSessionDetailsDto.FromGameSession(gameSession));
+                    GameSessionDetailsDto.FromGameSession(gameSession, clock.GetCurrentInstant()));
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
@@ -231,6 +235,12 @@ public sealed class GameSessionController(
             return await result.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetGameSessionByIdAsync(sessionId, tracking: false);
+                await sessionResult.Match(
+                    gameSession => realtimePublisher.PublishGameSessionStartedAsync(gameSession),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Started game session {SessionId}", sessionId);
 
                 return NoContent();
@@ -376,11 +386,18 @@ public sealed record GameSessionDetailsDto(
     Instant? StartTime,
     Instant? EndTime,
     int PlannedDurationMinutes,
-    int MrXRevealInterval
+    int MrXRevealInterval,
+    Instant ServerNow,
+    Instant? NextRevealAt,
+    int RevealSecondsRemaining,
+    int RevealIntervalSeconds
 )
 {
-    public static GameSessionDetailsDto FromGameSession(GameSession gameSession) =>
-        new(
+    public static GameSessionDetailsDto FromGameSession(GameSession gameSession, Instant serverNow)
+    {
+        (Instant? nextRevealAt, int revealSecondsRemaining, int revealIntervalSeconds) = GetRevealTiming(gameSession, serverNow);
+
+        return new GameSessionDetailsDto(
             gameSession.Id,
             gameSession.HostUserId,
             gameSession.SessionName,
@@ -389,8 +406,35 @@ public sealed record GameSessionDetailsDto(
             gameSession.StartTime,
             gameSession.EndTime,
             gameSession.PlannedDurationMinutes,
-            gameSession.MrXRevealInterval
+            gameSession.MrXRevealInterval,
+            serverNow,
+            nextRevealAt,
+            revealSecondsRemaining,
+            revealIntervalSeconds
         );
+    }
+
+    private static (Instant? NextRevealAt, int RevealSecondsRemaining, int RevealIntervalSeconds) GetRevealTiming(GameSession gameSession, Instant serverNow)
+    {
+        if (gameSession.Status != SessionStatus.Active || gameSession.StartTime is null || gameSession.MrXRevealInterval <= 0)
+        {
+            return (null, 0, 0);
+        }
+
+        if (!RevealTimingCalculator.TryGetRevealWindow(
+                gameSession.StartTime.Value,
+                serverNow,
+                gameSession.MrXRevealInterval,
+                out _,
+                out var intervalEnd,
+                out var revealIntervalSeconds,
+                out var revealSecondsRemaining))
+        {
+            return (null, 0, 0);
+        }
+
+        return (intervalEnd, revealSecondsRemaining, revealIntervalSeconds);
+    }
 }
 
 public sealed record GameSessionAddRequest(

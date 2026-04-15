@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../xact_branding.dart';
 import 'draggable_player_tile.dart';
+import 'team_data.dart';
 
 /// Drag-target card that holds the spectators list.
 class SpectatorsCard extends StatelessWidget {
-  final List<String> spectators;
-  final ValueChanged<String> onPlayerDropped;
+  final List<LobbyPlayer> spectators;
+  final ValueChanged<LobbyPlayer> onPlayerDropped;
 
   const SpectatorsCard({
     super.key,
@@ -16,7 +17,7 @@ class SpectatorsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DragTarget<String>(
+    return DragTarget<LobbyPlayer>(
       onWillAcceptWithDetails: (_) => true,
       onAcceptWithDetails: (details) => onPlayerDropped(details.data),
       builder: (context, candidateData, rejectedData) {
@@ -63,8 +64,8 @@ class SpectatorsCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               ...spectators.map(
-                (name) =>
-                    DraggablePlayerTile(name: name, dotColor: Colors.grey),
+                (player) =>
+                    DraggablePlayerTile(player: player, dotColor: Colors.grey),
               ),
             ],
           ),

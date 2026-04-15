@@ -178,6 +178,11 @@ namespace XActBackend.Persistence.Migrations
                     b.Property<bool>("IsCaught")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("MaxPlayerCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(6);
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
@@ -193,7 +198,10 @@ namespace XActBackend.Persistence.Migrations
 
                     b.HasIndex("SessionId");
 
-                    b.ToTable("Team", "XActBackend");
+                    b.ToTable("Team", "XActBackend", t =>
+                        {
+                            t.HasCheckConstraint("CK_Team_MaxPlayerCount_Positive", "\"MaxPlayerCount\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("XActBackend.Persistence.Model.TeamMember", b =>

@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../xact_branding.dart';
+import 'team_data.dart';
 
 /// Static (non-draggable) content for a player tile.
 class PlayerTileContent extends StatelessWidget {
-  final String name;
+  final LobbyPlayer player;
   final Color dotColor;
 
   const PlayerTileContent({
     super.key,
-    required this.name,
+    required this.player,
     required this.dotColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isYou = name == 'You';
+    final isYou = player.isCurrentUser;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -33,7 +34,10 @@ class PlayerTileContent extends StatelessWidget {
             decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 10),
-          Text(name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+          Text(
+            player.name,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
           if (isYou) ...[
             const SizedBox(width: 6),
             const Text(
@@ -49,12 +53,12 @@ class PlayerTileContent extends StatelessWidget {
 
 /// Draggable player tile – can be long-press-dragged into any team or spectators.
 class DraggablePlayerTile extends StatelessWidget {
-  final String name;
+  final LobbyPlayer player;
   final Color dotColor;
 
   const DraggablePlayerTile({
     super.key,
-    required this.name,
+    required this.player,
     required this.dotColor,
   });
 
@@ -62,8 +66,8 @@ class DraggablePlayerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: LongPressDraggable<String>(
-        data: name,
+      child: LongPressDraggable<LobbyPlayer>(
+        data: player,
         delay: const Duration(milliseconds: 150),
         feedback: Material(
           color: Colors.transparent,
@@ -71,7 +75,7 @@ class DraggablePlayerTile extends StatelessWidget {
             opacity: 0.85,
             child: SizedBox(
               width: MediaQuery.of(context).size.width - 64,
-              child: PlayerTileContent(name: name, dotColor: dotColor),
+              child: PlayerTileContent(player: player, dotColor: dotColor),
             ),
           ),
         ),
@@ -86,7 +90,7 @@ class DraggablePlayerTile extends StatelessWidget {
             ),
           ),
         ),
-        child: PlayerTileContent(name: name, dotColor: dotColor),
+        child: PlayerTileContent(player: player, dotColor: dotColor),
       ),
     );
   }

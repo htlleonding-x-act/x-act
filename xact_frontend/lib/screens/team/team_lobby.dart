@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:xact_frontend/api/api_service.dart';
+import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
+import 'package:xact_frontend/services/app_session.dart';
+import 'package:xact_frontend/services/game_start_transition_service.dart';
 import 'package:xact_frontend/widgets/team/add_team_button.dart';
 import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
@@ -12,57 +18,38 @@ import 'package:xact_frontend/widgets/team/team_data.dart';
 import 'package:xact_frontend/widgets/team/team_overview_card.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-// ─── Team Lobby Screen ──────────────────────────────────────────────────────
-
 class TeamLobbyScreen extends StatefulWidget {
-  /// TODO: accept real session data (lobby code, session id, etc.)
+  final int sessionId;
   final String lobbyCode;
+  final bool isLeader;
 
-  const TeamLobbyScreen({super.key, this.lobbyCode = 'Q7AMJW'});
+  const TeamLobbyScreen({
+    super.key,
+    required this.sessionId,
+    required this.lobbyCode,
+    required this.isLeader,
+  });
 
   @override
   State<TeamLobbyScreen> createState() => _TeamLobbyScreenState();
 }
 
 class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
-  // ── Pseudo function: lobby leader check ─────────────────────────────────
-  // TODO: Replace with real logic – check if current user is the lobby leader
-  //       (e.g. compare current userId with session.creatorId).
-  bool isLobbyLeader() => true;
+  bool _loading = true;
+  bool _working = false;
+  bool _gameTransitionStarted = false;
 
-  // ── Mock player list (Spectators) ─────────────────────────────────────────
-  // TODO: Replace with real player list from backend / websocket
-  final List<String> _spectators = [
-    'You',
-    'Alex',
-    'Sarah',
-    'Mike',
-    'Emma',
-    'Lucas',
-    'Mia',
-    'Noah',
-  ];
+  StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
+  StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
+  Timer? _realtimeRefreshDebounce;
 
-  // ── Default teams ─────────────────────────────────────────────────────────
-  late final List<TeamData> _teams = [
-    TeamData(
-      name: 'Mister X',
-      color: Colors.red,
-      maxPlayers: 2,
-      isMisterX: true,
-      isDeletable: false,
-    ),
-    TeamData(
-      name: 'Detectives 1',
-      color: Colors.purple,
-      maxPlayers: 3,
-      isDeletable: false, // at least one detective team must exist
-    ),
-    TeamData(name: 'Detectives 2', color: Colors.green, maxPlayers: 3),
-  ];
+  List<LobbyPlayer> _spectators = [];
+  List<TeamData> _teams = [];
+  int? _spectatorTeamId;
+  final Map<int, _TeamUiConfig> _teamUiConfigById = {};
 
-  // ── Helper: can the game start? ───────────────────────────────────────────
-  // TODO: Replace with real validation
+  bool isLobbyLeader() => widget.isLeader;
+
   bool get _canStartGame {
     final hasMisterX = _teams.any((t) => t.isMisterX && t.players.isNotEmpty);
     final hasDetective = _teams.any(
@@ -71,13 +58,178 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     return hasMisterX && hasDetective;
   }
 
-  // ── Team overview helper ──────────────────────────────────────────────────
-
   int get _totalPlayers =>
       _spectators.length +
       _teams.fold<int>(0, (sum, t) => sum + t.players.length);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    _refreshLobby();
+    _initRealtime();
+  }
+
+  @override
+  void dispose() {
+    _realtimeEventSub?.cancel();
+    _realtimeSnapshotSub?.cancel();
+    _realtimeRefreshDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refreshLobby({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _loading = true);
+    }
+
+    try {
+      final snapshot = await ApiService.instance.loadLobbySnapshot(
+        widget.sessionId,
+      );
+
+      final usersById = snapshot.usersById;
+      final currentUserId = AppSession.instance.currentUserId;
+      final teams = <TeamData>[];
+      final spectators = <LobbyPlayer>[];
+      int? spectatorTeamId;
+      TeamMemberDetails? currentMembership;
+
+      for (final team in snapshot.teams) {
+        final configuredUi = _teamUiConfigById[team.teamId];
+        final teamColor =
+            configuredUi?.color ??
+            (tryParseHexColor(team.colorCode) ?? Colors.blueGrey);
+        final maxPlayers = configuredUi?.maxPlayers ?? team.maxPlayerCount;
+        final members = (snapshot.membersByTeamId[team.teamId] ?? const [])
+            .map((m) {
+              if (currentUserId != null && m.userId == currentUserId) {
+                currentMembership = m;
+              }
+
+              final displayName = m.userId != null
+                  ? (usersById[m.userId!]?.username ?? 'User ${m.userId}')
+                  : (m.guestName ?? 'Guest');
+
+              return LobbyPlayer(
+                memberId: m.memberId,
+                teamId: team.teamId,
+                userId: m.userId,
+                name: displayName,
+                isCurrentUser: currentUserId != null && m.userId == currentUserId,
+                isTeamLeader: m.isTeamLeader,
+              );
+            })
+            .toList(growable: false);
+
+        if (team.role == TeamRole.spectator) {
+          spectatorTeamId ??= team.teamId;
+          spectators.addAll(members);
+          continue;
+        }
+
+        teams.add(
+          TeamData(
+            teamId: team.teamId,
+            role: team.role ?? TeamRole.detective,
+            name: team.teamName,
+            color: teamColor,
+            maxPlayers: maxPlayers,
+            players: members,
+            isDeletable: team.role != TeamRole.mrX,
+          ),
+        );
+      }
+
+      final currentTeamIds = teams.map((team) => team.teamId).toSet();
+      _teamUiConfigById.removeWhere(
+        (teamId, _) => !currentTeamIds.contains(teamId),
+      );
+
+      if (currentMembership != null) {
+        AppSession.instance.setMembership(
+          teamId: currentMembership!.teamId,
+          memberId: currentMembership!.memberId,
+          teamLeader: currentMembership!.isTeamLeader,
+        );
+
+        try {
+          await ApiService.instance.registerCurrentMemberPresence();
+        } catch (_) {
+        }
+      }
+
+      setState(() {
+        _teams = teams;
+        _spectators = spectators;
+        _spectatorTeamId = spectatorTeamId;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load lobby: $error')));
+    } finally {
+      if (mounted && !silent) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _initRealtime() async {
+    try {
+      await ApiService.instance.ensureRealtimeSessionSubscription(
+        widget.sessionId,
+      );
+      await ApiService.instance.registerCurrentMemberPresence();
+
+      _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
+        if (event.type == RealtimeEvents.gameSessionStarted) {
+          unawaited(_openGameForAll());
+        }
+
+        if (_isLobbyRealtimeEvent(event.type)) {
+          _queueRealtimeRefresh();
+        }
+      });
+
+      _realtimeSnapshotSub = ApiService.instance.realtimeSnapshots.listen((
+        snapshot,
+      ) {
+        if (snapshot.sessionId == widget.sessionId) {
+          if (snapshot.status == SessionStatus.active) {
+            unawaited(_openGameForAll());
+          }
+
+          _queueRealtimeRefresh();
+        }
+      });
+    } catch (_) {
+      // Lobby still works with manual refresh and HTTP fallback.
+    }
+  }
+
+  bool _isLobbyRealtimeEvent(String eventType) {
+    return eventType == RealtimeEvents.teamMemberJoined ||
+        eventType == RealtimeEvents.teamMemberUpdated ||
+        eventType == RealtimeEvents.teamMemberLeft ||
+        eventType == RealtimeEvents.gameSessionStarted ||
+        eventType == RealtimeEvents.locationLogRecorded;
+  }
+
+  void _queueRealtimeRefresh() {
+    if (!mounted || _working) {
+      return;
+    }
+
+    _realtimeRefreshDebounce?.cancel();
+    _realtimeRefreshDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+
+      _refreshLobby(silent: true);
+    });
+  }
 
   void _copyLobbyCode() {
     Clipboard.setData(ClipboardData(text: widget.lobbyCode));
@@ -86,349 +238,341 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     ).showSnackBar(const SnackBar(content: Text('Lobby code copied!')));
   }
 
-  void _addTeam() async {
-    // TODO: Hook up to backend – POST /api/teams
+  Future<void> _addTeam() async {
     final result = await showDialog<AddTeamResult>(
       context: context,
-      builder: (_) => const AddTeamDialog(),
+      builder: (_) => const AddTeamDialog.create(),
     );
-    if (result != null) {
-      setState(() {
-        _teams.add(
-          TeamData(
-            name: result.name,
-            color: result.color,
-            maxPlayers: result.maxPlayers,
-          ),
-        );
-      });
-    }
-  }
-
-  void _deleteTeam(int index) {
-    // TODO: Hook up to backend – DELETE /api/teams/:id
-    setState(() {
-      // Move players back to spectators
-      _spectators.addAll(_teams[index].players);
-      _teams.removeAt(index);
-    });
-  }
-
-  void _renameTeam(int index) async {
-    final team = _teams[index];
-    final controller = TextEditingController(text: team.name);
-    var maxPlayers = team.maxPlayers;
-    final minPlayers = team.players.length > 1 ? team.players.length : 1;
-
-    final result = await showDialog<({String name, int maxPlayers})>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) => AlertDialog(
-            backgroundColor: XActBranding.cardColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text(
-              'Edit Team',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  decoration: InputDecoration(
-                    labelText: 'Team Name',
-                    labelStyle: const TextStyle(color: Colors.white70),
-                    hintText: 'New team name…',
-                    hintStyle: const TextStyle(color: Colors.white38),
-                    filled: true,
-                    fillColor: XActBranding.backgroundColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Colors.white24),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Colors.white24),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Colors.blueAccent),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Max Players',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: maxPlayers > minPlayers
-                          ? () => setDialogState(() => maxPlayers--)
-                          : null,
-                      icon: const Icon(Icons.remove_circle_outline),
-                      color: Colors.white54,
-                    ),
-                    Text(
-                      '$maxPlayers',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: maxPlayers < 10
-                          ? () => setDialogState(() => maxPlayers++)
-                          : null,
-                      icon: const Icon(Icons.add_circle_outline),
-                      color: Colors.white54,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Players: ${team.players.length}',
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white54),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final text = controller.text.trim();
-                  if (text.isNotEmpty) {
-                    Navigator.of(ctx).pop((name: text, maxPlayers: maxPlayers));
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: XActBranding.primaryBlue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    controller.dispose();
 
     if (result == null) return;
 
-    final changed =
-        result.name != team.name || result.maxPlayers != team.maxPlayers;
-    if (!changed) return;
-
-    setState(() {
-      team.name = result.name;
-      team.maxPlayers = result.maxPlayers;
-    });
-
-    _updateTeamOnBackend(
-      index,
-      name: result.name,
-      maxPlayers: result.maxPlayers,
-    );
-  }
-
-  /// Sends the updated team fields to the backend.
-  // TODO: Replace placeholder with real API call (e.g. PUT /api/teams/:id)
-  Future<void> _updateTeamOnBackend(
-    int index, {
-    required String name,
-    required int maxPlayers,
-  }) async {
-    // TODO: final teamId = _teams[index].id;
-    // TODO: await ApiService.instance.updateTeam(teamId, name, maxPlayers);
-    debugPrint(
-      'TODO → update team on backend: index=$index, name=$name, maxPlayers=$maxPlayers',
-    );
-  }
-
-  void _randomizeTeams() {
-    // TODO: Implement real randomization logic
-    setState(() {
-      // Gather all players
-      final allPlayers = <String>[..._spectators];
-      for (final t in _teams) {
-        allPlayers.addAll(t.players);
-        t.players.clear();
+    setState(() => _working = true);
+    try {
+      final created = await ApiService.instance.addTeam(
+        sessionId: widget.sessionId,
+        teamName: result.name,
+        role: TeamRole.detective,
+        colorCode: _toHexColor(result.color),
+        maxPlayerCount: result.maxPlayers,
+      );
+      _teamUiConfigById[created.teamId] = _TeamUiConfig(
+        color: result.color,
+        maxPlayers: result.maxPlayers,
+      );
+      await _refreshLobby();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not create team: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _working = false);
       }
-      allPlayers.shuffle();
-
-      _spectators.clear();
-
-      // Fill all available team slots first (round-robin) until no seat remains.
-      var nextPlayer = 0;
-      while (nextPlayer < allPlayers.length) {
-        var assignedThisRound = false;
-
-        for (final team in _teams) {
-          if (nextPlayer >= allPlayers.length) break;
-          if (team.players.length >= team.maxPlayers) continue;
-
-          team.players.add(allPlayers[nextPlayer]);
-          nextPlayer++;
-          assignedThisRound = true;
-        }
-
-        // No team can take more players.
-        if (!assignedThisRound) break;
-      }
-
-      // Overflow remains in spectators.
-      while (nextPlayer < allPlayers.length) {
-        _spectators.add(allPlayers[nextPlayer]);
-        nextPlayer++;
-      }
-    });
-  }
-
-  void _startGame() {
-    // TODO: Call backend to start the session before navigating
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const GameScreen()),
-    );
-  }
-
-  // ── Drag & Drop helpers ─────────────────────────────────────────────────
-
-  /// Removes [playerName] from wherever it currently lives (spectators or a team).
-  void _removePlayerFromSource(String playerName) {
-    _spectators.remove(playerName);
-    for (final t in _teams) {
-      t.players.remove(playerName);
     }
   }
 
-  /// Moves a player into the spectators list.
-  void _movePlayerToSpectators(String playerName) {
-    setState(() {
-      _removePlayerFromSource(playerName);
-      _spectators.add(playerName);
-    });
-    // TODO: notify backend about the assignment change
+  Future<void> _deleteTeam(int index) async {
+    final team = _teams[index];
+
+    setState(() => _working = true);
+    try {
+      await ApiService.instance.deleteTeam(
+        sessionId: widget.sessionId,
+        teamId: team.teamId,
+      );
+      _teamUiConfigById.remove(team.teamId);
+      await _refreshLobby();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not delete team: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _working = false);
+      }
+    }
   }
 
-  /// Moves a player into [team]. Returns `false` if the team is full.
-  bool _movePlayerToTeam(String playerName, TeamData team) {
-    if (team.players.length >= team.maxPlayers) return false;
-    setState(() {
-      _removePlayerFromSource(playerName);
-      team.players.add(playerName);
-    });
-    // TODO: notify backend about the assignment change
-    return true;
+  Future<void> _renameTeam(int index) async {
+    final team = _teams[index];
+    final edited = await showDialog<AddTeamResult>(
+      context: context,
+      builder: (_) => AddTeamDialog.edit(
+        initialName: team.name,
+        initialMaxPlayers: team.maxPlayers,
+        initialColor: team.color,
+      ),
+    );
+
+    if (edited == null) return;
+
+    final hasChanged =
+        edited.name != team.name ||
+        edited.maxPlayers != team.maxPlayers ||
+        edited.color.toARGB32() != team.color.toARGB32();
+    if (!hasChanged) return;
+
+    setState(() => _working = true);
+    try {
+      await ApiService.instance.updateTeam(
+        sessionId: widget.sessionId,
+        teamId: team.teamId,
+        teamName: edited.name,
+        role: team.role,
+        colorCode: _toHexColor(edited.color),
+        isCaught: false,
+        maxPlayerCount: edited.maxPlayers,
+      );
+      _teamUiConfigById[team.teamId] = _TeamUiConfig(
+        color: edited.color,
+        maxPlayers: edited.maxPlayers,
+      );
+      await _refreshLobby();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not rename team: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _working = false);
+      }
+    }
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // BUILD
-  // ══════════════════════════════════════════════════════════════════════════
+  Future<void> _startGame() async {
+    setState(() => _working = true);
+    try {
+      await ApiService.instance.startGameSession(widget.sessionId);
+      await _openGameForAll();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not start game: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _working = false);
+      }
+    }
+  }
+
+  Future<void> _movePlayerToSpectators(LobbyPlayer player) async {
+    final spectatorTeamId = _spectatorTeamId;
+    if (spectatorTeamId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No spectator team is available.')),
+      );
+      return;
+    }
+
+    await _movePlayer(player: player, targetTeamId: spectatorTeamId);
+  }
+
+  Future<void> _movePlayerToTeam(LobbyPlayer player, TeamData team) async {
+    await _movePlayer(player: player, targetTeamId: team.teamId);
+  }
+
+  Future<void> _movePlayer({
+    required LobbyPlayer player,
+    required int targetTeamId,
+    bool refreshAfterMove = true,
+  }) async {
+    setState(() => _working = true);
+    try {
+      await ApiService.instance.moveMemberToTeam(
+        sessionId: widget.sessionId,
+        member: TeamMemberDetails(
+          memberId: player.memberId,
+          teamId: player.teamId,
+          sessionId: widget.sessionId,
+          userId: player.userId,
+          guestName: player.userId == null ? player.name : null,
+          isTeamLeader: player.isTeamLeader,
+          currentLatitude: null,
+          currentLongitude: null,
+          lastUpdated: null,
+        ),
+        sourceTeamId: player.teamId,
+        targetTeamId: targetTeamId,
+      );
+      if (refreshAfterMove) {
+        await _refreshLobby();
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not move player: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _working = false);
+      }
+    }
+  }
+
+  void _randomizeTeams() {
+    final misterXTeams = _teams.where((team) => team.isMisterX).toList(growable: false);
+    final detectiveTeams = _teams
+        .where((team) => !team.isMisterX && !team.isSpectator)
+        .toList(growable: false);
+
+    if (misterXTeams.isEmpty || detectiveTeams.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Randomize requires one Mister X and one detective team.'),
+        ),
+      );
+      return;
+    }
+
+    final misterXTeam = misterXTeams.first;
+
+    final players = [..._spectators, ..._teams.expand((team) => team.players)]
+        .toList(growable: true);
+
+    if (players.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Not enough players to randomize teams.')),
+      );
+      return;
+    }
+
+    players.shuffle();
+
+    final moves = <_PlannedMove>[];
+
+    final mrXPlayer = players.removeAt(0);
+    moves.add(_PlannedMove(player: mrXPlayer, targetTeamId: misterXTeam.teamId));
+
+    for (var i = 0; i < players.length; i++) {
+      final targetTeam = detectiveTeams[i % detectiveTeams.length];
+      moves.add(
+        _PlannedMove(player: players[i], targetTeamId: targetTeam.teamId),
+      );
+    }
+
+    _randomizeTeamsAsync(moves);
+  }
+
+  Future<void> _randomizeTeamsAsync(List<_PlannedMove> moves) async {
+    setState(() => _working = true);
+    try {
+      for (final move in moves) {
+        if (move.player.teamId == move.targetTeamId) {
+          continue;
+        }
+
+        await ApiService.instance.moveMemberToTeam(
+          sessionId: widget.sessionId,
+          member: TeamMemberDetails(
+            memberId: move.player.memberId,
+            teamId: move.player.teamId,
+            sessionId: widget.sessionId,
+            userId: move.player.userId,
+            guestName: move.player.userId == null ? move.player.name : null,
+            isTeamLeader: move.player.isTeamLeader,
+            currentLatitude: null,
+            currentLongitude: null,
+            lastUpdated: null,
+          ),
+          sourceTeamId: move.player.teamId,
+          targetTeamId: move.targetTeamId,
+        );
+      }
+
+      await _refreshLobby();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not randomize teams: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _working = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final leader = isLobbyLeader();
+
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       backgroundColor: XActBranding.backgroundColor,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header ────────────────────────────────────────────────────
             LobbyHeader(
               totalPlayers: _totalPlayers,
               isLeader: leader,
-              onQrPressed: () {
-                // TODO: Show QR code dialog
-              },
+              onQrPressed: () {},
             ),
-
-            // ── Scrollable content ────────────────────────────────────────
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                child: Column(
-                  children: [
-                    LobbyCodeCard(
-                      lobbyCode: widget.lobbyCode,
-                      onCopy: _copyLobbyCode,
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Drag players to assign teams',
-                      style: TextStyle(color: Colors.white38, fontSize: 13),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Team Overview ──────────────────────────────────────
-                    TeamOverviewCard(
-                      spectatorCount: _spectators.length,
-                      teams: _teams,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Spectators ─────────────────────────────────────────
-                    SpectatorsCard(
-                      spectators: _spectators,
-                      onPlayerDropped: _movePlayerToSpectators,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // ── Team cards ─────────────────────────────────────────
-                    ..._teams.asMap().entries.map(
-                      (e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: LobbyTeamCard(
-                          team: e.value,
-                          isLeader: leader,
-                          onRename: () => _renameTeam(e.key),
-                          onDelete: () => _deleteTeam(e.key),
-                          onPlayerDropped: (name) =>
-                              _movePlayerToTeam(name, e.value),
+              child: RefreshIndicator(
+                onRefresh: _refreshLobby,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    children: [
+                      LobbyCodeCard(
+                        lobbyCode: widget.lobbyCode,
+                        onCopy: _copyLobbyCode,
+                      ),
+                      if (_working) ...[
+                        const SizedBox(height: 8),
+                        const LinearProgressIndicator(),
+                      ],
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Drag players to assign teams',
+                        style: TextStyle(color: Colors.white38, fontSize: 13),
+                      ),
+                      const SizedBox(height: 16),
+                      TeamOverviewCard(
+                        spectatorCount: _spectators.length,
+                        teams: _teams,
+                      ),
+                      const SizedBox(height: 16),
+                      SpectatorsCard(
+                        spectators: _spectators,
+                        onPlayerDropped: _movePlayerToSpectators,
+                      ),
+                      const SizedBox(height: 16),
+                      ..._teams.asMap().entries.map(
+                        (entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: LobbyTeamCard(
+                            team: entry.value,
+                            isLeader: leader,
+                            onRename: () => _renameTeam(entry.key),
+                            onDelete: entry.value.isDeletable
+                                ? () => _deleteTeam(entry.key)
+                                : null,
+                            onPlayerDropped: (player) =>
+                                _movePlayerToTeam(player, entry.value),
+                          ),
                         ),
                       ),
-                    ),
-
-                    // ── Add team button ────────────────────────────────────
-                    if (leader) ...[
-                      AddTeamButton(onPressed: _addTeam),
-                      const SizedBox(height: 12),
+                      if (leader) ...[
+                        AddTeamButton(onPressed: _addTeam),
+                        const SizedBox(height: 12),
+                      ],
                     ],
-
-                    const SizedBox(height: 8),
-                  ],
+                  ),
                 ),
               ),
             ),
-
-            // ── Bottom buttons ────────────────────────────────────────────
             if (leader)
               LobbyBottomButtons(
                 canStartGame: _canStartGame,
@@ -440,4 +584,41 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       ),
     );
   }
+
+  String _toHexColor(Color color) {
+    final rgb = color.toARGB32() & 0x00FFFFFF;
+    return '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+  }
+
+  Future<void> _openGameForAll() async {
+    if (!mounted || _gameTransitionStarted) {
+      return;
+    }
+
+    _gameTransitionStarted = true;
+    await GameStartTransitionService.instance.playCountdown(seconds: 3);
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const GameScreen()),
+    );
+  }
+}
+
+class _TeamUiConfig {
+  final Color color;
+  final int maxPlayers;
+
+  const _TeamUiConfig({required this.color, required this.maxPlayers});
+}
+
+class _PlannedMove {
+  final LobbyPlayer player;
+  final int targetTeamId;
+
+  const _PlannedMove({required this.player, required this.targetTeamId});
 }

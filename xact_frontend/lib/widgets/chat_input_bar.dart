@@ -46,11 +46,7 @@ class ChatInputBar extends StatelessWidget {
               ),
               child: IconButton(
                 icon: const Icon(Icons.send, color: Colors.white),
-                onPressed:
-                    onSend ??
-                    () {
-                      // TODO: implement send message functionality
-                    },
+                onPressed: onSend,
               ),
             ),
           ],

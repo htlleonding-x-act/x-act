@@ -19,9 +19,8 @@ final class LocationService {
   // ── Member info set when tracking starts ──────────────────────────────────
 
   int? _memberId;
+  int? _sessionId;
   int? _teamId;
-  int? _userId;
-  bool _isTeamLeader = false;
 
   // ── GPS subscription & upload timer ───────────────────────────────────────
 
@@ -34,6 +33,8 @@ final class LocationService {
 
   /// Emits every time a new GPS position is received.
   Stream<Position> get positionStream => _positionController.stream;
+
+  bool get isTracking => _uploadTimer != null;
 
   /// The most recently received GPS position, or `null` before tracking starts.
   Position? lastKnownPosition;
@@ -81,38 +82,35 @@ final class LocationService {
       distanceFilter: 5,
     );
 
-    _positionSub = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) {
-        lastKnownPosition = position;
-        _positionController.add(position);
-      },
-      onError: (_) {},
-    );
+    _positionSub =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (position) {
+            lastKnownPosition = position;
+            _positionController.add(position);
+          },
+          onError: (_) {},
+        );
   }
 
   /// Starts continuous GPS tracking and periodic upload to the backend.
   ///
-  /// [memberId], [teamId], [userId] and [isTeamLeader] must match the current
-  /// player's `TeamMember` record in the backend.
+  /// [memberId] and [teamId] must match the current player's `TeamMember`
+  /// record in the backend.
   ///
   /// [uploadInterval] controls how often the position is pushed to the API
   /// (default: every 5 seconds).
   Future<void> startTracking({
+    required int sessionId,
     required int memberId,
     required int teamId,
-    required int userId,
-    required bool isTeamLeader,
     Duration uploadInterval = const Duration(seconds: 5),
   }) async {
     // If already tracking, stop first.
     stopTracking();
 
     _memberId = memberId;
+    _sessionId = sessionId;
     _teamId = teamId;
-    _userId = userId;
-    _isTeamLeader = isTeamLeader;
 
     final granted = await requestPermission();
     if (!granted) return;
@@ -123,17 +121,16 @@ final class LocationService {
       distanceFilter: 5,
     );
 
-    _positionSub = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen(
-      (position) {
-        lastKnownPosition = position;
-        _positionController.add(position);
-      },
-      onError: (Object error) {
-        // Swallow errors so the stream stays alive.
-      },
-    );
+    _positionSub =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (position) {
+            lastKnownPosition = position;
+            _positionController.add(position);
+          },
+          onError: (Object error) {
+            // Swallow errors so the stream stays alive.
+          },
+        );
 
     // Upload on a fixed interval so the backend is always up-to-date even
     // when the player is standing still (distanceFilter would skip those).
@@ -158,22 +155,28 @@ final class LocationService {
 
   Future<void> _uploadPosition() async {
     final position = lastKnownPosition;
+    final sessionId = _sessionId;
     final memberId = _memberId;
     final teamId = _teamId;
-    final userId = _userId;
 
-    if (position == null || memberId == null || teamId == null || userId == null) {
+    if (position == null ||
+        sessionId == null ||
+        memberId == null ||
+        teamId == null) {
       return;
     }
 
     try {
-      await ApiService.instance.updateTeamMemberLocation(
-        memberId: memberId,
+      await ApiService.instance.addLocationLog(
+        sessionId: sessionId,
         teamId: teamId,
-        userId: userId,
-        isTeamLeader: _isTeamLeader,
+        memberId: memberId,
+        timestamp: DateTime.now().toUtc(),
         latitude: position.latitude,
         longitude: position.longitude,
+        accuracyMeters: position.accuracy,
+        transportMode: 'Foot',
+        isRevealedPosition: false,
       );
     } catch (_) {
       // Don't crash – network may be temporarily unavailable.

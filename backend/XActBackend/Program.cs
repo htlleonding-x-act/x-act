@@ -1,10 +1,10 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using XActBackend;
-using XActBackend.Shared;
-using XActBackend.Util;
+﻿using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using NodaTime.Serialization.SystemTextJson;
+using XActBackend;
+using XActBackend.Realtime;
+using XActBackend.Shared;
+using XActBackend.Util;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +16,7 @@ builder.AddLogging();
 builder.Services.AddApplicationServices(configurationManager, isDev);
 builder.Services.AddOpenApi();
 builder.Services.AddCors(settings);
+builder.Services.AddRealtime(isDev);
 builder.Services.AddControllers(o => { o.ModelBinderProviders.Insert(0, new NodaTimeModelBinderProvider()); })
        .AddJsonOptions(o => ConfigureJsonSerialization(o, isDev));
 builder.Services.ConfigureAdditionalRouteConstraints();
@@ -27,6 +28,7 @@ var app = builder.Build();
 app.UseCors(Setup.CorsPolicyName);
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.MapControllers();
+app.MapHub<GameSessionHub>("/hubs/game-session");
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

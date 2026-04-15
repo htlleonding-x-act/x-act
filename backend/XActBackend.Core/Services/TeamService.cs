@@ -61,12 +61,14 @@ public interface ITeamService
     /// <param name="Role">The role of the team</param>
     /// <param name="ColorCode">The color code of the team</param>
     /// <param name="IsCaught">Flag indicating if this team has been caught</param>
+    /// <param name="MaxPlayerCount">The maximum amount of players allowed in this team</param>
     public sealed record TeamData(
         int SessionId,
         string TeamName,
         TeamRole Role,
         string ColorCode,
-        bool IsCaught = false
+        bool IsCaught = false,
+        int MaxPlayerCount = Team.DefaultMaxPlayerCount
     );
 }
 
@@ -122,7 +124,8 @@ internal sealed class TeamService(IUnitOfWork uow, ILogger<TeamService> logger) 
                 newTeam.SessionId,
                 newTeam.TeamName,
                 newTeam.Role,
-                newTeam.ColorCode
+                newTeam.ColorCode,
+                newTeam.MaxPlayerCount
             );
 
             team.IsCaught = newTeam.IsCaught;
@@ -176,6 +179,7 @@ internal sealed class TeamService(IUnitOfWork uow, ILogger<TeamService> logger) 
         team.Role = teamData.Role;
         team.ColorCode = teamData.ColorCode;
         team.IsCaught = teamData.IsCaught;
+        team.MaxPlayerCount = teamData.MaxPlayerCount;
 
         await uow.SaveChangesAsync();
 
