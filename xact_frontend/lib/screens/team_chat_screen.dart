@@ -34,8 +34,6 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
             ? (hasError ? 'Failed to load team info' : 'Loading team info...')
             : 'Private team chat • ${header.memberCount} members';
 
-        final teamColor = header?.teamColor;
-
         return Container(
           color: const Color(0xFF1E293B),
           child: Column(

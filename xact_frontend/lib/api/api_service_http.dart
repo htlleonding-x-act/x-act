@@ -48,17 +48,6 @@ extension ApiServiceHttpMethods on ApiService {
     return ApiListResponse.fromJson(json, TeamMemberInfo.fromJson).items;
   }
 
-  Future<TeamMemberDetails> _getTeamMemberById(
-    int sessionId,
-    int teamId,
-    int memberId,
-  ) async {
-    final json = await _getJsonObject(
-      '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId',
-    );
-    return TeamMemberDetails.fromJson(json);
-  }
-
   Future<Map<String, dynamic>> _getJsonObject(String path) async {
     final uri = _baseUri.resolve(path);
     final response = await _http.get(

@@ -50,12 +50,12 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
       builder: (context, child) {
         return Stack(
           children: [
-            if (child != null) child,
+            ?child,
             const GameStartOverlay(),
           ],
         );
       },
       home: const StartScreen(),
-    );           
+    );
   }
 }
