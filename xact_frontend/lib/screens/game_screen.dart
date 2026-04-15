@@ -31,18 +31,26 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    unawaited(_startLocationTracking());
+    unawaited(_startLocationTrackingSafely());
     _trackingRetryTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted || _trackingInitCancelled) {
         return;
       }
 
       if (!LocationService.instance.isTracking) {
-        unawaited(_startLocationTracking());
+        unawaited(_startLocationTrackingSafely());
       }
     });
   }
 
+  Future<void> _startLocationTrackingSafely() async {
+    try {
+      await _startLocationTracking();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to start location tracking: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
   @override
   void dispose() {
     _trackingInitCancelled = true;
