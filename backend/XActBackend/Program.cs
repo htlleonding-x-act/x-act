@@ -1,10 +1,10 @@
 ﻿using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Mvc;
+using NodaTime.Serialization.SystemTextJson;
 using XActBackend;
 using XActBackend.Realtime;
 using XActBackend.Shared;
 using XActBackend.Util;
-using Microsoft.AspNetCore.Mvc;
-using NodaTime.Serialization.SystemTextJson;
 
 var builder = WebApplication.CreateBuilder(args);
 
