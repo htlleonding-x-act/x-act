@@ -7,14 +7,14 @@ import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/geofence_store.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-class CreateLobbyScreen extends StatefulWidget {
-  const CreateLobbyScreen({super.key});
+class CreateGameScreen extends StatefulWidget {
+  const CreateGameScreen({super.key});
 
   @override
-  State<CreateLobbyScreen> createState() => _CreateLobbyScreenState();
+  State<CreateGameScreen> createState() => _CreateGameScreenState();
 }
 
-class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
+class _CreateGameScreenState extends State<CreateGameScreen> {
   final _gameNameController = TextEditingController();
   bool _creating = false;
 
@@ -99,9 +99,9 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => TeamLobbyScreen(
+          builder: (context) => GameLobbyScreen(
             sessionId: sessionId,
-            lobbyCode: session.joinCode,
+            gameCode: session.joinCode,
             gameName: session.sessionName,
             isLeader: true,
           ),

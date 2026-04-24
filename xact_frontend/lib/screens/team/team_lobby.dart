@@ -18,25 +18,25 @@ import 'package:xact_frontend/widgets/team/team_data.dart';
 import 'package:xact_frontend/widgets/team/team_overview_card.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-class TeamLobbyScreen extends StatefulWidget {
+class GameLobbyScreen extends StatefulWidget {
   final int sessionId;
-  final String lobbyCode;
+  final String gameCode;
   final String gameName;
   final bool isLeader;
 
-  const TeamLobbyScreen({
+  const GameLobbyScreen({
     super.key,
     required this.sessionId,
-    required this.lobbyCode,
+    required this.gameCode,
     required this.gameName,
     required this.isLeader,
   });
 
   @override
-  State<TeamLobbyScreen> createState() => _TeamLobbyScreenState();
+  State<GameLobbyScreen> createState() => _GameLobbyScreenState();
 }
 
-class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
+class _GameLobbyScreenState extends State<GameLobbyScreen> {
   bool _loading = true;
   bool _working = false;
   bool _gameTransitionStarted = false;
@@ -235,8 +235,8 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     });
   }
 
-  void _copyLobbyCode() {
-    Clipboard.setData(ClipboardData(text: widget.lobbyCode));
+  void _copyGameCode() {
+    Clipboard.setData(ClipboardData(text: widget.gameCode));
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Game code copied!')));
@@ -513,7 +513,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            LobbyHeader(
+            GameLobbyHeader(
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
               isLeader: leader,
@@ -530,10 +530,10 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
                   ),
                   child: Column(
                     children: [
-                      LobbyCodeCard(
-                        lobbyCode: widget.lobbyCode,
+                      GameCodeCard(
+                        gameCode: widget.gameCode,
                         codeLabel: 'Game Code',
-                        onCopy: _copyLobbyCode,
+                        onCopy: _copyGameCode,
                       ),
                       if (_working) ...[
                         const SizedBox(height: 8),

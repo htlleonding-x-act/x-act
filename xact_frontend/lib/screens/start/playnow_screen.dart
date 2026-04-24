@@ -47,7 +47,7 @@ class PlayNowScreen extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const CreateLobbyScreen(),
+                builder: (context) => const CreateGameScreen(),
               ),
             );
           },
@@ -100,7 +100,7 @@ class PlayNowScreen extends StatelessWidget {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const JoinLobbyScreen()),
+              MaterialPageRoute(builder: (context) => const JoinGameScreen()),
             );
           },
           borderRadius: BorderRadius.circular(12),

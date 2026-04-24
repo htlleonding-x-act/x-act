@@ -6,14 +6,14 @@ import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-class JoinLobbyScreen extends StatefulWidget {
-  const JoinLobbyScreen({super.key});
+class JoinGameScreen extends StatefulWidget {
+  const JoinGameScreen({super.key});
 
   @override
-  State<JoinLobbyScreen> createState() => _JoinLobbyScreenState();
+  State<JoinGameScreen> createState() => _JoinGameScreenState();
 }
 
-class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
+class _JoinGameScreenState extends State<JoinGameScreen> {
   final _gameCodeController = TextEditingController();
   final _usernameController = TextEditingController();
   bool _joining = false;
@@ -104,9 +104,9 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => TeamLobbyScreen(
+          builder: (context) => GameLobbyScreen(
             sessionId: session.sessionId,
-            lobbyCode: session.joinCode,
+            gameCode: session.joinCode,
             gameName: session.sessionName,
             isLeader: false,
           ),
