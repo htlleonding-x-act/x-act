@@ -5,11 +5,13 @@ import '../xact_branding.dart';
 /// Card displaying the lobby code with a copy button.
 class LobbyCodeCard extends StatelessWidget {
   final String lobbyCode;
+  final String codeLabel;
   final VoidCallback onCopy;
 
   const LobbyCodeCard({
     super.key,
     required this.lobbyCode,
+    this.codeLabel = 'Game Code',
     required this.onCopy,
   });
 
@@ -28,8 +30,8 @@ class LobbyCodeCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Lobby Code',
+                Text(
+                  codeLabel,
                   style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 const SizedBox(height: 4),

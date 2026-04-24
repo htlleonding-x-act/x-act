@@ -15,21 +15,21 @@ class CreateLobbyScreen extends StatefulWidget {
 }
 
 class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
-  final _lobbyNameController = TextEditingController();
+  final _gameNameController = TextEditingController();
   bool _creating = false;
 
   @override
   void dispose() {
-    _lobbyNameController.dispose();
+    _gameNameController.dispose();
     super.dispose();
   }
 
   void _onCreate() async {
-    final lobbyName = _lobbyNameController.text.trim();
+    final gameName = _gameNameController.text.trim();
 
-    if (lobbyName.isEmpty) {
+    if (gameName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a lobby name')),
+        const SnackBar(content: Text('Please enter a game name')),
       );
       return;
     }
@@ -42,7 +42,7 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
       );
 
       final session = await ApiService.instance.createLobby(
-        lobbyName: lobbyName,
+        lobbyName: gameName,
       );
       final sessionId = session.sessionId;
 
@@ -71,7 +71,7 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lobby created! Join code: ${session.joinCode}'),
+          content: Text('Game created! Share code: ${session.joinCode}'),
         ),
       );
 
@@ -79,7 +79,10 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
       final areaSaved = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
-          builder: (_) => DefineGameAreaScreen(sessionId: sessionId),
+          builder: (_) => DefineGameAreaScreen(
+            sessionId: sessionId,
+            gameName: session.sessionName,
+          ),
         ),
       );
 
@@ -99,6 +102,7 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
           builder: (context) => TeamLobbyScreen(
             sessionId: sessionId,
             lobbyCode: session.joinCode,
+            gameName: session.sessionName,
             isLeader: true,
           ),
         ),
@@ -107,7 +111,7 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not create lobby: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not create game: $error')));
     } finally {
       if (mounted) {
         setState(() => _creating = false);
@@ -149,7 +153,7 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Create New Lobby',
+            'Create New Game',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -158,16 +162,16 @@ class _CreateLobbyScreenState extends State<CreateLobbyScreen> {
           ),
           const SizedBox(height: 20),
           XActBranding.buildTextField(
-            label: 'Lobby Name',
-            hintText: 'Enter lobby name...',
-            controller: _lobbyNameController,
+            label: 'Game Name',
+            hintText: 'Enter game name...',
+            controller: _gameNameController,
           ),
           const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
                 child: XActBranding.buildSecondaryButton(
-                  text: _creating ? 'Creating...' : 'Create',
+                  text: _creating ? 'Creating game...' : 'Create',
                   onPressed: _creating ? null : _onCreate,
                 ),
               ),

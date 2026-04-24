@@ -21,12 +21,14 @@ import 'package:xact_frontend/widgets/xact_branding.dart';
 class TeamLobbyScreen extends StatefulWidget {
   final int sessionId;
   final String lobbyCode;
+  final String gameName;
   final bool isLeader;
 
   const TeamLobbyScreen({
     super.key,
     required this.sessionId,
     required this.lobbyCode,
+    required this.gameName,
     required this.isLeader,
   });
 
@@ -167,7 +169,9 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load lobby: $error')));
+      ).showSnackBar(
+        SnackBar(content: Text('Failed to load game lobby: $error')),
+      );
     } finally {
       if (mounted && !silent) {
         setState(() => _loading = false);
@@ -235,7 +239,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
     Clipboard.setData(ClipboardData(text: widget.lobbyCode));
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Lobby code copied!')));
+    ).showSnackBar(const SnackBar(content: Text('Game code copied!')));
   }
 
   Future<void> _addTeam() async {
@@ -510,6 +514,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
         child: Column(
           children: [
             LobbyHeader(
+              gameName: widget.gameName,
               totalPlayers: _totalPlayers,
               isLeader: leader,
               onQrPressed: () {},
@@ -527,6 +532,7 @@ class _TeamLobbyScreenState extends State<TeamLobbyScreen> {
                     children: [
                       LobbyCodeCard(
                         lobbyCode: widget.lobbyCode,
+                        codeLabel: 'Game Code',
                         onCopy: _copyLobbyCode,
                       ),
                       if (_working) ...[

@@ -14,33 +14,33 @@ class JoinLobbyScreen extends StatefulWidget {
 }
 
 class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
-  final _lobbyCodeController = TextEditingController();
+  final _gameCodeController = TextEditingController();
   final _usernameController = TextEditingController();
   bool _joining = false;
 
   @override
   void dispose() {
-    _lobbyCodeController.dispose();
+    _gameCodeController.dispose();
     _usernameController.dispose();
     super.dispose();
   }
 
   void _onJoin() async {
-    final lobbyCode = _lobbyCodeController.text.trim().toUpperCase();
+    final gameCode = _gameCodeController.text.trim().toUpperCase();
     final username = _usernameController.text.trim();
 
-    if (lobbyCode.isEmpty || username.isEmpty) {
+    if (gameCode.isEmpty || username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
       );
       return;
     }
 
-    if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(lobbyCode)) {
+    if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(gameCode)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Lobby code must be 6 characters using uppercase letters and numbers',
+            'Game code must be 6 characters using uppercase letters and numbers',
           ),
         ),
       );
@@ -54,7 +54,7 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
       );
       AppSession.instance.setIdentity(userId: userId, username: username);
 
-      final session = await ApiService.instance.joinLobbyByCode(lobbyCode);
+      final session = await ApiService.instance.joinLobbyByCode(gameCode);
       final snapshot = await ApiService.instance.loadLobbySnapshot(
         session.sessionId,
       );
@@ -107,6 +107,7 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
           builder: (context) => TeamLobbyScreen(
             sessionId: session.sessionId,
             lobbyCode: session.joinCode,
+            gameName: session.sessionName,
             isLeader: false,
           ),
         ),
@@ -115,7 +116,7 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not join lobby: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not join game: $error')));
     } finally {
       if (mounted) {
         setState(() => _joining = false);
@@ -157,7 +158,7 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Join Lobby',
+            'Join Friends Game',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
@@ -166,9 +167,9 @@ class _JoinLobbyScreenState extends State<JoinLobbyScreen> {
           ),
           const SizedBox(height: 20),
           XActBranding.buildTextField(
-            label: 'Lobby Code',
+            label: 'Game Code',
             hintText: 'Enter 6-character code...',
-            controller: _lobbyCodeController,
+            controller: _gameCodeController,
             keyboardType: TextInputType.text,
             maxLength: 6,
             textCapitalization: TextCapitalization.characters,

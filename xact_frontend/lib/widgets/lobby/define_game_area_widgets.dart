@@ -262,7 +262,7 @@ class DefineGameAreaBottomPanel extends StatelessWidget {
                 if (pointCount > 0) ...[
                   const SizedBox(height: 4),
                   Text(
-                    '$pointCount ${pointCount == 1 ? 'point' : 'points'} placed',
+                    '$pointCount ${pointCount == 1 ? 'corner' : 'corners'} placed',
                     style: TextStyle(
                       color: Colors.blue.shade300,
                       fontSize: 12,

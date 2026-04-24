@@ -64,7 +64,7 @@ class PlayNowScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
                       Text(
-                        'Start a New Game',
+                        'Start New Game',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -73,7 +73,7 @@ class PlayNowScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        "You'll be the host and get a code to share with your friends so they can join your game room",
+                        'Create a game and open its lobby so friends can join with your game code',
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ],
@@ -116,7 +116,7 @@ class PlayNowScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
                       Text(
-                        "Join a Friend's Game",
+                        'Join Friends Game',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -125,7 +125,7 @@ class PlayNowScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 8),
                       Text(
-                        'Enter the code your friend shared with you to join their game room',
+                        'Enter a game code to join your friends in the lobby',
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ],
