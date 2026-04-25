@@ -116,7 +116,7 @@ class PlayNowScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
                       Text(
-                        'Join Friends Game',
+                        "Join Friend's Game",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,

@@ -32,7 +32,7 @@ class GameCodeCard extends StatelessWidget {
               children: [
                 Text(
                   codeLabel,
-                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
