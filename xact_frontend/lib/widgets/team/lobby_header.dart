@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 /// Header row for the game lobby showing title, player count and QR button.
-class LobbyHeader extends StatelessWidget {
+class GameLobbyHeader extends StatelessWidget {
+  final String gameName;
   final int totalPlayers;
   final bool isLeader;
   final VoidCallback? onQrPressed;
 
-  const LobbyHeader({
+  const GameLobbyHeader({
     super.key,
+    required this.gameName,
     required this.totalPlayers,
     required this.isLeader,
     this.onQrPressed,
@@ -23,9 +25,9 @@ class LobbyHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Game Lobby',
-                  style: TextStyle(
+                Text(
+                  gameName,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -33,8 +35,8 @@ class LobbyHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$totalPlayers players in lobby'
-                  '${isLeader ? '  •  Lobby Leader' : ''}',
+                  '$totalPlayers players in game lobby'
+                  '${isLeader ? '  •  Game Host' : ''}',
                   style: const TextStyle(color: Colors.white60, fontSize: 13),
                 ),
               ],

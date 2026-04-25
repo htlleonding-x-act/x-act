@@ -8,8 +8,13 @@ import '../../widgets/lobby/define_game_area_widgets.dart';
 
 class DefineGameAreaScreen extends StatefulWidget {
   final int sessionId;
+  final String gameName;
 
-  const DefineGameAreaScreen({super.key, required this.sessionId});
+  const DefineGameAreaScreen({
+    super.key,
+    required this.sessionId,
+    required this.gameName,
+  });
 
   @override
   State<DefineGameAreaScreen> createState() => _DefineGameAreaScreenState();
@@ -18,13 +23,13 @@ class DefineGameAreaScreen extends StatefulWidget {
 class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   final MapController _mapController = MapController();
 
-  // Points the host has placed – these form the polygon.
+  // Corner markers the host has placed - these form the polygon.
   final List<LatLng> _points = [];
 
-  // Index of the currently selected point, -1 when none is selected.
+  // Index of the currently selected corner marker, -1 when none is selected.
   int _selectedIndex = -1;
 
-  // When true, the next map tap repositions the selected point.
+  // When true, the next map tap repositions the selected corner marker.
   bool _isMoveMode = false;
 
   static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
@@ -99,7 +104,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
           child: ListTile(
             dense: true,
             leading: Icon(Icons.open_with, color: Colors.white),
-            title: Text('Move point', style: TextStyle(color: Colors.white)),
+            title: Text('Move corner', style: TextStyle(color: Colors.white)),
           ),
         ),
         PopupMenuItem<_PointAction>(
@@ -107,7 +112,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
           child: ListTile(
             dense: true,
             leading: Icon(Icons.delete_outline, color: Colors.redAccent),
-            title: Text('Delete point', style: TextStyle(color: Colors.white)),
+            title: Text('Delete corner', style: TextStyle(color: Colors.white)),
           ),
         ),
         PopupMenuItem<_PointAction>(
@@ -144,7 +149,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF252A3A),
         title: Text(
-          'Delete point ${index + 1}?',
+          'Delete corner ${index + 1}?',
           style: const TextStyle(color: Colors.white),
         ),
         actions: [
@@ -181,7 +186,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
         backgroundColor: const Color(0xFF252A3A),
         title: const Text('Clear area?', style: TextStyle(color: Colors.white)),
         content: const Text(
-          'This will remove all placed points.',
+          'This will remove all placed corners.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -213,7 +218,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     if (_points.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Place at least 3 points to define the game area.'),
+          content: Text('Place at least 3 corners to define the game area.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -229,14 +234,14 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   String get _statusText {
     if (_points.isEmpty) return 'Tap on the map to place the first corner';
     if (_isMoveMode && _selectedIndex >= 0) {
-      return 'Move mode: tap on map to set point ${_selectedIndex + 1}';
+      return 'Move mode: tap on map to set corner ${_selectedIndex + 1}';
     }
     if (_selectedIndex >= 0) {
-      return 'Point ${_selectedIndex + 1} selected · choose action from menu';
+      return 'Corner ${_selectedIndex + 1} selected · choose action from menu';
     }
-    if (_points.length == 1) return '1 point placed – add at least 2 more';
-    if (_points.length == 2) return '2 points placed – add at least 1 more';
-    return '${_points.length} points – tap point to select · tap map to add';
+    if (_points.length == 1) return '1 corner placed - add at least 2 more';
+    if (_points.length == 2) return '2 corners placed - add at least 1 more';
+    return '${_points.length} corners - tap a corner to select or tap map to add';
   }
 
   @override
@@ -246,12 +251,12 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0F172A),
         foregroundColor: Colors.white,
-        title: const Text('Define Game Area'),
+        title: Text('Define ${widget.gameName} Game Area'),
         actions: [
           if (_points.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.undo),
-              tooltip: 'Undo last point',
+              tooltip: 'Undo last corner',
               onPressed: _undoLast,
             ),
           if (_points.isNotEmpty)
