@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../constants.dart';
 import '../../services/geofence_store.dart';
 import '../../services/location_service.dart';
 import '../../widgets/lobby/define_game_area_widgets.dart';
@@ -32,24 +33,62 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // When true, the next map tap repositions the selected corner marker.
   bool _isMoveMode = false;
 
-  static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
+  // Fallback used only when GPS is unavailable / denied.
+  static const LatLng _fallbackCenter = kFallbackMapCenter;
+
+  // Resolved initial center – null while GPS is being acquired.
+  LatLng? _initialCenter;
+
+  // True while waiting for the first GPS fix on screen open.
+  bool _isLocating = true;
+
+  // True when permission was denied and we had to fall back to [_fallbackCenter].
+  bool _usedFallback = false;
 
   @override
   void initState() {
     super.initState();
-    _centerOnPlayer();
+    _resolveInitialCenter();
   }
 
-  /// Centers the map on the player's GPS position if available.
-  void _centerOnPlayer() {
-    final pos = LocationService.instance.lastKnownPosition;
-    if (pos != null) {
-      // Schedule after the first frame so the MapController is ready.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _mapController.move(LatLng(pos.latitude, pos.longitude), 15.0);
-        }
+  /// Tries to resolve the map's initial center from the device GPS.
+  /// Falls back to [_fallbackCenter] when permission is denied, location
+  /// services are disabled, or the lookup times out.
+  Future<void> _resolveInitialCenter() async {
+    final cached = LocationService.instance.lastKnownPosition;
+    if (cached != null) {
+      if (!mounted) return;
+      setState(() {
+        _initialCenter = LatLng(cached.latitude, cached.longitude);
+        _isLocating = false;
       });
+      return;
+    }
+
+    final position = await LocationService.instance.getCurrentPosition();
+    if (!mounted) return;
+
+    if (position != null) {
+      setState(() {
+        _initialCenter = LatLng(position.latitude, position.longitude);
+        _isLocating = false;
+      });
+    } else {
+      setState(() {
+        _initialCenter = _fallbackCenter;
+        _isLocating = false;
+        _usedFallback = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not detect your location – using default area. '
+            'Enable location permission to center the map on you.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 4),
+        ),
+      );
     }
   }
 
@@ -267,37 +306,94 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
             ),
         ],
       ),
-      body: Stack(
+      body: _isLocating ? _buildLocatingView() : _buildMapView(),
+    );
+  }
+
+  Widget _buildLocatingView() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          DefineGameAreaMap(
-            mapController: _mapController,
-            fallbackCenter: _fallbackCenter,
-            points: _points,
-            selectedIndex: _selectedIndex,
-            isMoveMode: _isMoveMode,
-            onMapTap: _onMapTap,
-            onPointTapDown: (index) =>
-                (details) => _showPointMenu(index, details.globalPosition),
-          ),
-
-          // ── Crosshair hint overlay ──────────────────────────────
-          const Center(child: DefineGameAreaCrosshairOverlay()),
-
-          // ── Status bar at bottom ────────────────────────────────
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: DefineGameAreaBottomPanel(
-              statusText: _statusText,
-              pointCount: _points.length,
-              isSaving: false,
-              canSave: _points.length >= 3,
-              onSave: _save,
-            ),
+          CircularProgressIndicator(color: Colors.blue),
+          SizedBox(height: 16),
+          Text(
+            'Detecting your location…',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMapView() {
+    return Stack(
+      children: [
+        DefineGameAreaMap(
+          mapController: _mapController,
+          fallbackCenter: _initialCenter ?? _fallbackCenter,
+          points: _points,
+          selectedIndex: _selectedIndex,
+          isMoveMode: _isMoveMode,
+          onMapTap: _onMapTap,
+          onPointTapDown: (index) =>
+              (details) => _showPointMenu(index, details.globalPosition),
+        ),
+
+        // ── Crosshair hint overlay ──────────────────────────────
+        const Center(child: DefineGameAreaCrosshairOverlay()),
+
+        // ── Fallback notice when GPS was unavailable ────────────
+        if (_usedFallback)
+          Positioned(
+            top: 8,
+            left: 12,
+            right: 12,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade800.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.location_off,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Using default location – enable GPS to center on you.',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // ── Status bar at bottom ────────────────────────────────
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: DefineGameAreaBottomPanel(
+            statusText: _statusText,
+            pointCount: _points.length,
+            isSaving: false,
+            canSave: _points.length >= 3,
+            onSave: _save,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -67,6 +67,42 @@ final class LocationService {
         permission == LocationPermission.always;
   }
 
+  /// Returns a one-shot GPS fix, or `null` when permissions are denied,
+  /// location services are off, or the lookup fails / times out.
+  ///
+  /// Callers should treat `null` as "use a fallback location" – this method
+  /// never throws.
+  Future<Position?> getCurrentPosition({
+    Duration timeLimit = const Duration(seconds: 10),
+  }) async {
+    try {
+      final granted = await requestPermission();
+      if (!granted) return null;
+
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return await Geolocator.getLastKnownPosition();
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: timeLimit,
+        ),
+      );
+      lastKnownPosition = position;
+      _positionController.add(position);
+      return position;
+    } catch (_) {
+      // Timeout or platform error – fall back to last known fix if we have one.
+      try {
+        return await Geolocator.getLastKnownPosition();
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
   /// Starts watching the device position and feeding [positionStream] without
   /// uploading anything to the backend. Use this when you just need the map to
   /// show the player's real position (e.g. before the game starts / no login
