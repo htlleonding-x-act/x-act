@@ -5,33 +5,54 @@ import 'package:share_plus/share_plus.dart';
 
 import '../xact_branding.dart';
 
-class ShareGameCodeDialog extends StatelessWidget {
+class ShareGameCodeDialog extends StatefulWidget {
   final String gameCode;
   final String gameName;
+  final bool autoShare;
 
   const ShareGameCodeDialog({
     super.key,
     required this.gameCode,
     required this.gameName,
+    this.autoShare = false,
   });
 
   static Future<void> show(
     BuildContext context, {
     required String gameCode,
     required String gameName,
+    bool autoShare = false,
   }) {
     return showDialog<void>(
       context: context,
-      builder: (_) =>
-          ShareGameCodeDialog(gameCode: gameCode, gameName: gameName),
+      builder: (_) => ShareGameCodeDialog(
+        gameCode: gameCode,
+        gameName: gameName,
+        autoShare: autoShare,
+      ),
     );
   }
 
+  @override
+  State<ShareGameCodeDialog> createState() => _ShareGameCodeDialogState();
+}
+
+class _ShareGameCodeDialogState extends State<ShareGameCodeDialog> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoShare) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _share(context);
+      });
+    }
+  }
+
   String get _shareMessage =>
-      'Join my X-ACT game "$gameName"! Game code: $gameCode';
+      'Join my X-ACT game "${widget.gameName}"! Game code: ${widget.gameCode}';
 
   Future<void> _copy(BuildContext context) async {
-    await Clipboard.setData(ClipboardData(text: gameCode));
+    await Clipboard.setData(ClipboardData(text: widget.gameCode));
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
@@ -95,7 +116,7 @@ class ShareGameCodeDialog extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: QrImageView(
-                  data: gameCode,
+                  data: widget.gameCode,
                   version: QrVersions.auto,
                   size: 200,
                   backgroundColor: Colors.white,
@@ -129,7 +150,7 @@ class ShareGameCodeDialog extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    gameCode,
+                    widget.gameCode,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
