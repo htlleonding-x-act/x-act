@@ -4,6 +4,7 @@ extension ApiServiceSessionMethods on ApiService {
   Future<GameSessionDetails> createLobby({required String lobbyName}) async {
     final hostUserId = await ensureMvpUser(
       preferredName: _session.currentUsername ?? 'Host',
+      reuseByName: true,
     );
     await _closeOpenSessionsForHost(hostUserId);
 
@@ -38,7 +39,10 @@ extension ApiServiceSessionMethods on ApiService {
     throw Exception('Failed to create lobby after retries.');
   }
 
-  Future<int> ensureMvpUser({required String preferredName}) async {
+  Future<int> ensureMvpUser({
+    required String preferredName,
+    bool reuseByName = false,
+  }) async {
     final users = await _listUsers();
 
     if (_session.currentUserId != null &&
@@ -46,36 +50,44 @@ extension ApiServiceSessionMethods on ApiService {
       return _session.currentUserId!;
     }
 
-    final preferredByName = users.where(
-      (u) => u.username.toLowerCase() == preferredName.toLowerCase(),
-    );
-    if (preferredByName.isNotEmpty) {
-      final user = preferredByName.first;
-      _session.setIdentity(userId: user.userId, username: user.username);
-      return user.userId;
-    }
-
-    try {
-      final created = await _postJsonObjectOrThrow('/api/users', {
-        'username': preferredName,
-        'email': '${preferredName.toLowerCase()}@xact.local',
-        'accountType': 'FREE',
-        'subscriptionEndDate': null,
-        'totalWins': 0,
-        'totalGamesPlayed': 0,
-      });
-
-      final user = UserDetails.fromJson(created);
-      _session.setIdentity(userId: user.userId, username: user.username);
-      return user.userId;
-    } catch (_) {
-      if (users.isNotEmpty) {
-        final user = users.first;
+    if (reuseByName) {
+      final preferredByName = users.where(
+        (u) => u.username.toLowerCase() == preferredName.toLowerCase(),
+      );
+      if (preferredByName.isNotEmpty) {
+        final user = preferredByName.first;
         _session.setIdentity(userId: user.userId, username: user.username);
         return user.userId;
       }
-      rethrow;
     }
+
+    final desired = preferredName.trim().isEmpty
+        ? 'Player'
+        : preferredName.trim();
+    final takenUsernames = users
+        .map((u) => u.username.toLowerCase())
+        .toSet();
+    var candidate = desired;
+    for (var i = 2; takenUsernames.contains(candidate.toLowerCase()); i++) {
+      candidate = '$desired $i';
+    }
+
+    final emailLocal = candidate
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), '.');
+
+    final created = await _postJsonObjectOrThrow('/api/users', {
+      'username': candidate,
+      'email': '$emailLocal@xact.local',
+      'accountType': 'FREE',
+      'subscriptionEndDate': null,
+      'totalWins': 0,
+      'totalGamesPlayed': 0,
+    });
+
+    final user = UserDetails.fromJson(created);
+    _session.setIdentity(userId: user.userId, username: user.username);
+    return user.userId;
   }
 
   Future<GameSessionDetails> joinLobbyByCode(String joinCode) async {
