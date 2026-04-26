@@ -49,5 +49,7 @@
 	<string>X-ACT needs your location to show your position on the map during the game.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>X-ACT needs your location in the background to keep tracking your position during the game.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>X-ACT uses the camera to scan game code QR codes so you can quickly join a friend's lobby.</string>
 </dict>
 </plist>

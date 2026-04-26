@@ -45,6 +45,7 @@ class GameLobbyHeader extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.qr_code, color: Colors.white70),
             onPressed: onQrPressed,
+            tooltip: 'Share game code',
           ),
         ],
       ),

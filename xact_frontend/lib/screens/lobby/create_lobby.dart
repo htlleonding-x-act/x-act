@@ -39,6 +39,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
     try {
       final hostUserId = await ApiService.instance.ensureMvpUser(
         preferredName: 'Host',
+        reuseByName: true,
       );
 
       final session = await ApiService.instance.createLobby(

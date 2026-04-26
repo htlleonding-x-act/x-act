@@ -12,6 +12,7 @@ import 'package:xact_frontend/widgets/team/add_team_button.dart';
 import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
 import 'package:xact_frontend/widgets/team/lobby_header.dart';
+import 'package:xact_frontend/widgets/team/share_game_code_dialog.dart';
 import 'package:xact_frontend/widgets/team/lobby_team_card.dart';
 import 'package:xact_frontend/widgets/team/spectators_card.dart';
 import 'package:xact_frontend/widgets/team/team_data.dart';
@@ -240,6 +241,15 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Game code copied!')));
+  }
+
+  void _showShareDialog({bool autoShare = false}) {
+    ShareGameCodeDialog.show(
+      context,
+      gameCode: widget.gameCode,
+      gameName: widget.gameName,
+      autoShare: autoShare,
+    );
   }
 
   Future<void> _addTeam() async {
@@ -517,7 +527,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
               isLeader: leader,
-              onQrPressed: () {},
+              onQrPressed: () => _showShareDialog(),
             ),
             Expanded(
               child: RefreshIndicator(
@@ -534,6 +544,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                         gameCode: widget.gameCode,
                         codeLabel: 'Game Code',
                         onCopy: _copyGameCode,
+                        onShare: () => _showShareDialog(autoShare: true),
                       ),
                       if (_working) ...[
                         const SizedBox(height: 8),

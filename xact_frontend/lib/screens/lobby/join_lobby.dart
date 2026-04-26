@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
+import 'package:xact_frontend/screens/lobby/scan_game_code.dart';
 import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
@@ -23,6 +24,28 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
     _gameCodeController.dispose();
     _usernameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onScan() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const ScanGameCodeScreen()),
+    );
+
+    if (!mounted || scanned == null) return;
+
+    _gameCodeController.text = scanned;
+    _gameCodeController.selection = TextSelection.collapsed(
+      offset: scanned.length,
+    );
+
+    if (_usernameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Game code scanned. Enter a username to join.')),
+      );
+      return;
+    }
+
+    _onJoin();
   }
 
   void _onJoin() async {
@@ -114,9 +137,12 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
       );
     } catch (error) {
       if (!mounted) return;
+      final message = error.toString().contains('HTTP 404')
+          ? 'No game found with code "$gameCode". Ask the host to share a current code.'
+          : 'Could not join game: $error';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not join game: $error')));
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _joining = false);
@@ -177,6 +203,20 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
               FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
               UpperCaseTextFormatter(),
             ],
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _joining ? null : _onScan,
+            icon: const Icon(Icons.qr_code_scanner, size: 20),
+            label: const Text('Scan QR Code'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: const BorderSide(color: Colors.white24),
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           XActBranding.buildTextField(
