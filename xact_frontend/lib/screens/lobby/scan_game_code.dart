@@ -30,13 +30,17 @@ class _ScanGameCodeScreenState extends State<ScanGameCodeScreen> {
     if (_handled) return;
 
     for (final barcode in capture.barcodes) {
-      final raw = barcode.rawValue?.trim().toUpperCase();
+      final raw = barcode.rawValue;
       if (raw == null || raw.isEmpty) continue;
 
-      if (_gameCodePattern.hasMatch(raw)) {
+      final normalized = raw
+          .toUpperCase()
+          .replaceAll(RegExp(r'[^A-Z0-9]'), '');
+
+      if (_gameCodePattern.hasMatch(normalized)) {
         _handled = true;
         _controller.stop();
-        Navigator.of(context).pop(raw);
+        Navigator.of(context).pop(normalized);
         return;
       }
 

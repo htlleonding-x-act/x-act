@@ -137,9 +137,12 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
       );
     } catch (error) {
       if (!mounted) return;
+      final message = error.toString().contains('HTTP 404')
+          ? 'No game found with code "$gameCode". Ask the host to share a current code.'
+          : 'Could not join game: $error';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not join game: $error')));
+      ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) {
         setState(() => _joining = false);

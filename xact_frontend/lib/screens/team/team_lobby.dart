@@ -243,11 +243,12 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     ).showSnackBar(const SnackBar(content: Text('Game code copied!')));
   }
 
-  void _shareGameCode() {
+  void _showShareDialog({bool autoShare = false}) {
     ShareGameCodeDialog.show(
       context,
       gameCode: widget.gameCode,
       gameName: widget.gameName,
+      autoShare: autoShare,
     );
   }
 
@@ -526,7 +527,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
               isLeader: leader,
-              onQrPressed: _shareGameCode,
+              onQrPressed: () => _showShareDialog(),
             ),
             Expanded(
               child: RefreshIndicator(
@@ -543,7 +544,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                         gameCode: widget.gameCode,
                         codeLabel: 'Game Code',
                         onCopy: _copyGameCode,
-                        onShare: _shareGameCode,
+                        onShare: () => _showShareDialog(autoShare: true),
                       ),
                       if (_working) ...[
                         const SizedBox(height: 8),
