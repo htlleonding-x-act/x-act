@@ -104,6 +104,23 @@ TeamRole? tryParseTeamRole(String value) {
   };
 }
 
+String teamRoleDisplayLabel(TeamRole? role) {
+  return switch (role) {
+    TeamRole.mrX => 'MixterX',
+    TeamRole.detective => 'Detective',
+    TeamRole.spectator => 'Spectator',
+    null => 'Unknown',
+  };
+}
+
+String formatTeamNameWithRole(String teamName, TeamRole? role) {
+  if (role == null) {
+    return teamName;
+  }
+
+  return '$teamName (${teamRoleDisplayLabel(role)})';
+}
+
 AccountType? tryParseAccountType(String value) {
   return switch (value) {
     'FREE' => AccountType.free,
@@ -278,7 +295,8 @@ final class GameSessionDetails {
       endTime: tryParseIsoDateTime(json['endTime']),
       plannedDurationMinutes: (json['plannedDurationMinutes'] as num).toInt(),
       mrXRevealInterval: (json['mrXRevealInterval'] as num).toInt(),
-      serverNow: tryParseIsoDateTime(json['serverNow']) ?? DateTime.now().toUtc(),
+      serverNow:
+          tryParseIsoDateTime(json['serverNow']) ?? DateTime.now().toUtc(),
       nextRevealAt: tryParseIsoDateTime(json['nextRevealAt']),
       revealSecondsRemaining: _readInt(json, ['revealSecondsRemaining']),
       revealIntervalSeconds: _readInt(json, ['revealIntervalSeconds']),
@@ -655,20 +673,26 @@ final class GameSessionSnapshot {
       endTime: tryParseIsoDateTime(json['endTime']),
       plannedDurationMinutes: _readInt(json, ['plannedDurationMinutes']),
       mrXRevealInterval: _readInt(json, ['mrXRevealInterval']),
-      teams: (json['teams'] as List?)
+      teams:
+          (json['teams'] as List?)
               ?.whereType<Map>()
               .map((e) => SnapshotTeam.fromJson(e.cast<String, dynamic>()))
               .toList(growable: false) ??
           const [],
-      members: (json['members'] as List?)
-              ?.whereType<Map>()
-              .map((e) => SnapshotTeamMember.fromJson(e.cast<String, dynamic>()))
-              .toList(growable: false) ??
-          const [],
-      latestLocations: (json['latestLocations'] as List?)
+      members:
+          (json['members'] as List?)
               ?.whereType<Map>()
               .map(
-                (e) => SnapshotLatestLocation.fromJson(e.cast<String, dynamic>()),
+                (e) => SnapshotTeamMember.fromJson(e.cast<String, dynamic>()),
+              )
+              .toList(growable: false) ??
+          const [],
+      latestLocations:
+          (json['latestLocations'] as List?)
+              ?.whereType<Map>()
+              .map(
+                (e) =>
+                    SnapshotLatestLocation.fromJson(e.cast<String, dynamic>()),
               )
               .toList(growable: false) ??
           const [],

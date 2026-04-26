@@ -52,7 +52,7 @@ class LobbyTeamCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      team.name,
+                      team.displayName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,

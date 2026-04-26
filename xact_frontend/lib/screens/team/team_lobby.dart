@@ -118,7 +118,8 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                 teamId: team.teamId,
                 userId: m.userId,
                 name: displayName,
-                isCurrentUser: currentUserId != null && m.userId == currentUserId,
+                isCurrentUser:
+                    currentUserId != null && m.userId == currentUserId,
                 isTeamLeader: m.isTeamLeader,
               );
             })
@@ -143,7 +144,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         );
       }
 
-      final currentTeamIds = teams.map((team) => team.teamId).toSet();
+      final orderedTeams = _sortTeamsByTeamId(teams);
+
+      final currentTeamIds = orderedTeams.map((team) => team.teamId).toSet();
       _teamUiConfigById.removeWhere(
         (teamId, _) => !currentTeamIds.contains(teamId),
       );
@@ -157,20 +160,17 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
         try {
           await ApiService.instance.registerCurrentMemberPresence();
-        } catch (_) {
-        }
+        } catch (_) {}
       }
 
       setState(() {
-        _teams = teams;
+        _teams = orderedTeams;
         _spectators = spectators;
         _spectatorTeamId = spectatorTeamId;
       });
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load game lobby: $error')),
       );
     } finally {
@@ -178,6 +178,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  List<TeamData> _sortTeamsByTeamId(List<TeamData> incomingTeams) {
+    incomingTeams.sort((a, b) => a.teamId.compareTo(b.teamId));
+    return incomingTeams;
   }
 
   Future<void> _initRealtime() async {
@@ -428,7 +433,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
 
   void _randomizeTeams() {
-    final misterXTeams = _teams.where((team) => team.isMisterX).toList(growable: false);
+    final misterXTeams = _teams
+        .where((team) => team.isMisterX)
+        .toList(growable: false);
     final detectiveTeams = _teams
         .where((team) => !team.isMisterX && !team.isSpectator)
         .toList(growable: false);
@@ -436,7 +443,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     if (misterXTeams.isEmpty || detectiveTeams.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Randomize requires one Mister X and one detective team.'),
+          content: Text(
+            'Randomize requires one Mister X and one detective team.',
+          ),
         ),
       );
       return;
@@ -444,8 +453,10 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
     final misterXTeam = misterXTeams.first;
 
-    final players = [..._spectators, ..._teams.expand((team) => team.players)]
-        .toList(growable: true);
+    final players = [
+      ..._spectators,
+      ..._teams.expand((team) => team.players),
+    ].toList(growable: true);
 
     if (players.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -459,7 +470,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     final moves = <_PlannedMove>[];
 
     final mrXPlayer = players.removeAt(0);
-    moves.add(_PlannedMove(player: mrXPlayer, targetTeamId: misterXTeam.teamId));
+    moves.add(
+      _PlannedMove(player: mrXPlayer, targetTeamId: misterXTeam.teamId),
+    );
 
     for (var i = 0; i < players.length; i++) {
       final targetTeam = detectiveTeams[i % detectiveTeams.length];
