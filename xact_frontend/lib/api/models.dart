@@ -114,7 +114,7 @@ String teamRoleDisplayLabel(TeamRole? role) {
 }
 
 String formatTeamNameWithRole(String teamName, TeamRole? role) {
-  if (role == null) {
+  if (role == null || role == TeamRole.spectator) {
     return teamName;
   }
 

@@ -67,7 +67,11 @@ class _TeamScreenState extends State<TeamScreen> {
             );
           }
 
-          if (teams.isEmpty) {
+          final visibleTeams = teams
+              .where((team) => team.members.isNotEmpty)
+              .toList(growable: false);
+
+          if (visibleTeams.isEmpty) {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
@@ -81,10 +85,10 @@ class _TeamScreenState extends State<TeamScreen> {
 
           return ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: teams.length,
+            itemCount: visibleTeams.length,
             separatorBuilder: (context, index) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final team = teams[index];
+              final team = visibleTeams[index];
               return TeamCard(
                 teamName: team.teamName,
                 color: team.color,
