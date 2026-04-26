@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import '../api/api_service.dart';
 import '../api/models.dart';
+import '../constants.dart';
 import '../services/app_session.dart';
 import '../services/geofence_store.dart';
 import '../services/location_service.dart';
@@ -29,14 +30,20 @@ class MapArea extends StatefulWidget {
 class _MapAreaState extends State<MapArea> {
   final MapController _mapController = MapController();
 
-  // Fallback center (HTL Leonding) – overridden as soon as GPS kicks in.
-  static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
+  // Fallback used only when neither a geofence nor a GPS fix is available.
+  static const LatLng _fallbackCenter = kFallbackMapCenter;
 
   // Current GPS position of "this" player. Null until first fix.
   LatLng? _myPosition;
 
   // When true, the map auto-pans to follow the player's GPS position.
-  bool _followMode = true;
+  // Defaults to true when no geofence is available; defaults to false when
+  // we have an area to display (the area should stay framed unless the user
+  // explicitly recenters on themselves).
+  late bool _followMode;
+
+  // Initial camera center, resolved synchronously in initState.
+  late LatLng _initialMapCenter;
 
   // When true, the control buttons are expanded (burger menu open).
   bool _showControls = false;
@@ -55,10 +62,51 @@ class _MapAreaState extends State<MapArea> {
   @override
   void initState() {
     super.initState();
+
+    // Use the cached geofence (set by the host on save, or by a prior load)
+    // so the very first frame is already framed on the game area.
+    final cachedGeofence = GeofenceStore.instance.points;
+    if (cachedGeofence.length >= 3) {
+      _geofencePoints = List.of(cachedGeofence);
+      _initialMapCenter = LatLngBounds.fromPoints(_geofencePoints).center;
+      _followMode = false;
+    } else {
+      final lastFix = LocationService.instance.lastKnownPosition;
+      _initialMapCenter = lastFix != null
+          ? LatLng(lastFix.latitude, lastFix.longitude)
+          : _fallbackCenter;
+      _followMode = true;
+    }
+
     _startListeningToGps();
     _loadSessionGeofence();
     _refreshPlayers();
     _listenToRealtimeUpdates();
+
+    // If we already have a geofence, fit the camera tightly on the next frame
+    // (initialCenter alone doesn't pick the right zoom for the polygon).
+    if (_geofencePoints.length >= 3) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fitCameraToGeofence();
+      });
+    }
+  }
+
+  /// Fits the camera so the entire geofence polygon is visible with padding.
+  /// No-op when fewer than 3 points are available.
+  void _fitCameraToGeofence() {
+    if (!mounted || _geofencePoints.length < 3) return;
+    try {
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints(_geofencePoints),
+          padding: const EdgeInsets.all(40),
+          maxZoom: 17.0,
+        ),
+      );
+    } catch (_) {
+      // Map controller not yet attached – ignore; the next load will retry.
+    }
   }
 
   @override
@@ -98,15 +146,31 @@ class _MapAreaState extends State<MapArea> {
       return;
     }
 
+    final hadGeofenceBefore = _geofencePoints.length >= 3;
+
     try {
       final points = await ApiService.instance.loadGeofencePoints(sessionId);
       if (!mounted) return;
+      final loaded = points
+              ?.map((p) => LatLng(p.latitude, p.longitude))
+              .toList(growable: false) ??
+          const <LatLng>[];
       setState(() {
-        _geofencePoints = points
-                ?.map((p) => LatLng(p.latitude, p.longitude))
-                .toList(growable: false) ??
-            [];
+        _geofencePoints = loaded;
       });
+      if (loaded.length >= 3) {
+        // Cache so the next MapArea (e.g. after fullscreen toggle) starts
+        // already framed on the area without a backend round-trip.
+        GeofenceStore.instance.setPoints(loaded);
+        // Only auto-fit when this load actually introduced the polygon –
+        // refreshing in-place shouldn't yank the camera away from the user.
+        if (!hadGeofenceBefore) {
+          setState(() => _followMode = false);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _fitCameraToGeofence();
+          });
+        }
+      }
     } catch (_) {
       if (!mounted) return;
       final cached = GeofenceStore.instance.points;
@@ -225,8 +289,6 @@ class _MapAreaState extends State<MapArea> {
 
   @override
   Widget build(BuildContext context) {
-    final center = _myPosition ?? _fallbackCenter;
-
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
@@ -239,7 +301,7 @@ class _MapAreaState extends State<MapArea> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter: center,
+              initialCenter: _initialMapCenter,
               initialZoom: 15.0,
               minZoom: 10.0,
               maxZoom: 18.0,

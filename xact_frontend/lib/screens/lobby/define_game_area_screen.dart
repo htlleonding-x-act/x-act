@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../constants.dart';
 import '../../services/geofence_store.dart';
 import '../../services/location_service.dart';
 import '../../widgets/lobby/define_game_area_widgets.dart';
@@ -32,8 +33,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // When true, the next map tap repositions the selected corner marker.
   bool _isMoveMode = false;
 
-  // Hardcoded fallback used only when GPS is unavailable / denied (HTL Leonding).
-  static const LatLng _fallbackCenter = LatLng(48.3069, 14.2858);
+  // Fallback used only when GPS is unavailable / denied.
+  static const LatLng _fallbackCenter = kFallbackMapCenter;
 
   // Resolved initial center – null while GPS is being acquired.
   LatLng? _initialCenter;
