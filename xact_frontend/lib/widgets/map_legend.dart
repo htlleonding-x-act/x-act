@@ -1,10 +1,33 @@
 import 'package:flutter/material.dart';
 
+final class MapLegendTeamEntry {
+  final String label;
+  final Color color;
+
+  const MapLegendTeamEntry({required this.label, required this.color});
+}
+
 class MapLegend extends StatelessWidget {
-  const MapLegend({super.key});
+  final List<MapLegendTeamEntry> teamEntries;
+  final Color myLocationColor;
+
+  const MapLegend({
+    super.key,
+    required this.teamEntries,
+    required this.myLocationColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final items = <Widget>[
+      _LegendItem(color: myLocationColor, label: 'Your Location'),
+    ];
+
+    for (final entry in teamEntries) {
+      items.add(const SizedBox(height: 8));
+      items.add(_LegendItem(color: entry.color, label: entry.label));
+    }
+
     return Positioned(
       bottom: 16,
       left: 16,
@@ -17,13 +40,7 @@ class MapLegend extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: [
-            _LegendItem(color: Colors.blue, label: 'Your Location'),
-            const SizedBox(height: 8),
-            _LegendItem(color: Colors.green, label: 'Team Members'),
-            const SizedBox(height: 8),
-            _LegendItem(color: Colors.red, label: 'Mister X Ping'),
-          ],
+          children: items,
         ),
       ),
     );
