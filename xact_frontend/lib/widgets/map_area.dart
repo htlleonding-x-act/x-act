@@ -58,6 +58,7 @@ class _MapAreaState extends State<MapArea> {
   bool _isOutOfBounds = false;
 
   List<PlayerMarker> _otherPlayers = [];
+  List<MapLegendTeamEntry> _legendTeamEntries = const [];
 
   @override
   void initState() {
@@ -187,6 +188,8 @@ class _MapAreaState extends State<MapArea> {
 
     try {
       final players = await ApiService.instance.loadPlayerPositions(sessionId);
+      final legendTeams = await ApiService.instance.loadMapLegendTeams(sessionId);
+
       if (!mounted) return;
 
       setState(() {
@@ -199,6 +202,15 @@ class _MapAreaState extends State<MapArea> {
                 position: p.position,
                 color: p.color,
                 isMisterX: p.teamRole == TeamRole.mrX,
+              ),
+            )
+            .toList(growable: false);
+
+        _legendTeamEntries = legendTeams
+            .map(
+              (team) => MapLegendTeamEntry(
+                label: team.label,
+                color: team.color,
               ),
             )
             .toList(growable: false);
@@ -360,7 +372,7 @@ class _MapAreaState extends State<MapArea> {
             ],
           ),
           const MapHeader(),
-          const MapLegend(),
+          MapLegend(teamEntries: _legendTeamEntries),
           // Out-of-bounds warning banner
           if (_isOutOfBounds)
             Positioned(

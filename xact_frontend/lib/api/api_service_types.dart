@@ -45,6 +45,18 @@ final class MapHeaderData {
   });
 }
 
+final class MapLegendTeamData {
+  final int teamId;
+  final String label;
+  final Color color;
+
+  const MapLegendTeamData({
+    required this.teamId,
+    required this.label,
+    required this.color,
+  });
+}
+
 final class PlayerPositionData {
   final int memberId;
   final int teamId;

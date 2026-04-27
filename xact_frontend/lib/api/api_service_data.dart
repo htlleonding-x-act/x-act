@@ -76,6 +76,41 @@ extension ApiServiceDataMethods on ApiService {
     );
   }
 
+  Future<List<MapLegendTeamData>> loadMapLegendTeams(int sessionId) async {
+    final snapshot = await loadLobbySnapshot(sessionId);
+
+    final currentTeamId = _session.currentTeamId;
+    final currentTeamRole = currentTeamId == null
+        ? null
+        : snapshot.teams
+              .where((team) => team.teamId == currentTeamId)
+              .map((team) => team.role)
+              .firstOrNull;
+
+    final visibleTeams = <MapLegendTeamData>[];
+
+    for (final team in snapshot.teams) {
+      if (team.role == TeamRole.spectator) {
+        continue;
+      }
+
+      // Keep legend visibility aligned with marker visibility (e.g. Mr. X should not see detective teams in legend).
+      if (currentTeamRole == TeamRole.mrX && team.role != TeamRole.mrX) {
+        continue;
+      }
+
+      visibleTeams.add(
+        MapLegendTeamData(
+          teamId: team.teamId,
+          label: formatTeamNameWithRole(team.teamName, team.role),
+          color: tryParseHexColor(team.colorCode) ?? Colors.blueGrey,
+        ),
+      );
+    }
+
+    return visibleTeams;
+  }
+
   Future<List<PlayerPositionData>> loadPlayerPositions(int sessionId) async {
     final snapshot = await loadLobbySnapshot(sessionId);
     final out = <PlayerPositionData>[];
