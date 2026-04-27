@@ -44,6 +44,15 @@ class _MapHeaderState extends State<MapHeader> {
     _timer?.cancel();
     if (_totalSeconds <= 0) return;
 
+    if (_secondsRemaining <= 0) {
+      _timer = Timer(const Duration(seconds: 1), () {
+        if (mounted) {
+          unawaited(_refreshCountdown());
+        }
+      });
+      return;
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) {
         _timer?.cancel();
@@ -54,10 +63,21 @@ class _MapHeaderState extends State<MapHeader> {
           _secondsRemaining--;
           if (_secondsRemaining == 0) {
             _timer?.cancel();
+            _timer = Timer(const Duration(seconds: 1), () {
+              if (mounted) {
+                unawaited(_refreshCountdown());
+              }
+            });
           }
         }
       });
     });
+  }
+
+  Future<void> _refreshCountdown() async {
+    final data = await ApiService.instance.loadMapHeader();
+    if (!mounted) return;
+    _startCountdown(data);
   }
 
   double get _progress =>
