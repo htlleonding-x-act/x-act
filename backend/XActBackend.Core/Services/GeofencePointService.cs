@@ -83,6 +83,10 @@ internal sealed class GeoFencePointService(IUnitOfWork uow, ILogger<GeoFencePoin
         return geofencePoint is not null ? geofencePoint : new NotFound();
     }
 
+    /// <summary>
+    ///     Maximum number of geofence points allowed per session.
+    ///     This value must be kept in sync with the frontend geofence point limit.
+    /// </summary>
     private const int MaxGeofencePoints = 10;
 
     public async ValueTask<OneOf<GeofencePoint, NotFound, DomainError>> AddGeofencePointAsync(IGeofencePointService.GeofencePointData newGeofencePoint)
