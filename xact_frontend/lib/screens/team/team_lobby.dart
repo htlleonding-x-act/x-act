@@ -58,7 +58,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     final hasDetective = _teams.any(
       (t) => !t.isMisterX && t.players.isNotEmpty,
     );
-    return hasMisterX && hasDetective;
+    return hasMisterX && hasDetective && _spectators.isEmpty;
   }
 
   int get _totalPlayers =>
@@ -388,6 +388,17 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
 
   Future<void> _startGame() async {
+    if (_spectators.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Move all players out of Unassigned before starting the game.',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _working = true);
     try {
       await ApiService.instance.startGameSession(widget.sessionId);
@@ -408,7 +419,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     final spectatorTeamId = _spectatorTeamId;
     if (spectatorTeamId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No spectator team is available.')),
+        const SnackBar(content: Text('No Unassigned team is available.')),
       );
       return;
     }

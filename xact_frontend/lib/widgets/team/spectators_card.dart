@@ -4,7 +4,7 @@ import '../xact_branding.dart';
 import 'draggable_player_tile.dart';
 import 'team_data.dart';
 
-/// Drag-target card that holds the spectators list.
+/// Drag-target card that holds the unassigned players list.
 class SpectatorsCard extends StatelessWidget {
   final List<LobbyPlayer> spectators;
   final ValueChanged<LobbyPlayer> onPlayerDropped;
@@ -44,7 +44,7 @@ class SpectatorsCard extends StatelessWidget {
               Row(
                 children: [
                   const Text(
-                    'Spectators',
+                    'Unassigned',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,

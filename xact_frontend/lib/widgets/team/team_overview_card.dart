@@ -5,7 +5,7 @@ import '../xact_branding.dart';
 import 'team_data.dart';
 import 'team_name_role_label.dart';
 
-/// Card showing an overview of all teams and spectators with color-coded chips.
+/// Card showing an overview of all teams and unassigned players with color-coded chips.
 class TeamOverviewCard extends StatelessWidget {
   final int spectatorCount;
   final List<TeamData> teams;
@@ -47,7 +47,7 @@ class TeamOverviewCard extends StatelessWidget {
             spacing: 16,
             runSpacing: 6,
             children: [
-              _overviewChip('Spectators', Colors.grey, '$spectatorCount/∞'),
+              _overviewChip('Unassigned', Colors.grey, '$spectatorCount/∞'),
               ...teams.map(
                 (t) => _overviewChip(
                   t.name,

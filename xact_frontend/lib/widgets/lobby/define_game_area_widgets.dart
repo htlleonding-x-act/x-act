@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 class DefineGameAreaMap extends StatelessWidget {
   final MapController mapController;
   final LatLng fallbackCenter;
+  final LatLng? myLocation;
   final List<LatLng> points;
   final int selectedIndex;
   final bool isMoveMode;
@@ -15,6 +16,7 @@ class DefineGameAreaMap extends StatelessWidget {
     super.key,
     required this.mapController,
     required this.fallbackCenter,
+    required this.myLocation,
     required this.points,
     required this.selectedIndex,
     required this.isMoveMode,
@@ -87,6 +89,23 @@ class DefineGameAreaMap extends StatelessWidget {
                 color: Colors.blue.shade400,
                 strokeWidth: 2.5,
                 pattern: StrokePattern.dashed(segments: [8, 6]),
+              ),
+            ],
+          ),
+        if (myLocation != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: myLocation!,
+                width: 40,
+                height: 40,
+                child: const Center(
+                  child: Icon(
+                    Icons.my_location,
+                    size: 28,
+                    color: Color(0xFF60A5FA),
+                  ),
+                ),
               ),
             ],
           ),
