@@ -31,8 +31,8 @@ public interface IGeofencePointService
     ///     Add a new geofence point.
     /// </summary>
     /// <param name="newGeofencePoint">The geofence point data to create</param>
-    /// <returns>The created geofence point, or not found if the session does not exist</returns>
-    public ValueTask<OneOf<GeofencePoint, NotFound>> AddGeofencePointAsync(GeofencePointData newGeofencePoint);
+    /// <returns>The created geofence point, not found if the session does not exist, or a domain error</returns>
+    public ValueTask<OneOf<GeofencePoint, NotFound, DomainError>> AddGeofencePointAsync(GeofencePointData newGeofencePoint);
 
     /// <summary>
     ///     Update an existing geofence point.
@@ -66,7 +66,7 @@ public interface IGeofencePointService
         int SequenceOrder
     );
 }
- 
+
 internal sealed class GeoFencePointService(IUnitOfWork uow, ILogger<GeoFencePointService> logger) : IGeofencePointService
 {
     public async ValueTask<IReadOnlyCollection<GeofencePoint>> GetAllPointsBySessionIdAsync(int sessionId, bool tracking)
@@ -83,13 +83,22 @@ internal sealed class GeoFencePointService(IUnitOfWork uow, ILogger<GeoFencePoin
         return geofencePoint is not null ? geofencePoint : new NotFound();
     }
 
-    public async ValueTask<OneOf<GeofencePoint, NotFound>> AddGeofencePointAsync(IGeofencePointService.GeofencePointData newGeofencePoint)
+    private const int MaxGeofencePoints = 10;
+
+    public async ValueTask<OneOf<GeofencePoint, NotFound, DomainError>> AddGeofencePointAsync(IGeofencePointService.GeofencePointData newGeofencePoint)
     {
         var session = await uow.GameSessionRepository.GetSessionByIdAsync(newGeofencePoint.SessionId, tracking: false);
         if (session is null)
         {
             logger.LogWarning("Rejected geofence point creation because session {SessionId} does not exist", newGeofencePoint.SessionId);
             return new NotFound();
+        }
+
+        var count = await uow.GeofencePointRepository.CountPointsBySessionIdAsync(newGeofencePoint.SessionId);
+        if (count >= MaxGeofencePoints)
+        {
+            logger.LogWarning("Rejected geofence point creation because session {SessionId} already has {Count} points (max {Max})", newGeofencePoint.SessionId, count, MaxGeofencePoints);
+            return DomainError.GeofencePointLimitReached(newGeofencePoint.SessionId, MaxGeofencePoints);
         }
 
         var geofencePoint = uow.GeofencePointRepository.AddGeofencePoint(

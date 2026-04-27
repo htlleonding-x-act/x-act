@@ -49,6 +49,7 @@ public sealed class GeofencePointController(
     [ProducesResponseType<GeofencePointDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async ValueTask<IActionResult> AddGeofencePoint(
         [FromRoute] int sessionId,
         [FromBody] GeofencePointAddRequest addRequest)
@@ -62,7 +63,7 @@ public sealed class GeofencePointController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<GeofencePoint, NotFound> addResult = await geofencePointService.AddGeofencePointAsync(
+            OneOf<GeofencePoint, NotFound, DomainError> addResult = await geofencePointService.AddGeofencePointAsync(
                 new IGeofencePointService.GeofencePointData(
                     sessionId,
                     addRequest.Latitude,
@@ -84,6 +85,11 @@ public sealed class GeofencePointController(
                 logger.LogWarning("Rejected geofence point create request because session {SessionId} was not found", sessionId);
 
                 return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+
+                return DomainErrorResult(domainError);
             });
         }
         catch (Exception ex)

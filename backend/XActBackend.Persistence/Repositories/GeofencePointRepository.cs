@@ -36,6 +36,13 @@ public interface IGeofencePointRepository
     public ValueTask<GeofencePoint?> GetPointBySessionAndIdAsync(int sessionId, int pointId, bool tracking);
 
     /// <summary>
+    ///     Count the geofence points for a session.
+    /// </summary>
+    /// <param name="sessionId">The id of the session</param>
+    /// <returns>The number of geofence points for the session</returns>
+    public ValueTask<int> CountPointsBySessionIdAsync(int sessionId);
+
+    /// <summary>
     ///     Remove a geofence point from the repository.
     /// </summary>
     /// <param name="point">The geofence point to remove</param>
@@ -79,6 +86,11 @@ internal sealed class GeofencePointRepository(DbSet<GeofencePoint> pointSet) : I
         IQueryable<GeofencePoint> source = tracking ? Points : PointsNoTracking;
 
         return await source.FirstOrDefaultAsync(p => p.SessionId == sessionId && p.Id == pointId);
+    }
+
+    public async ValueTask<int> CountPointsBySessionIdAsync(int sessionId)
+    {
+        return await PointsNoTracking.CountAsync(p => p.SessionId == sessionId);
     }
 
     public void RemoveGeofencePoint(GeofencePoint point)
