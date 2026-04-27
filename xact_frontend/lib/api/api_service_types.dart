@@ -2,12 +2,14 @@ part of 'api_service.dart';
 
 final class TeamCardData {
   final String teamName;
+  final TeamRole? role;
   final Color color;
   final bool isMisterX;
   final List<String> members;
 
   const TeamCardData({
     required this.teamName,
+    required this.role,
     required this.color,
     required this.isMisterX,
     required this.members,
@@ -16,11 +18,13 @@ final class TeamCardData {
 
 final class TeamChatHeaderData {
   final String teamName;
+  final TeamRole? role;
   final int memberCount;
   final Color teamColor;
 
   const TeamChatHeaderData({
     required this.teamName,
+    required this.role,
     required this.memberCount,
     required this.teamColor,
   });

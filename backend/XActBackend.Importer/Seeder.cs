@@ -137,7 +137,7 @@ internal static class Seeder
             {
                 Id = SeedData.MrXTeamId,
                 SessionId = SeedData.SessionId,
-                TeamName = "MrX",
+                TeamName = "Team 1",
                 Role = TeamRole.MrX,
                 ColorCode = "#000000",
                 MaxPlayerCount = Team.DefaultMaxPlayerCount,
@@ -147,7 +147,7 @@ internal static class Seeder
             {
                 Id = SeedData.DetectiveTeamId,
                 SessionId = SeedData.SessionId,
-                TeamName = "Detectives",
+                TeamName = "Team 2",
                 Role = TeamRole.Detective,
                 ColorCode = "#ff0000",
                 MaxPlayerCount = Team.DefaultMaxPlayerCount,

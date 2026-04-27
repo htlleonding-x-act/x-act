@@ -23,7 +23,8 @@ extension ApiServiceDataMethods on ApiService {
               .toList(growable: false);
 
           return TeamCardData(
-            teamName: formatTeamNameWithRole(team.teamName, team.role),
+            teamName: team.teamName,
+            role: team.role,
             color: color,
             isMisterX: team.role == TeamRole.mrX,
             members: members,
@@ -48,7 +49,8 @@ extension ApiServiceDataMethods on ApiService {
         (snapshot.membersByTeamId[team.teamId] ?? const []).length;
 
     return TeamChatHeaderData(
-      teamName: formatTeamNameWithRole(team.teamName, team.role),
+      teamName: team.teamName,
+      role: team.role,
       memberCount: memberCount,
       teamColor: tryParseHexColor(team.colorCode) ?? Colors.blue,
     );

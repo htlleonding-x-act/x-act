@@ -43,5 +43,5 @@ class TeamData {
 
   bool get isMisterX => role == TeamRole.mrX;
   bool get isSpectator => role == TeamRole.spectator;
-  String get displayName => formatTeamNameWithRole(name, role);
+  String get displayName => name;
 }

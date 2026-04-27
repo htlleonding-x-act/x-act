@@ -104,6 +104,7 @@ public interface IGameSessionService
 internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<GameSessionService> logger) : IGameSessionService
 {
     private const string HostTeamColor = "#000000";
+    private const string DefaultMrXTeamName = "Team 1";
 
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking)
@@ -169,7 +170,7 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
 
             var hostTeam = uow.TeamRepository.AddTeam(
                 gameSession.Id,
-                $"{newGameSession.SessionName} Host",
+                DefaultMrXTeamName,
                 TeamRole.MrX,
                 HostTeamColor,
                 Team.DefaultMaxPlayerCount

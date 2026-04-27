@@ -63,7 +63,7 @@ class LobbyBottomButtons extends StatelessWidget {
           if (!canStartGame) ...[
             const SizedBox(height: 6),
             const Text(
-              'Need at least 1 Mister X and 1 Detective to start',
+              'Need 1 Mister X, 1 Detective, and no players in Unassigned',
               style: TextStyle(color: Colors.white38, fontSize: 12),
             ),
           ],

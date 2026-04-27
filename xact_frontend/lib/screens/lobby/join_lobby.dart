@@ -104,7 +104,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
 
       spectatorTeam ??= await ApiService.instance.addTeam(
         sessionId: session.sessionId,
-        teamName: 'Spectators',
+        teamName: 'Unassigned',
         role: TeamRole.spectator,
         colorCode: '#64748B',
       );

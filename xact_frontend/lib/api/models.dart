@@ -106,7 +106,7 @@ TeamRole? tryParseTeamRole(String value) {
 
 String teamRoleDisplayLabel(TeamRole? role) {
   return switch (role) {
-    TeamRole.mrX => 'MixterX',
+    TeamRole.mrX => 'Mister X',
     TeamRole.detective => 'Detective',
     TeamRole.spectator => 'Spectator',
     null => 'Unknown',

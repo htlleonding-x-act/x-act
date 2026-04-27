@@ -39,6 +39,9 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // Resolved initial center – null while GPS is being acquired.
   LatLng? _initialCenter;
 
+  // Current user location shown as a simple symbol on the map.
+  LatLng? _myLocation;
+
   // True while waiting for the first GPS fix on screen open.
   bool _isLocating = true;
 
@@ -60,6 +63,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
       if (!mounted) return;
       setState(() {
         _initialCenter = LatLng(cached.latitude, cached.longitude);
+        _myLocation = LatLng(cached.latitude, cached.longitude);
         _isLocating = false;
       });
       return;
@@ -71,11 +75,13 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     if (position != null) {
       setState(() {
         _initialCenter = LatLng(position.latitude, position.longitude);
+        _myLocation = LatLng(position.latitude, position.longitude);
         _isLocating = false;
       });
     } else {
       setState(() {
         _initialCenter = _fallbackCenter;
+        _myLocation = null;
         _isLocating = false;
         _usedFallback = true;
       });
@@ -332,6 +338,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
         DefineGameAreaMap(
           mapController: _mapController,
           fallbackCenter: _initialCenter ?? _fallbackCenter,
+          myLocation: _myLocation,
           points: _points,
           selectedIndex: _selectedIndex,
           isMoveMode: _isMoveMode,
