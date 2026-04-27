@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/chat_input_bar.dart';
+import '../widgets/team/team_name_role_label.dart';
 
 import '../api/api_service.dart';
 
@@ -27,8 +28,7 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
         final header = snapshot.data;
         final hasError = snapshot.hasError;
 
-        final teamName =
-            header?.teamName ?? (hasError ? 'Team Chat' : 'Loading...');
+        final fallbackTeamName = hasError ? 'Team Chat' : 'Loading...';
 
         final memberCountText = header == null
             ? (hasError ? 'Failed to load team info' : 'Loading team info...')
@@ -43,14 +43,33 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      teamName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    if (header == null)
+                      Text(
+                        fallbackTeamName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    else
+                      TeamNameRoleLabel(
+                        teamName: header.teamName,
+                        role: header.role,
+                        teamNameStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        roleStyle: const TextStyle(
+                          color: Color(0xFFBFDBFE),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
                     const SizedBox(height: 4),
                     Text(
                       memberCountText,

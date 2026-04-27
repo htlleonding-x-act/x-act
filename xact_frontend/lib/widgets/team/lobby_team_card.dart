@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../xact_branding.dart';
 import 'draggable_player_tile.dart';
 import 'team_data.dart';
+import 'team_name_role_label.dart';
 
 /// Drag-target card for a single team in the lobby.
 class LobbyTeamCard extends StatelessWidget {
@@ -51,13 +52,21 @@ class LobbyTeamCard extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      team.displayName,
-                      style: const TextStyle(
+                    child: TeamNameRoleLabel(
+                      teamName: team.name,
+                      role: team.role,
+                      teamNameStyle: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
+                      roleStyle: const TextStyle(
+                        color: Color(0xFFBFDBFE),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (isLeader) ...[

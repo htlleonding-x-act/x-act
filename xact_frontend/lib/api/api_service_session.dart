@@ -1,5 +1,8 @@
 part of 'api_service.dart';
 
+const _defaultMrXTeamName = 'Team 1';
+const _defaultDetectiveTeamName = 'Team 2';
+
 extension ApiServiceSessionMethods on ApiService {
   Future<GameSessionDetails> createLobby({required String lobbyName}) async {
     final hostUserId = await ensureMvpUser(
@@ -118,51 +121,27 @@ extension ApiServiceSessionMethods on ApiService {
     TeamDetails? detectiveTeam;
 
     for (final team in snapshot.teams) {
-      if (team.role == TeamRole.mrX && misterXTeam == null) {
-        misterXTeam = team;
+      if (team.role == TeamRole.mrX) {
+        misterXTeam ??= team;
       }
-      if (team.role == TeamRole.detective && detectiveTeam == null) {
-        detectiveTeam = team;
+      if (team.role == TeamRole.detective) {
+        detectiveTeam ??= team;
       }
     }
 
-    if (misterXTeam == null) {
-      misterXTeam = await addTeam(
-        sessionId: sessionId,
-        teamName: 'Mister X',
-        role: TeamRole.mrX,
-        colorCode: '#EF4444',
-      );
-    } else if (misterXTeam.teamName != 'Mister X') {
-      await updateTeam(
-        sessionId: sessionId,
-        teamId: misterXTeam.teamId,
-        teamName: 'Mister X',
-        role: TeamRole.mrX,
-        colorCode: misterXTeam.colorCode,
-        isCaught: false,
-        maxPlayerCount: misterXTeam.maxPlayerCount,
-      );
-    }
+    misterXTeam ??= await addTeam(
+      sessionId: sessionId,
+      teamName: _defaultMrXTeamName,
+      role: TeamRole.mrX,
+      colorCode: '#EF4444',
+    );
 
-    if (detectiveTeam == null) {
-      detectiveTeam = await addTeam(
-        sessionId: sessionId,
-        teamName: 'Detective 1',
-        role: TeamRole.detective,
-        colorCode: '#2563EB',
-      );
-    } else if (detectiveTeam.teamName != 'Detective 1') {
-      await updateTeam(
-        sessionId: sessionId,
-        teamId: detectiveTeam.teamId,
-        teamName: 'Detective 1',
-        role: TeamRole.detective,
-        colorCode: detectiveTeam.colorCode,
-        isCaught: false,
-        maxPlayerCount: detectiveTeam.maxPlayerCount,
-      );
-    }
+    detectiveTeam ??= await addTeam(
+      sessionId: sessionId,
+      teamName: _defaultDetectiveTeamName,
+      role: TeamRole.detective,
+      colorCode: '#2563EB',
+    );
 
     if (hostUserId != null) {
       final hostAlreadyAssigned = snapshot.membersByTeamId.values

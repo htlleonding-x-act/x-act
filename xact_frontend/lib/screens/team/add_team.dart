@@ -38,10 +38,12 @@ class AddTeamDialog extends StatefulWidget {
   }) : title = 'Edit Team',
        submitLabel = 'Save';
 
-  const AddTeamDialog.create({super.key})
+  const AddTeamDialog.create({
+    super.key,
+    this.initialName = 'Team 3',
+  })
     : title = 'Add New Team',
       submitLabel = 'Create',
-      initialName = '',
       initialMaxPlayers = 3,
       initialColor = Colors.teal;
 
@@ -129,7 +131,7 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
               // ── Team name ────────────────────────────────────────────────
               XActBranding.buildTextField(
                 label: 'Team Name',
-                hintText: 'e.g. Detectives Delta',
+                hintText: 'e.g. Team 3',
                 controller: _nameController,
               ),
               const SizedBox(height: 16),

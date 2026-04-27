@@ -91,6 +91,7 @@ class _TeamScreenState extends State<TeamScreen> {
               final team = visibleTeams[index];
               return TeamCard(
                 teamName: team.teamName,
+                role: team.role,
                 color: team.color,
                 members: team.members,
                 isMisterX: team.isMisterX,

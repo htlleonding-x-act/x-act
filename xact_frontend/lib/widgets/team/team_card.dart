@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/api/models.dart';
+
+import 'team_name_role_label.dart';
 
 /// A team card displayed on the in-game Team tab.
 class TeamCard extends StatelessWidget {
   final String teamName;
+  final TeamRole? role;
   final Color color;
   final List<String> members;
   final bool isMisterX;
@@ -10,6 +14,7 @@ class TeamCard extends StatelessWidget {
   const TeamCard({
     super.key,
     required this.teamName,
+    required this.role,
     required this.color,
     required this.members,
     this.isMisterX = false,
@@ -35,12 +40,23 @@ class TeamCard extends StatelessWidget {
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
               const SizedBox(width: 12),
-              Text(
-                teamName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                fit: FlexFit.loose,
+                child: TeamNameRoleLabel(
+                  teamName: teamName,
+                  role: role,
+                  teamNameStyle: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  roleStyle: const TextStyle(
+                    color: Color(0xFFBFDBFE),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (isMisterX) ...[

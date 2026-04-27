@@ -257,10 +257,36 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     );
   }
 
+  String _nextAvailableTeamName() {
+    final usedNumbers = <int>{};
+    final teamNamePattern = RegExp(r'^Team\s+(\d+)$', caseSensitive: false);
+
+    for (final team in _teams) {
+      final match = teamNamePattern.firstMatch(team.name.trim());
+      if (match == null) {
+        continue;
+      }
+
+      final parsed = int.tryParse(match.group(1)!);
+      if (parsed != null && parsed > 0) {
+        usedNumbers.add(parsed);
+      }
+    }
+
+    var next = 1;
+    while (usedNumbers.contains(next)) {
+      next++;
+    }
+
+    return 'Team $next';
+  }
+
   Future<void> _addTeam() async {
     final result = await showDialog<AddTeamResult>(
       context: context,
-      builder: (_) => const AddTeamDialog.create(),
+      builder: (_) => AddTeamDialog.create(
+        initialName: _nextAvailableTeamName(),
+      ),
     );
 
     if (result == null) return;

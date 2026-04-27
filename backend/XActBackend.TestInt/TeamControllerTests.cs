@@ -39,7 +39,7 @@ public sealed class TeamControllerTests(WebApiTestFixture fixture) : SeededWebAp
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var content = await response.Content.ReadFromJsonAsync<TeamDetailsDto>(JsonOptions, TestCancellationToken);
         content.Should().NotBeNull();
-        content.TeamName.Should().Be("Detectives");
+        content.TeamName.Should().Be("Team 2");
     }
 
     [Fact]
