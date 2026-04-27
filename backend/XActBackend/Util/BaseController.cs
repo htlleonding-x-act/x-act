@@ -29,6 +29,7 @@ public abstract class BaseController : ControllerBase
             DomainErrorCodes.UserAlreadyJoined => StatusCodes.Status409Conflict,
             DomainErrorCodes.TeamLeaderAlreadyExists => StatusCodes.Status409Conflict,
             DomainErrorCodes.PowerUpNotAllowedForTeamRole => StatusCodes.Status409Conflict,
+            DomainErrorCodes.GeofencePointLimitReached => StatusCodes.Status422UnprocessableEntity,
             _ => StatusCodes.Status400BadRequest,
         };
 

@@ -18,6 +18,7 @@ public static class DomainErrorCodes
     public const string UserAlreadyJoined = "user_already_joined";
     public const string TeamLeaderAlreadyExists = "team_leader_already_exists";
     public const string PowerUpNotAllowedForTeamRole = "power_up_not_allowed_for_team_role";
+    public const string GeofencePointLimitReached = "geofence_point_limit_reached";
 }
 
 public sealed record DomainError(string Code, string Message)
@@ -68,4 +69,8 @@ public sealed record DomainError(string Code, string Message)
     public static DomainError PowerUpNotAllowedForTeamRole(PowerUpType powerUpType, TeamRole teamRole) =>
         new(DomainErrorCodes.PowerUpNotAllowedForTeamRole,
             $"Power-up {powerUpType} is not allowed for team role {teamRole}.");
+
+    public static DomainError GeofencePointLimitReached(int sessionId, int limit) =>
+        new(DomainErrorCodes.GeofencePointLimitReached,
+            $"Session {sessionId} has reached the maximum of {limit} geofence points.");
 }
