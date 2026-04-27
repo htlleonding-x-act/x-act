@@ -131,4 +131,13 @@ public sealed class DomainErrorTests
         result.Code.Should().Be(DomainErrorCodes.PowerUpNotAllowedForTeamRole);
         result.Message.Should().Contain("BlackTicket").And.Contain("Detective");
     }
+
+    [Fact]
+    public void GeofencePointLimitReached_ReturnsExpectedCodeAndMessage()
+    {
+        var result = DomainError.GeofencePointLimitReached(3, 10);
+
+        result.Code.Should().Be(DomainErrorCodes.GeofencePointLimitReached);
+        result.Message.Should().Contain("3").And.Contain("10");
+    }
 }

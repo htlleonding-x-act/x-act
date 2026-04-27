@@ -109,15 +109,51 @@ public sealed class GeofencePointServiceTests
         var point = CreatePoint(DefaultPointId, data.SessionId, data.Latitude, data.Longitude, data.SequenceOrder);
 
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateSession());
+        _geofencePointRepository.CountPointsBySessionIdAsync(DefaultSessionId).Returns(0);
         _geofencePointRepository.AddGeofencePoint(data.SessionId, data.Latitude, data.Longitude, data.SequenceOrder).Returns(point);
 
         var result = await _sut.AddGeofencePointAsync(data);
 
         result.Switch(
             addedPoint => addedPoint.Should().BeEquivalentTo(point),
-            notFound => Assert.Fail("Expected GeofencePoint but got NotFound")
+            notFound => Assert.Fail("Expected GeofencePoint but got NotFound"),
+            domainError => Assert.Fail($"Expected GeofencePoint but got DomainError: {domainError.Code}")
         );
         await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask AddGeofencePointAsync_ReturnsNotFound_WhenSessionNotFound()
+    {
+        var data = new IGeofencePointService.GeofencePointData(DefaultSessionId, 12.34, 56.78, 1);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?)null);
+
+        var result = await _sut.AddGeofencePointAsync(data);
+
+        result.Switch(
+            addedPoint => Assert.Fail("Expected NotFound but got GeofencePoint"),
+            notFound => { /* expected */ },
+            domainError => Assert.Fail($"Expected NotFound but got DomainError: {domainError.Code}")
+        );
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask AddGeofencePointAsync_ReturnsDomainError_WhenLimitReached()
+    {
+        var data = new IGeofencePointService.GeofencePointData(DefaultSessionId, 12.34, 56.78, 10);
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateSession());
+        _geofencePointRepository.CountPointsBySessionIdAsync(DefaultSessionId).Returns(10);
+
+        var result = await _sut.AddGeofencePointAsync(data);
+
+        result.Switch(
+            addedPoint => Assert.Fail("Expected DomainError but got GeofencePoint"),
+            notFound => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.GeofencePointLimitReached)
+        );
+        await _uow.DidNotReceive().SaveChangesAsync();
     }
 
     [Fact]

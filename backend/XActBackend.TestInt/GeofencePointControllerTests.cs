@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 using XActBackend.Controllers;
 using XActBackend.Importer;
+using XActBackend.Persistence.Model;
 using XActBackend.TestInt.Util;
 
 namespace XActBackend.TestInt;
@@ -83,6 +84,37 @@ public sealed class GeofencePointControllerTests(WebApiTestFixture fixture) : Se
         );
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async ValueTask AddGeofencePoint_ReturnsUnprocessableEntity_WhenLimitReached()
+    {
+        // Seed has 2 points for SessionId; fill up to the limit of 10
+        await ModifyDatabaseContentAsync(async ctx =>
+        {
+            for (int i = 3; i <= 10; i++)
+            {
+                ctx.GeofencePoints.Add(new GeofencePoint
+                {
+                    SessionId = SeedData.SessionId,
+                    Latitude = 48.2 + i * 0.01,
+                    Longitude = 16.3 + i * 0.01,
+                    SequenceOrder = i,
+                });
+            }
+            await ctx.SaveChangesAsync();
+        });
+
+        var request = new GeofencePointAddRequest(48.5, 16.5, 11);
+
+        var response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/geofencepoints",
+            request,
+            JsonOptions,
+            TestCancellationToken
+        );
+
+        response.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 
     [Fact]

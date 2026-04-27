@@ -95,7 +95,7 @@ public interface ILocationLogService
 
 internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogService> logger) : ILocationLogService
 {
-    private static readonly ConcurrentDictionary<int, SemaphoreSlim> MemberLocks = new();
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> member_Locks = new();
 
     public async ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking)
     {
@@ -138,7 +138,7 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
                 async _ =>
                 {
                     // Serialize add+reveal decision per member to reduce duplicate reveal pings under concurrent requests.
-                    SemaphoreSlim memberLock = MemberLocks.GetOrAdd(newLocationLog.MemberId, _ => new SemaphoreSlim(1, 1));
+                    SemaphoreSlim memberLock = member_Locks.GetOrAdd(newLocationLog.MemberId, _ => new SemaphoreSlim(1, 1));
                     await memberLock.WaitAsync();
                     try
                     {
