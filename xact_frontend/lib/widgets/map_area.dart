@@ -59,6 +59,7 @@ class _MapAreaState extends State<MapArea> {
 
   List<PlayerMarker> _otherPlayers = [];
   List<MapLegendTeamEntry> _legendTeamEntries = const [];
+  Color _myMarkerColor = Colors.blue;
 
   @override
   void initState() {
@@ -193,6 +194,14 @@ class _MapAreaState extends State<MapArea> {
       if (!mounted) return;
 
       setState(() {
+        final currentTeamId = AppSession.instance.currentTeamId;
+        final currentTeamColor = currentTeamId == null
+            ? null
+            : legendTeams
+                  .where((team) => team.teamId == currentTeamId)
+                  .map((team) => team.color)
+                  .firstOrNull;
+
         _otherPlayers = players
             .where((p) => p.memberId != myMemberId)
             .map(
@@ -214,6 +223,8 @@ class _MapAreaState extends State<MapArea> {
               ),
             )
             .toList(growable: false);
+
+        _myMarkerColor = currentTeamColor ?? Colors.blue;
       });
     } catch (_) {
       // Keep existing markers when refresh fails.
@@ -286,7 +297,7 @@ class _MapAreaState extends State<MapArea> {
             id: 'me',
             name: 'You',
             position: _myPosition!,
-            color: Colors.blue,
+            color: _myMarkerColor,
             isCurrentUser: true,
           ),
         ),
@@ -372,7 +383,10 @@ class _MapAreaState extends State<MapArea> {
             ],
           ),
           const MapHeader(),
-          MapLegend(teamEntries: _legendTeamEntries),
+          MapLegend(
+            teamEntries: _legendTeamEntries,
+            myLocationColor: _myMarkerColor,
+          ),
           // Out-of-bounds warning banner
           if (_isOutOfBounds)
             Positioned(

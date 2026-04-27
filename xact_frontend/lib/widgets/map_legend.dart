@@ -9,13 +9,18 @@ final class MapLegendTeamEntry {
 
 class MapLegend extends StatelessWidget {
   final List<MapLegendTeamEntry> teamEntries;
+  final Color myLocationColor;
 
-  const MapLegend({super.key, required this.teamEntries});
+  const MapLegend({
+    super.key,
+    required this.teamEntries,
+    required this.myLocationColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     final items = <Widget>[
-      _LegendItem(color: Colors.blue, label: 'Your Location'),
+      _LegendItem(color: myLocationColor, label: 'Your Location'),
     ];
 
     for (final entry in teamEntries) {
