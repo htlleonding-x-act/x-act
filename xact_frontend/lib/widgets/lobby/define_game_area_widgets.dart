@@ -100,11 +100,7 @@ class DefineGameAreaMap extends StatelessWidget {
                 width: 40,
                 height: 40,
                 child: const Center(
-                  child: Icon(
-                    Icons.my_location,
-                    size: 28,
-                    color: Color(0xFF60A5FA),
-                  ),
+                  child: Icon(Icons.location_pin, size: 32, color: Colors.red),
                 ),
               ),
             ],
