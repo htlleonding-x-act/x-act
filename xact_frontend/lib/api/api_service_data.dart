@@ -111,47 +111,53 @@ extension ApiServiceDataMethods on ApiService {
     return visibleTeams;
   }
 
+  // Visibility rules for player markers on the map:
+  //   - Spectators / unassigned: no map presence.
+  //   - Detectives: always visible to every viewer.
+  //   - Mr. X: only visible when the latest log is a revealed ping. The
+  //     marker is placed at the revealed log's coordinates so the position
+  //     does not leak between reveals. The backend snapshot service already
+  //     filters Mr. X's latestLocations down to revealed entries, so an
+  //     absent / non-revealed entry here means "hidden".
+  //   - The current player's own marker is rendered from local GPS by the
+  //     map widget, not from this list, so these rules apply to everyone
+  //     else.
   Future<List<PlayerPositionData>> loadPlayerPositions(int sessionId) async {
     final snapshot = await loadLobbySnapshot(sessionId);
     final out = <PlayerPositionData>[];
 
-    final currentTeamId = _session.currentTeamId;
-    final currentTeamRole = currentTeamId == null
-        ? null
-        : snapshot.teams
-              .where((team) => team.teamId == currentTeamId)
-              .map((team) => team.role)
-              .firstOrNull;
-
-    // Create a map of memberId -> latest location for reveal check
     final latestLocationByMemberId = <int, SnapshotLatestLocation>{};
     for (final location in snapshot.latestLocations) {
       latestLocationByMemberId[location.memberId] = location;
     }
 
     for (final team in snapshot.teams) {
-      final color = tryParseHexColor(team.colorCode) ?? Colors.blueGrey;
-      final members = snapshot.membersByTeamId[team.teamId] ?? const [];
-
-      // TODO: Final visibility rules are not fully defined yet.
-      // Temporary behavior: Mister X should not see detective pings.
-      if (currentTeamRole == TeamRole.mrX && team.role != TeamRole.mrX) {
+      if (team.role == TeamRole.spectator) {
         continue;
       }
 
-      for (final member in members) {
-        final lat = member.currentLatitude;
-        final lon = member.currentLongitude;
-        if (lat == null || lon == null) {
-          continue;
-        }
+      final color = tryParseHexColor(team.colorCode) ?? Colors.blueGrey;
+      final members = snapshot.membersByTeamId[team.teamId] ?? const [];
+      final isMrXTeam = team.role == TeamRole.mrX;
 
-        // For Mr. X team, only show position if it's a revealed position
-        if (team.role == TeamRole.mrX) {
-          final latestLocation = latestLocationByMemberId[member.memberId];
-          if (latestLocation == null || !latestLocation.isRevealedPosition) {
+      for (final member in members) {
+        double? lat;
+        double? lon;
+
+        if (isMrXTeam) {
+          final revealed = latestLocationByMemberId[member.memberId];
+          if (revealed == null || !revealed.isRevealedPosition) {
             continue;
           }
+          lat = revealed.latitude;
+          lon = revealed.longitude;
+        } else {
+          lat = member.currentLatitude;
+          lon = member.currentLongitude;
+        }
+
+        if (lat == null || lon == null) {
+          continue;
         }
 
         final name = member.userId != null
