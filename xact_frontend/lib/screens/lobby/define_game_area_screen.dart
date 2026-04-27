@@ -98,12 +98,24 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     }
   }
 
+  static const int _maxPoints = 10;
+
   void _onMapTap(TapPosition _, LatLng point) {
     if (_isMoveMode && _selectedIndex >= 0 && _selectedIndex < _points.length) {
       setState(() {
         _points[_selectedIndex] = point;
         _isMoveMode = false;
       });
+      return;
+    }
+
+    if (_points.length >= _maxPoints) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Maximum of $_maxPoints corners reached.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
@@ -199,15 +211,15 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Yes', style: TextStyle(color: Colors.red)),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'No',
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
         ],
       ),
@@ -286,6 +298,9 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     }
     if (_points.length == 1) return '1 corner placed - add at least 2 more';
     if (_points.length == 2) return '2 corners placed - add at least 1 more';
+    if (_points.length >= _maxPoints) {
+      return '$_maxPoints corners placed – maximum reached';
+    }
     return '${_points.length} corners - tap a corner to select or tap map to add';
   }
 
