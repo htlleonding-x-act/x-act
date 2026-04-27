@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../api/api_service.dart';
+import 'start/start_screen.dart';
 import 'team_screen.dart';
 import 'all_chat_screen.dart';
 import 'team_chat_screen.dart';
@@ -19,6 +21,7 @@ class _GameScreenState extends State<GameScreen> {
   int _selectedIndex = 0;
   bool _isMapFullscreen = false;
   bool _trackingInitCancelled = false;
+  bool _allowDirectPop = false;
   Timer? _trackingRetryTimer;
 
   final List<Widget> _screens = const [
@@ -51,6 +54,7 @@ class _GameScreenState extends State<GameScreen> {
       debugPrintStack(stackTrace: stackTrace);
     }
   }
+
   @override
   void dispose() {
     _trackingInitCancelled = true;
@@ -91,52 +95,130 @@ class _GameScreenState extends State<GameScreen> {
     setState(() => _isMapFullscreen = !_isMapFullscreen);
   }
 
+  bool get _hasActiveGameSession =>
+      AppSession.instance.currentSessionId != null;
+
+  Future<void> _onPopInvokedWithResult(bool didPop, Object? result) async {
+    if (didPop || _allowDirectPop || !_hasActiveGameSession) {
+      return;
+    }
+
+    final shouldQuit = await _showQuitConfirmationDialog();
+    if (!shouldQuit) {
+      return;
+    }
+
+    await _quitGameAndNavigateBack();
+  }
+
+  Future<bool> _showQuitConfirmationDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Quit Game'),
+          content: const Text('Are you sure you want to quit?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Quit'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
+  }
+
+  Future<void> _quitGameAndNavigateBack() async {
+    try {
+      await ApiService.instance.closeCurrentSession();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to close current session while quitting: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _allowDirectPop = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _allowDirectPop = false);
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const StartScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _isMapFullscreen
-          ? MapArea(onFullscreenToggle: _toggleFullscreen, isFullscreen: true)
-          : Column(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: MapArea(onFullscreenToggle: _toggleFullscreen),
-                ),
-                Expanded(flex: 4, child: _screens[_selectedIndex]),
-              ],
-            ),
-      bottomNavigationBar: _isMapFullscreen
-          ? null
-          : BottomNavigationBar(
-              currentIndex: _selectedIndex,
-              onTap: (index) {
-                setState(() {
-                  _selectedIndex = index;
-                });
-              },
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: const Color(0xFF0F172A),
-              selectedItemColor: Colors.blue.shade400,
-              unselectedItemColor: Colors.white54,
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.groups),
-                  label: 'Team',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.forum),
-                  label: 'All Chat',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.chat),
-                  label: 'Team Chat',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.warning),
-                  label: 'Report',
-                ),
-              ],
-            ),
+    return PopScope(
+      canPop: _allowDirectPop || !_hasActiveGameSession,
+      onPopInvokedWithResult: _onPopInvokedWithResult,
+      child: Scaffold(
+        body: _isMapFullscreen
+            ? MapArea(onFullscreenToggle: _toggleFullscreen, isFullscreen: true)
+            : Column(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: MapArea(onFullscreenToggle: _toggleFullscreen),
+                  ),
+                  Expanded(flex: 4, child: _screens[_selectedIndex]),
+                ],
+              ),
+        bottomNavigationBar: _isMapFullscreen
+            ? null
+            : BottomNavigationBar(
+                currentIndex: _selectedIndex,
+                onTap: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: const Color(0xFF0F172A),
+                selectedItemColor: Colors.blue.shade400,
+                unselectedItemColor: Colors.white54,
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.groups),
+                    label: 'Team',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.forum),
+                    label: 'All Chat',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.chat),
+                    label: 'Team Chat',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.warning),
+                    label: 'Report',
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
