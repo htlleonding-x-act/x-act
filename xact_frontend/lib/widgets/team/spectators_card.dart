@@ -53,8 +53,6 @@ class SpectatorsCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   const Icon(Icons.visibility, color: Colors.white38, size: 18),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.edit, color: Colors.white38, size: 18),
                   const Spacer(),
                   Text(
                     '${spectators.length}/∞',

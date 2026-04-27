@@ -48,7 +48,7 @@ class TeamOverviewCard extends StatelessWidget {
               _overviewChip('Spectators', Colors.grey, '$spectatorCount/∞'),
               ...teams.map(
                 (t) => _overviewChip(
-                  t.name,
+                  t.displayName,
                   t.color,
                   '${t.players.length}/${t.maxPlayers}',
                 ),

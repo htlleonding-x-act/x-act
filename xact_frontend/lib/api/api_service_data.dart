@@ -23,7 +23,7 @@ extension ApiServiceDataMethods on ApiService {
               .toList(growable: false);
 
           return TeamCardData(
-            teamName: team.teamName,
+            teamName: formatTeamNameWithRole(team.teamName, team.role),
             color: color,
             isMisterX: team.role == TeamRole.mrX,
             members: members,
@@ -48,7 +48,7 @@ extension ApiServiceDataMethods on ApiService {
         (snapshot.membersByTeamId[team.teamId] ?? const []).length;
 
     return TeamChatHeaderData(
-      teamName: team.teamName,
+      teamName: formatTeamNameWithRole(team.teamName, team.role),
       memberCount: memberCount,
       teamColor: tryParseHexColor(team.colorCode) ?? Colors.blue,
     );
@@ -61,7 +61,8 @@ extension ApiServiceDataMethods on ApiService {
     }
 
     final details = await _getGameSession(sessionId);
-    if (details.revealIntervalSeconds <= 0 || details.revealSecondsRemaining <= 0) {
+    if (details.revealIntervalSeconds <= 0 ||
+        details.revealSecondsRemaining <= 0) {
       return const MapHeaderData(nextPingText: 'Next ping: -');
     }
 
