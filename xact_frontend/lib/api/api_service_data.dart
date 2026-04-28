@@ -63,15 +63,15 @@ extension ApiServiceDataMethods on ApiService {
     }
 
     final details = await _getGameSession(sessionId);
-    if (details.revealIntervalSeconds <= 0 ||
-        details.revealSecondsRemaining <= 0) {
+    if (details.revealIntervalSeconds <= 0) {
       return const MapHeaderData(nextPingText: 'Next ping: -');
     }
 
-    final display = _formatDuration(details.revealSecondsRemaining);
+    final remainingSeconds = _resolveRemainingRevealSeconds(details);
+    final display = _formatDuration(remainingSeconds);
     return MapHeaderData(
       nextPingText: 'Next ping: $display',
-      remainingSeconds: details.revealSecondsRemaining,
+      remainingSeconds: remainingSeconds,
       intervalSeconds: details.revealIntervalSeconds,
     );
   }
@@ -193,4 +193,18 @@ String _formatDuration(int totalSeconds) {
   return seconds == 0
       ? '${minutes}m'
       : '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
+}
+
+int _resolveRemainingRevealSeconds(GameSessionDetails details) {
+  final nextRevealAt = details.nextRevealAt;
+  final serverNow = details.serverNow;
+
+  if (nextRevealAt != null) {
+    final computedSeconds = nextRevealAt.difference(serverNow).inSeconds;
+    if (computedSeconds > 0) {
+      return computedSeconds;
+    }
+  }
+
+  return details.revealSecondsRemaining;
 }
