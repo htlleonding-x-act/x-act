@@ -663,6 +663,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     }
 
     _gameTransitionStarted = true;
+
     await GameStartTransitionService.instance.playCountdown(seconds: 3);
 
     if (!mounted) {
@@ -674,6 +675,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       MaterialPageRoute(builder: (_) => const GameScreen()),
     );
   }
+
 }
 
 class _TeamUiConfig {

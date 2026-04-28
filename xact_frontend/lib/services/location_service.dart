@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../api/api_service.dart';
@@ -42,29 +41,16 @@ final class LocationService {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  /// Returns `true` when the app already has location permission.
-  Future<bool> hasPermission() async {
-    final perm = await Geolocator.checkPermission();
-    return perm == LocationPermission.whileInUse ||
-        perm == LocationPermission.always;
-  }
-
   /// Requests location permission from the OS.
   /// Returns `true` if the user grants it (whileInUse or always).
   Future<bool> requestPermission() async {
     LocationPermission permission = await Geolocator.checkPermission();
-    //TODO: Remove Logger
-    //leaving logger in case it happens again
-    _log('LocationService: current permission = $permission');
 
     if (permission == LocationPermission.denied) {
-      _log('LocationService: requesting location permission');
       permission = await Geolocator.requestPermission();
-      _log('LocationService: permission result = $permission');
     }
 
     if (permission == LocationPermission.deniedForever) {
-      _log('LocationService: permission denied forever, opening app settings');
       // User blocked it permanently – open app settings so they can fix it.
       await Geolocator.openAppSettings();
       return false;
@@ -82,23 +68,15 @@ final class LocationService {
   Future<Position?> getCurrentPosition({
     Duration timeLimit = const Duration(seconds: 10),
   }) async {
-    _log('LocationService: getCurrentPosition start (timeout: $timeLimit)');
     try {
       final granted = await requestPermission();
       if (!granted) {
-        _log(
-          'LocationService: getCurrentPosition aborted - permission not granted',
-        );
         return null;
       }
 
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      _log('LocationService: location service enabled = $serviceEnabled');
       if (!serviceEnabled) {
         final lastKnown = await Geolocator.getLastKnownPosition();
-        _log(
-          'LocationService: returning last known position because service is disabled: ${lastKnown != null}',
-        );
         return lastKnown;
       }
 
@@ -110,23 +88,13 @@ final class LocationService {
       );
       lastKnownPosition = position;
       _positionController.add(position);
-      _log(
-        'LocationService: getCurrentPosition success lat=${position.latitude} lon=${position.longitude} acc=${position.accuracy}',
-      );
       return position;
     } catch (_) {
-      _log(
-        'LocationService: getCurrentPosition failed, falling back to last known position',
-      );
       // Timeout or platform error – fall back to last known fix if we have one.
       try {
         final lastKnown = await Geolocator.getLastKnownPosition();
-        _log(
-          'LocationService: last known position available = ${lastKnown != null}',
-        );
         return lastKnown;
       } catch (_) {
-        _log('LocationService: last known position lookup failed');
         return null;
       }
     }
@@ -139,10 +107,8 @@ final class LocationService {
   Future<void> startWatching() async {
     if (_positionSub != null) return; // already running
 
-    _log('LocationService: startWatching called');
     final granted = await requestPermission();
     if (!granted) {
-      _log('LocationService: startWatching aborted - permission not granted');
       return;
     }
 
@@ -151,32 +117,14 @@ final class LocationService {
       distanceFilter: 5,
     );
 
-    _log('LocationService: subscribing to position stream');
     _positionSub =
         Geolocator.getPositionStream(locationSettings: locationSettings).listen(
           (position) {
             lastKnownPosition = position;
             _positionController.add(position);
-            _log(
-              'LocationService: stream position lat=${position.latitude} lon=${position.longitude} acc=${position.accuracy}',
-            );
           },
-          onError: (Object error) {
-            _log('LocationService: position stream error: $error');
-          },
+          onError: (_) {},
         );
-
-    // Some devices take a while before the first stream event arrives.
-    // Prime the UI with a one-shot fix so the map does not stay stuck on the
-    // loading indicator if the stream is slow to emit.
-    if (lastKnownPosition == null) {
-      final primedPosition = await getCurrentPosition(
-        timeLimit: const Duration(seconds: 5),
-      );
-      if (primedPosition != null) {
-        lastKnownPosition = primedPosition;
-      }
-    }
   }
 
   /// Starts continuous GPS tracking and periodic upload to the backend.
@@ -195,9 +143,6 @@ final class LocationService {
     // If already tracking, stop first.
     stopTracking();
 
-    _log(
-      'LocationService: startTracking session=$sessionId member=$memberId team=$teamId interval=$uploadInterval',
-    );
 
     _memberId = memberId;
     _sessionId = sessionId;
@@ -205,7 +150,6 @@ final class LocationService {
 
     final granted = await requestPermission();
     if (!granted) {
-      _log('LocationService: startTracking aborted - permission not granted');
       return;
     }
 
@@ -215,30 +159,14 @@ final class LocationService {
       distanceFilter: 5,
     );
 
-    _log('LocationService: subscribing to tracking stream');
     _positionSub =
         Geolocator.getPositionStream(locationSettings: locationSettings).listen(
           (position) {
             lastKnownPosition = position;
             _positionController.add(position);
-            _log(
-              'LocationService: tracking position lat=${position.latitude} lon=${position.longitude} acc=${position.accuracy}',
-            );
           },
-          onError: (Object error) {
-            _log('LocationService: tracking stream error: $error');
-            // Swallow errors so the stream stays alive.
-          },
+          onError: (_) {},
         );
-
-    if (lastKnownPosition == null) {
-      final primedPosition = await getCurrentPosition(
-        timeLimit: const Duration(seconds: 5),
-      );
-      if (primedPosition != null) {
-        lastKnownPosition = primedPosition;
-      }
-    }
 
     // Upload on a fixed interval so the backend is always up-to-date even
     // when the player is standing still (distanceFilter would skip those).
@@ -271,9 +199,6 @@ final class LocationService {
         sessionId == null ||
         memberId == null ||
         teamId == null) {
-      _log(
-        'LocationService: upload skipped (position=${position != null}, session=${sessionId != null}, member=${memberId != null}, team=${teamId != null})',
-      );
       return;
     }
 
@@ -289,17 +214,8 @@ final class LocationService {
         transportMode: 'Foot',
         isRevealedPosition: false,
       );
-      _log(
-        'LocationService: uploaded position member=$memberId lat=${position.latitude} lon=${position.longitude}',
-      );
     } catch (_) {
-      _log('LocationService: upload failed');
       // Don't crash – network may be temporarily unavailable.
     }
-  }
-
-  /// Simple debug logger that only prints in debug builds.
-  static void _log(String message) {
-    if (kDebugMode) debugPrint(message);
   }
 }

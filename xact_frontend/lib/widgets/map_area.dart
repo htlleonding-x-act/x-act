@@ -237,27 +237,26 @@ class _MapAreaState extends State<MapArea> {
 
     // Use the last known position immediately if available (no wait needed).
     final existing = LocationService.instance.lastKnownPosition;
-    if (existing != null && mounted) {
-      final latLng = LatLng(existing.latitude, existing.longitude);
-      setState(() {
-        _myPosition = latLng;
-        _isOutOfBounds = _checkOutOfBounds(latLng);
-      });
+    if (existing != null) {
+      _applyPosition(existing);
     }
 
     // Subscribe to live updates.
-    _positionSub = LocationService.instance.positionStream.listen((pos) {
-      if (!mounted) return;
-      final latLng = LatLng(pos.latitude, pos.longitude);
-      setState(() {
-        _myPosition = latLng;
-        _isOutOfBounds = _checkOutOfBounds(latLng);
-      });
+    _positionSub = LocationService.instance.positionStream.listen(_applyPosition);
 
-      if (_followMode) {
-        _mapController.move(latLng, _mapController.camera.zoom);
-      }
+  }
+
+  void _applyPosition(Position pos) {
+    if (!mounted) return;
+    final latLng = LatLng(pos.latitude, pos.longitude);
+    setState(() {
+      _myPosition = latLng;
+      _isOutOfBounds = _checkOutOfBounds(latLng);
     });
+
+    if (_followMode) {
+      _mapController.move(latLng, _mapController.camera.zoom);
+    }
   }
 
   /// Returns true when [point] lies outside the [_geofencePoints] polygon.
