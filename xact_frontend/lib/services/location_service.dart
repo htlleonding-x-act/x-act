@@ -41,13 +41,6 @@ final class LocationService {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
-  /// Returns `true` when the app already has location permission.
-  Future<bool> hasPermission() async {
-    final perm = await Geolocator.checkPermission();
-    return perm == LocationPermission.whileInUse ||
-        perm == LocationPermission.always;
-  }
-
   /// Requests location permission from the OS.
   /// Returns `true` if the user grants it (whileInUse or always).
   Future<bool> requestPermission() async {
@@ -77,11 +70,14 @@ final class LocationService {
   }) async {
     try {
       final granted = await requestPermission();
-      if (!granted) return null;
+      if (!granted) {
+        return null;
+      }
 
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        return await Geolocator.getLastKnownPosition();
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        return lastKnown;
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -96,7 +92,8 @@ final class LocationService {
     } catch (_) {
       // Timeout or platform error – fall back to last known fix if we have one.
       try {
-        return await Geolocator.getLastKnownPosition();
+        final lastKnown = await Geolocator.getLastKnownPosition();
+        return lastKnown;
       } catch (_) {
         return null;
       }
@@ -111,7 +108,9 @@ final class LocationService {
     if (_positionSub != null) return; // already running
 
     final granted = await requestPermission();
-    if (!granted) return;
+    if (!granted) {
+      return;
+    }
 
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
@@ -144,12 +143,15 @@ final class LocationService {
     // If already tracking, stop first.
     stopTracking();
 
+
     _memberId = memberId;
     _sessionId = sessionId;
     _teamId = teamId;
 
     final granted = await requestPermission();
-    if (!granted) return;
+    if (!granted) {
+      return;
+    }
 
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
@@ -163,9 +165,7 @@ final class LocationService {
             lastKnownPosition = position;
             _positionController.add(position);
           },
-          onError: (Object error) {
-            // Swallow errors so the stream stays alive.
-          },
+          onError: (_) {},
         );
 
     // Upload on a fixed interval so the backend is always up-to-date even

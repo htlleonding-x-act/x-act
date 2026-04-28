@@ -5,6 +5,7 @@ import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
 import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/geofence_store.dart';
+import 'package:xact_frontend/services/location_service.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class CreateGameScreen extends StatefulWidget {
@@ -94,7 +95,8 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         points: GeofenceStore.instance.points,
       );
 
-      if (!mounted) return;
+      final locationReady = await _ensureLocationReadyBeforeLobby();
+      if (!locationReady || !mounted) return;
 
       // Step 2: Enter the game.
       Navigator.push(
@@ -118,6 +120,47 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         setState(() => _creating = false);
       }
     }
+  }
+
+  Future<bool> _ensureLocationReadyBeforeLobby() async {
+    while (mounted) {
+      final position = await LocationService.instance.getCurrentPosition(
+        timeLimit: const Duration(seconds: 10),
+      );
+      if (!mounted) return false;
+      if (position != null) {
+        return true;
+      }
+
+      final retry = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Location required'),
+            content: const Text(
+              'Please allow location access and ensure GPS is enabled before joining the lobby.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Retry'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (retry != true) {
+        return false;
+      }
+    }
+
+    return false;
   }
 
   @override
