@@ -18,6 +18,7 @@ class CreateGameScreen extends StatefulWidget {
 class _CreateGameScreenState extends State<CreateGameScreen> {
   final _gameNameController = TextEditingController();
   bool _creating = false;
+  bool _finalizingLobby = false;
 
   @override
   void dispose() {
@@ -77,6 +78,12 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         ),
       );
 
+      // While the host is defining the game area, the create-game form is
+      // still mounted underneath; flipping this flag now means the moment
+      // the area screen pops we reveal a loading view instead of the form
+      // briefly reappearing.
+      setState(() => _finalizingLobby = true);
+
       // Step 1: Let the host define the game area.
       final areaSaved = await Navigator.push<bool>(
         context,
@@ -88,7 +95,10 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         ),
       );
 
-      if (areaSaved != true || !mounted) return;
+      if (areaSaved != true || !mounted) {
+        if (mounted) setState(() => _finalizingLobby = false);
+        return;
+      }
 
       await ApiService.instance.saveGeofenceArea(
         sessionId: sessionId,
@@ -96,10 +106,13 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       );
 
       final locationReady = await _ensureLocationReadyBeforeLobby();
-      if (!locationReady || !mounted) return;
+      if (!locationReady || !mounted) {
+        if (mounted) setState(() => _finalizingLobby = false);
+        return;
+      }
 
       // Step 2: Enter the game.
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => GameLobbyScreen(
@@ -168,25 +181,44 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
     return Scaffold(
       backgroundColor: XActBranding.backgroundColor,
       body: SafeArea(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            16 + MediaQuery.of(context).viewInsets.bottom,
+        child: _finalizingLobby
+            ? _buildPreparingLobbyView()
+            : SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  24,
+                  24,
+                  16 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    XActBranding.buildHeader(),
+                    const SizedBox(height: 32),
+                    _buildCreateForm(),
+                    const SizedBox(height: 16),
+                    XActBranding.buildFooter(),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildPreparingLobbyView() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: Colors.blue),
+          SizedBox(height: 20),
+          Text(
+            'Preparing your lobby…',
+            style: TextStyle(color: Colors.white, fontSize: 16),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              XActBranding.buildHeader(),
-              const SizedBox(height: 32),
-              _buildCreateForm(),
-              const SizedBox(height: 16),
-              XActBranding.buildFooter(),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
