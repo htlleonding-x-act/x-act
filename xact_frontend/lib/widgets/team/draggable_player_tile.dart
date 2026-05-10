@@ -18,31 +18,34 @@ class PlayerTileContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final isYou = player.isCurrentUser;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: XActBranding.backgroundColor,
-        borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: XActSpace.s3,
+        vertical: XActSpace.s2 + 2,
+      ),
+      decoration: const BoxDecoration(
+        color: XActColors.bg,
+        borderRadius: XActRadius.sm,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.drag_indicator, color: Colors.white24, size: 20),
-          const SizedBox(width: 8),
+          Icon(Icons.drag_indicator, color: XActColors.text5, size: 20),
+          const SizedBox(width: XActSpace.s2),
           Container(
             width: 10,
             height: 10,
             decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 10),
-          Text(
-            player.name,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-          ),
+          const SizedBox(width: XActSpace.s2 + 2),
+          Text(player.name, style: XActText.bodySm),
           if (isYou) ...[
-            const SizedBox(width: 6),
-            const Text(
+            const SizedBox(width: XActSpace.s1 + 2),
+            Text(
               '(you)',
-              style: TextStyle(color: Colors.amber, fontSize: 13),
+              style: XActText.caption.copyWith(
+                color: Colors.amber,
+                fontSize: 13,
+              ),
             ),
           ],
         ],
@@ -65,7 +68,7 @@ class DraggablePlayerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: XActSpace.s1),
       child: LongPressDraggable<LobbyPlayer>(
         data: player,
         delay: const Duration(milliseconds: 150),
@@ -84,9 +87,9 @@ class DraggablePlayerTile extends StatelessWidget {
           child: Container(
             height: 40,
             decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.white12),
+              color: Colors.white.withValues(alpha: .04),
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
+              border: Border.all(color: Colors.white.withValues(alpha: .06)),
             ),
           ),
         ),

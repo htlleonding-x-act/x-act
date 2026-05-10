@@ -9,130 +9,51 @@ class PlayNowScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: XActBranding.backgroundColor,
+      backgroundColor: XActColors.bg,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: XActSpace.s6),
           child: Column(
             children: [
-              const SizedBox(height: 40),
+              const SizedBox(height: XActSpace.s8),
               XActBranding.buildHeader(),
-              const SizedBox(height: 32),
-              _buildStartNewGameCard(context),
-              const SizedBox(height: 16),
-              _buildJoinGameCard(context),
+              const SizedBox(height: XActSpace.s7),
+              XActBranding.buildActionCard(
+                icon: Icons.add,
+                title: 'Start New Game',
+                subtitle:
+                    'Create a game and open its lobby so friends can join with your game code',
+                bg: XActColors.secondary,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CreateGameScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: XActSpace.s4),
+              XActBranding.buildActionCard(
+                icon: Icons.arrow_forward,
+                title: "Join Friend's Game",
+                subtitle:
+                    'Enter a game code to join your friends in the lobby',
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const JoinGameScreen(),
+                    ),
+                  );
+                },
+              ),
               const Spacer(),
               _buildBackButton(context),
-              const SizedBox(height: 24),
+              const SizedBox(height: XActSpace.s6),
               XActBranding.buildFooter(),
-              const SizedBox(height: 16),
+              const SizedBox(height: XActSpace.s4),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStartNewGameCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: XActBranding.primaryBlue,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const CreateGameScreen(),
-              ),
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.add, color: Colors.white, size: 28),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Start New Game',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Create a game and open its lobby so friends can join with your game code',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildJoinGameCard(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const JoinGameScreen()),
-            );
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.arrow_forward, color: Colors.white, size: 28),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        "Join Friend's Game",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Enter a game code to join your friends in the lobby',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -144,9 +65,9 @@ class PlayNowScreen extends StatelessWidget {
       onPressed: () {
         Navigator.of(context).pop();
       },
-      child: const Text(
+      child: Text(
         'Back',
-        style: TextStyle(color: Colors.white70, fontSize: 16),
+        style: XActText.body.copyWith(color: XActColors.text2),
       ),
     );
   }

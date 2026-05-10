@@ -35,14 +35,16 @@ class LobbyTeamCard extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           width: double.infinity,
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(XActSpace.s3),
           decoration: BoxDecoration(
             color: isHovering
-                ? team.color.withAlpha(30)
-                : XActBranding.cardColor,
-            borderRadius: BorderRadius.circular(12),
+                ? team.color.withValues(alpha: .12)
+                : XActColors.surface,
+            borderRadius: XActRadius.md,
             border: Border.all(
-              color: isHovering ? team.color : team.color.withAlpha(150),
+              color: isHovering
+                  ? team.color
+                  : team.color.withValues(alpha: .58),
               width: isHovering ? 2.5 : 1.5,
             ),
           ),
@@ -55,14 +57,7 @@ class LobbyTeamCard extends StatelessWidget {
                     child: TeamNameRoleLabel(
                       teamName: team.name,
                       role: team.role,
-                      teamNameStyle: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      roleStyle: const TextStyle(
-                        color: Color(0xFFBFDBFE),
-                        fontSize: 14,
+                      teamNameStyle: XActText.body.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
@@ -74,18 +69,18 @@ class LobbyTeamCard extends StatelessWidget {
                       onTap: onRename,
                       child: Icon(Icons.edit, color: team.color, size: 18),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: XActSpace.s3),
                     Text(
                       '${team.players.length}/${team.maxPlayers}',
-                      style: TextStyle(color: team.color, fontSize: 14),
+                      style: XActText.bodySm.copyWith(color: team.color),
                     ),
                     if (team.isDeletable) ...[
-                      const SizedBox(width: 10),
+                      const SizedBox(width: XActSpace.s3),
                       GestureDetector(
                         onTap: onDelete,
-                        child: const Icon(
+                        child: Icon(
                           Icons.delete,
-                          color: Colors.white38,
+                          color: XActColors.text4,
                           size: 18,
                         ),
                       ),
@@ -93,15 +88,18 @@ class LobbyTeamCard extends StatelessWidget {
                   ] else
                     Text(
                       '${team.players.length}/${team.maxPlayers}',
-                      style: TextStyle(color: team.color, fontSize: 14),
+                      style: XActText.bodySm.copyWith(color: team.color),
                     ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: XActSpace.s2),
               if (team.players.isEmpty)
-                const Text(
+                Text(
                   'No players',
-                  style: TextStyle(color: Colors.white38, fontSize: 13),
+                  style: XActText.caption.copyWith(
+                    color: XActColors.text4,
+                    fontSize: 13,
+                  ),
                 )
               else
                 ...team.players.map(

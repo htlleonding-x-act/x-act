@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/models.dart';
 
+import '../xact_branding.dart';
 import 'team_name_role_label.dart';
 
 /// A team card displayed on the in-game Team tab.
@@ -24,11 +25,11 @@ class TeamCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF334155), width: 1),
+        color: XActColors.surfaceAlt,
+        borderRadius: XActRadius.md,
+        border: Border.all(color: XActColors.hairline, width: 1),
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(XActSpace.s4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -39,50 +40,46 @@ class TeamCard extends StatelessWidget {
                 height: 12,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: XActSpace.s3),
               Flexible(
                 fit: FlexFit.loose,
                 child: TeamNameRoleLabel(
                   teamName: teamName,
                   role: role,
-                  teamNameStyle: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
+                  teamNameStyle: XActText.subheading.copyWith(
                     fontWeight: FontWeight.bold,
-                  ),
-                  roleStyle: const TextStyle(
-                    color: Color(0xFFBFDBFE),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (isMisterX) ...[
-                const SizedBox(width: 8),
-                const Text('👑', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: XActSpace.s2),
+                const Icon(Icons.shield, color: XActColors.roleMrX, size: 18),
               ],
               const Spacer(),
               Row(
                 children: [
-                  const Icon(Icons.people, color: Colors.white54, size: 18),
-                  const SizedBox(width: 4),
+                  Icon(Icons.people, color: XActColors.text3, size: 18),
+                  const SizedBox(width: XActSpace.s1),
                   Text(
                     members.length.toString(),
-                    style: const TextStyle(color: Colors.white54, fontSize: 16),
+                    style: XActText.body.copyWith(color: XActColors.text3),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: XActSpace.s3),
           ...members.map(
             (member) => Padding(
-              padding: const EdgeInsets.only(bottom: 4, left: 24),
+              padding: const EdgeInsets.only(
+                bottom: XActSpace.s1,
+                left: XActSpace.s6,
+              ),
               child: Text(
                 member,
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
+                style: XActText.body.copyWith(color: XActColors.text2),
               ),
             ),
           ),

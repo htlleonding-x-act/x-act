@@ -25,16 +25,16 @@ class SpectatorsCard extends StatelessWidget {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           width: double.infinity,
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(XActSpace.s3),
           decoration: BoxDecoration(
             color: isHovering
-                ? Colors.blueAccent.withAlpha(30)
-                : XActBranding.cardColor,
-            borderRadius: BorderRadius.circular(12),
+                ? XActColors.roleSpectator.withValues(alpha: .12)
+                : XActColors.surface,
+            borderRadius: XActRadius.md,
             border: Border.all(
               color: isHovering
-                  ? Colors.blueAccent
-                  : Colors.blueAccent.withAlpha(120),
+                  ? XActColors.roleSpectator
+                  : XActColors.roleSpectator.withValues(alpha: .47),
               width: isHovering ? 2.5 : 1.5,
             ),
           ),
@@ -43,27 +43,32 @@ class SpectatorsCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Unassigned',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: XActText.body.copyWith(fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.visibility, color: Colors.white38, size: 18),
+                  const SizedBox(width: XActSpace.s2),
+                  Icon(
+                    Icons.visibility,
+                    color: XActColors.text4,
+                    size: 18,
+                  ),
                   const Spacer(),
                   Text(
                     '${spectators.length}/∞',
-                    style: const TextStyle(color: Colors.white54, fontSize: 13),
+                    style: XActText.caption.copyWith(
+                      color: XActColors.text3,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: XActSpace.s2),
               ...spectators.map(
-                (player) =>
-                    DraggablePlayerTile(player: player, dotColor: Colors.grey),
+                (player) => DraggablePlayerTile(
+                  player: player,
+                  dotColor: XActColors.roleSpectator,
+                ),
               ),
             ],
           ),

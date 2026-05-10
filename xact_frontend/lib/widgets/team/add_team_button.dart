@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../xact_branding.dart';
+
 /// Outlined button for adding a new team in the lobby.
 class AddTeamButton extends StatelessWidget {
   final VoidCallback onPressed;
@@ -12,17 +14,15 @@ class AddTeamButton extends StatelessWidget {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        icon: const Icon(Icons.add, color: Colors.white54),
-        label: const Text(
+        icon: Icon(Icons.add, color: XActColors.text3),
+        label: Text(
           'Add New Team',
-          style: TextStyle(color: Colors.white54),
+          style: XActText.body.copyWith(color: XActColors.text3),
         ),
         style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.white24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          side: BorderSide(color: XActColors.text5),
+          shape: const RoundedRectangleBorder(borderRadius: XActRadius.md),
+          padding: const EdgeInsets.symmetric(vertical: XActSpace.s3),
         ),
       ),
     );

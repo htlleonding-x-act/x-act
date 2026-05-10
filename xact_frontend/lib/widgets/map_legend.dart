@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'xact_branding.dart';
+
 final class MapLegendTeamEntry {
   final String label;
   final Color color;
@@ -24,18 +26,18 @@ class MapLegend extends StatelessWidget {
     ];
 
     for (final entry in teamEntries) {
-      items.add(const SizedBox(height: 8));
+      items.add(const SizedBox(height: XActSpace.s2));
       items.add(_LegendItem(color: entry.color, label: entry.label));
     }
 
     return Positioned(
-      bottom: 16,
-      left: 16,
+      bottom: XActSpace.s4,
+      left: XActSpace.s4,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(XActSpace.s3),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(8),
+          color: XActColors.surfaceDeep.withValues(alpha: .9),
+          borderRadius: XActRadius.sm,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,8 +65,8 @@ class _LegendItem extends StatelessWidget {
           height: 12,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        const SizedBox(width: XActSpace.s2),
+        Text(label, style: XActText.bodySm),
       ],
     );
   }

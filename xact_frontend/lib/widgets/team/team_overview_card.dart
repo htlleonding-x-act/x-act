@@ -20,34 +20,37 @@ class TeamOverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.all(XActSpace.s3),
+      decoration: const BoxDecoration(
+        color: XActColors.surface,
+        borderRadius: XActRadius.md,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.people, color: Colors.white70, size: 18),
-              SizedBox(width: 6),
+              Icon(Icons.people, color: XActColors.text2, size: 18),
+              const SizedBox(width: XActSpace.s1),
               Text(
                 'Team Overview',
-                style: TextStyle(
-                  color: Colors.white,
+                style: XActText.bodySm.copyWith(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: XActSpace.s2),
           Wrap(
-            spacing: 16,
-            runSpacing: 6,
+            spacing: XActSpace.s4,
+            runSpacing: XActSpace.s1,
             children: [
-              _overviewChip('Unassigned', Colors.grey, '$spectatorCount/∞'),
+              _overviewChip(
+                'Unassigned',
+                XActColors.roleSpectator,
+                '$spectatorCount/∞',
+              ),
               ...teams.map(
                 (t) => _overviewChip(
                   t.name,
@@ -77,23 +80,24 @@ class TeamOverviewCard extends StatelessWidget {
           height: 10,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: XActSpace.s1),
         TeamNameRoleLabel(
           teamName: name,
           role: role,
-          teamNameStyle: const TextStyle(color: Colors.white70, fontSize: 13),
-          roleStyle: const TextStyle(
-            color: Color(0xFFBFDBFE),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+          teamNameStyle: XActText.caption.copyWith(
+            color: XActColors.text2,
+            fontSize: 13,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: XActSpace.s1),
         Text(
           count,
-          style: const TextStyle(color: Colors.white38, fontSize: 13),
+          style: XActText.caption.copyWith(
+            color: XActColors.text4,
+            fontSize: 13,
+          ),
         ),
       ],
     );

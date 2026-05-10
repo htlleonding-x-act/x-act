@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../xact_branding.dart';
+
 /// Header row for the game lobby showing title, player count and QR button.
 class GameLobbyHeader extends StatelessWidget {
   final String gameName;
@@ -18,7 +20,12 @@ class GameLobbyHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(
+        XActSpace.s4,
+        XActSpace.s3,
+        XActSpace.s4,
+        XActSpace.s1,
+      ),
       child: Row(
         children: [
           Expanded(
@@ -27,23 +34,22 @@ class GameLobbyHeader extends StatelessWidget {
               children: [
                 Text(
                   gameName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: XActText.heading.copyWith(fontSize: 22),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '$totalPlayers players in game lobby'
                   '${isLeader ? '  •  Game Host' : ''}',
-                  style: const TextStyle(color: Colors.white60, fontSize: 13),
+                  style: XActText.caption.copyWith(
+                    color: XActColors.text2,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.qr_code, color: Colors.white70),
+            icon: Icon(Icons.qr_code, color: XActColors.text2),
             onPressed: onQrPressed,
             tooltip: 'Share game code',
           ),

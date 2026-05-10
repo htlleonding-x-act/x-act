@@ -21,10 +21,13 @@ class GameCodeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: XActSpace.s4,
+        vertical: XActSpace.s3,
+      ),
+      decoration: const BoxDecoration(
+        color: XActColors.surface,
+        borderRadius: XActRadius.md,
       ),
       child: Row(
         children: [
@@ -34,16 +37,13 @@ class GameCodeCard extends StatelessWidget {
               children: [
                 Text(
                   codeLabel,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  style: XActText.caption.copyWith(color: XActColors.text3),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: XActSpace.s1),
                 Text(
                   gameCode,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
+                  style: XActText.title.copyWith(
+                    fontFamilyFallback: const ['monospace'],
                   ),
                 ),
               ],
@@ -52,26 +52,22 @@ class GameCodeCard extends StatelessWidget {
           IconButton(
             onPressed: onCopy,
             icon: const Icon(Icons.copy, size: 18),
-            color: Colors.white,
+            color: XActColors.text1,
             tooltip: 'Copy code',
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white12,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              backgroundColor: Colors.white.withValues(alpha: .08),
+              shape: const RoundedRectangleBorder(borderRadius: XActRadius.sm),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: XActSpace.s2),
           ElevatedButton.icon(
             onPressed: onShare,
             icon: const Icon(Icons.share, size: 16),
             label: const Text('Share'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: XActBranding.primaryBlue,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              backgroundColor: XActColors.secondary,
+              foregroundColor: XActColors.text1,
+              shape: const RoundedRectangleBorder(borderRadius: XActRadius.sm),
             ),
           ),
         ],
