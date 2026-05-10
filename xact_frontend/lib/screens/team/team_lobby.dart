@@ -455,7 +455,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         targetTeamId: targetTeamId,
       );
       if (refreshAfterMove) {
-        await _refreshLobby();
+        await _refreshLobby(silent: true);
       }
     } catch (error) {
       if (!mounted) return;
