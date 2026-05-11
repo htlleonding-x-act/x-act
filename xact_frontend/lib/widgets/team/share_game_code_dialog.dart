@@ -64,9 +64,8 @@ class _ShareGameCodeDialogState extends State<ShareGameCodeDialog> {
     final params = ShareParams(
       text: _shareMessage,
       subject: 'X-ACT game code',
-      sharePositionOrigin: box != null
-          ? box.localToGlobal(Offset.zero) & box.size
-          : null,
+      sharePositionOrigin:
+          box != null ? box.localToGlobal(Offset.zero) & box.size : null,
     );
     await SharePlus.instance.share(params);
   }
@@ -74,8 +73,12 @@ class _ShareGameCodeDialogState extends State<ShareGameCodeDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: XActBranding.cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: XActColors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: XActColors.hairlineSoft),
+      ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -85,35 +88,30 @@ class _ShareGameCodeDialogState extends State<ShareGameCodeDialog> {
           children: [
             Row(
               children: [
-                const Expanded(
-                  child: Text(
-                    'Share Game Code',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      XActBranding.buildEyebrow('Invite players'),
+                      const SizedBox(height: 2),
+                      Text('Share Game Code', style: XActText.heading),
+                    ],
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                XActBranding.circleIconButton(
+                  icon: Icons.close_rounded,
                   onPressed: () => Navigator.of(context).pop(),
-                  tooltip: 'Close',
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Scan the QR code or share the code below to invite players.',
-              style: const TextStyle(color: Colors.white60, fontSize: 13),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 14),
             Center(
               child: Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: XActElevation.e2,
                 ),
                 child: QrImageView(
                   data: widget.gameCode,
@@ -131,68 +129,46 @@ class _ShareGameCodeDialogState extends State<ShareGameCodeDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 16,
-                vertical: 12,
+                vertical: 14,
               ),
               decoration: BoxDecoration(
-                color: XActBranding.backgroundColor,
-                borderRadius: BorderRadius.circular(12),
+                color: XActColors.bg2,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: XActColors.hairlineSoft),
               ),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Game Code',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ),
+                  XActBranding.buildEyebrow('Game code'),
+                  const Spacer(),
                   Text(
-                    widget.gameCode,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 4,
-                    ),
+                    widget.gameCode.split('').join(' '),
+                    style: XActText.codeXl.copyWith(fontSize: 22),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: XActBranding.buildGhostButton(
+                    text: 'Copy',
+                    icon: Icons.copy_rounded,
+                    height: 48,
                     onPressed: () => _copy(context),
-                    icon: const Icon(Icons.copy, size: 18),
-                    label: const Text('Copy'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white12,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: ElevatedButton.icon(
+                  child: XActBranding.buildSecondaryButton(
+                    text: 'Share',
+                    icon: Icons.share_rounded,
+                    height: 48,
                     onPressed: () => _share(context),
-                    icon: const Icon(Icons.share, size: 18),
-                    label: const Text('Share'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: XActBranding.primaryBlue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
                   ),
                 ),
               ],

@@ -179,86 +179,126 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: XActBranding.backgroundColor,
+      backgroundColor: XActColors.bg,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: _finalizingLobby
             ? _buildPreparingLobbyView()
-            : SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  24,
-                  24,
-                  16 + MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    XActBranding.buildHeader(),
-                    const SizedBox(height: 32),
-                    _buildCreateForm(),
-                    const SizedBox(height: 16),
-                    XActBranding.buildFooter(),
-                  ],
-                ),
+            : Column(
+                children: [
+                  XActBranding.buildTopBar(
+                    context: context,
+                    eyebrow: 'New session',
+                    title: 'Create a Game',
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        8,
+                        24,
+                        24 + MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 10),
+                          Center(
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Name your game',
+                                  style: XActText.displaySm,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Pick something memorable for your crew',
+                                  style: XActText.caption.copyWith(
+                                    fontSize: 14,
+                                    color: XActColors.text3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: XActSpace.s7),
+                          XActBranding.buildTextField(
+                            label: 'Game name',
+                            hintText: "e.g. Sam's Game",
+                            controller: _gameNameController,
+                            textCapitalization: TextCapitalization.words,
+                          ),
+                          const SizedBox(height: XActSpace.s4),
+                          _InfoBanner(
+                            icon: Icons.info_outline_rounded,
+                            text:
+                                'Next, you\'ll define the play area on a map. Players join with a code or QR.',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+                    child: XActBranding.buildPrimaryButton(
+                      text: _creating ? 'Creating…' : 'Create Game',
+                      onPressed: _creating ? null : _onCreate,
+                    ),
+                  ),
+                ],
               ),
       ),
     );
   }
 
   Widget _buildPreparingLobbyView() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: Colors.blue),
-          SizedBox(height: 20),
+          const CircularProgressIndicator(color: XActColors.secondary),
+          const SizedBox(height: 20),
           Text(
             'Preparing your lobby…',
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: XActText.body.copyWith(color: XActColors.text2),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildCreateForm() {
-    return XActBranding.buildFormCard(
-      child: Column(
+class _InfoBanner extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _InfoBanner({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: XActColors.secondarySoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: XActColors.secondary.withValues(alpha: .2),
+        ),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Create New Game',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          Icon(icon, size: 18, color: XActColors.secondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: XActText.bodySm.copyWith(
+                color: XActColors.text2,
+                height: 1.45,
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          XActBranding.buildTextField(
-            label: 'Game Name',
-            hintText: 'Enter game name...',
-            controller: _gameNameController,
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: XActBranding.buildSecondaryButton(
-                  text: _creating ? 'Creating game...' : 'Create',
-                  onPressed: _creating ? null : _onCreate,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: XActBranding.buildCancelButton(
-                  text: 'Cancel',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ],
           ),
         ],
       ),

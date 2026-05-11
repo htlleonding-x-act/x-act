@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../xact_branding.dart';
+
 class DefineGameAreaMap extends StatelessWidget {
   final MapController mapController;
   final LatLng fallbackCenter;
@@ -75,8 +77,8 @@ class DefineGameAreaMap extends StatelessWidget {
             polygons: [
               Polygon(
                 points: points,
-                color: Colors.blue.withValues(alpha: 0.2),
-                borderColor: Colors.blue.shade400,
+                color: XActColors.secondary.withValues(alpha: 0.16),
+                borderColor: XActColors.secondary,
                 borderStrokeWidth: 2.5,
               ),
             ],
@@ -86,9 +88,9 @@ class DefineGameAreaMap extends StatelessWidget {
             polylines: [
               Polyline(
                 points: points,
-                color: Colors.blue.shade400,
+                color: XActColors.secondary,
                 strokeWidth: 2.5,
-                pattern: StrokePattern.dashed(segments: [8, 6]),
+                pattern: StrokePattern.dashed(segments: const [8, 6]),
               ),
             ],
           ),
@@ -99,8 +101,22 @@ class DefineGameAreaMap extends StatelessWidget {
                 point: myLocation!,
                 width: 40,
                 height: 40,
-                child: const Center(
-                  child: Icon(Icons.location_pin, size: 32, color: Colors.red),
+                child: Center(
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: XActColors.primary,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: XActColors.primary.withValues(alpha: .6),
+                          blurRadius: 12,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -145,10 +161,10 @@ class DefineGameAreaPointMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = isMoveMode ? 44.0 : 34.0;
     final color = isMoveMode
-        ? Colors.orange.shade600
+        ? XActColors.warning
         : isSelected
-        ? Colors.teal.shade600
-        : Colors.blue.shade700;
+            ? XActColors.success
+            : XActColors.secondary;
 
     return Center(
       child: Container(
@@ -158,46 +174,26 @@ class DefineGameAreaPointMarker extends StatelessWidget {
           color: color,
           shape: BoxShape.circle,
           border: Border.all(
-            color: isMoveMode
-                ? Colors.white
-                : isSelected
-                ? Colors.tealAccent
-                : Colors.white70,
-            width: isMoveMode
-                ? 3
-                : isSelected
-                ? 3
-                : 2,
+            color: Colors.white,
+            width: isMoveMode || isSelected ? 3 : 2,
           ),
           boxShadow: [
             BoxShadow(
               color: color.withValues(
-                alpha: isMoveMode
-                    ? 0.9
-                    : isSelected
-                    ? 0.8
-                    : 0.6,
+                alpha: isMoveMode ? 0.9 : isSelected ? 0.7 : 0.5,
               ),
-              blurRadius: isMoveMode
-                  ? 14
-                  : isSelected
-                  ? 10
-                  : 6,
-              spreadRadius: isMoveMode
-                  ? 3
-                  : isSelected
-                  ? 2
-                  : 1,
+              blurRadius: isMoveMode ? 14 : isSelected ? 10 : 6,
+              spreadRadius: isMoveMode ? 3 : isSelected ? 2 : 1,
             ),
           ],
         ),
         child: Center(
           child: Text(
             '$index',
-            style: TextStyle(
+            style: XActText.bodySm.copyWith(
               color: Colors.white,
+              fontWeight: FontWeight.w700,
               fontSize: isMoveMode ? 15 : 13,
-              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -256,71 +252,52 @@ class DefineGameAreaBottomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.95),
-        border: const Border(
-          top: BorderSide(color: Color(0xFF1E3A5F), width: 1),
-        ),
+        color: XActColors.bg.withValues(alpha: .95),
+        border: Border(top: BorderSide(color: XActColors.hairlineSoft)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  statusText,
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                if (pointCount > 0) ...[
-                  const SizedBox(height: 4),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    '$pointCount ${pointCount == 1 ? 'corner' : 'corners'} placed',
-                    style: TextStyle(
-                      color: Colors.blue.shade300,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                    statusText,
+                    style: XActText.bodySm.copyWith(
+                      color: XActColors.text2,
+                      fontSize: 13,
                     ),
                   ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          SizedBox(
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: (canSave && !isSaving) ? onSave : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
-                disabledBackgroundColor: Colors.blue.shade900.withValues(
-                  alpha: 0.4,
-                ),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-              ),
-              icon: isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                  if (pointCount > 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '$pointCount ${pointCount == 1 ? 'corner' : 'corners'} placed',
+                      style: XActText.caption.copyWith(
+                        color: XActColors.secondary,
+                        fontWeight: FontWeight.w600,
                       ),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: Text(isSaving ? 'Saving...' : 'Save Area'),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            SizedBox(
+              width: 150,
+              child: XActBranding.buildSuccessButton(
+                text: isSaving ? 'Saving…' : 'Save area',
+                icon: Icons.check_rounded,
+                height: 48,
+                onPressed: (canSave && !isSaving) ? onSave : null,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

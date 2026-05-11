@@ -8,6 +8,7 @@ import '../../constants.dart';
 import '../../services/geofence_store.dart';
 import '../../services/location_service.dart';
 import '../../widgets/lobby/define_game_area_widgets.dart';
+import '../../widgets/xact_branding.dart';
 
 class DefineGameAreaScreen extends StatefulWidget {
   final int sessionId;
@@ -339,24 +340,45 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1F2E),
+      backgroundColor: XActColors.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        title: Text('Define ${widget.gameName} Game Area'),
+        backgroundColor: XActColors.bg,
+        foregroundColor: XActColors.text1,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(left: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              XActBranding.buildEyebrow('Step 2 of 3'),
+              const SizedBox(height: 2),
+              Text(
+                'Define play area',
+                style: XActText.heading,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
         actions: [
           if (_points.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.undo),
+              icon: const Icon(Icons.undo_rounded),
+              color: XActColors.text2,
               tooltip: 'Undo last corner',
               onPressed: _undoLast,
             ),
           if (_points.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_sweep_outlined),
+              color: XActColors.text2,
               tooltip: 'Clear all',
               onPressed: _clearAll,
             ),
+          const SizedBox(width: 4),
         ],
       ),
       body: _isLocating ? _buildLocatingView() : _buildMapView(),
@@ -364,15 +386,15 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   }
 
   Widget _buildLocatingView() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: Colors.blue),
-          SizedBox(height: 16),
+          const CircularProgressIndicator(color: XActColors.secondary),
+          const SizedBox(height: 16),
           Text(
             'Detecting your location…',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: XActText.bodySm.copyWith(color: XActColors.text2),
           ),
         ],
       ),
@@ -407,25 +429,31 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
               color: Colors.transparent,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  horizontal: 14,
+                  vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade800.withValues(alpha: 0.92),
-                  borderRadius: BorderRadius.circular(8),
+                  color: XActColors.warning.withValues(alpha: .18),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: XActColors.warning.withValues(alpha: .35),
+                  ),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(
-                      Icons.location_off,
-                      color: Colors.white,
+                    const Icon(
+                      Icons.location_off_rounded,
+                      color: XActColors.warning,
                       size: 18,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Using default location – enable GPS to center on you.',
-                        style: TextStyle(color: Colors.white, fontSize: 12),
+                        style: XActText.caption.copyWith(
+                          color: XActColors.text1,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],

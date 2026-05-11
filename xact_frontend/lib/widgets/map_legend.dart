@@ -22,27 +22,33 @@ class MapLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = <Widget>[
-      _LegendItem(color: myLocationColor, label: 'Your Location'),
+      _LegendItem(color: myLocationColor, label: 'You'),
     ];
 
     for (final entry in teamEntries) {
-      items.add(const SizedBox(height: XActSpace.s2));
+      items.add(const SizedBox(height: 8));
       items.add(_LegendItem(color: entry.color, label: entry.label));
     }
 
     return Positioned(
-      bottom: XActSpace.s4,
-      left: XActSpace.s4,
+      bottom: 16,
+      left: 16,
       child: Container(
-        padding: const EdgeInsets.all(XActSpace.s3),
+        padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
         decoration: BoxDecoration(
-          color: XActColors.surfaceDeep.withValues(alpha: .9),
-          borderRadius: XActRadius.sm,
+          color: XActColors.glass,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: XActColors.hairlineSoft),
+          boxShadow: XActElevation.e2,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: items,
+          children: [
+            XActBranding.buildEyebrow('Legend'),
+            const SizedBox(height: 8),
+            ...items,
+          ],
         ),
       ),
     );
@@ -63,10 +69,22 @@ class _LegendItem extends StatelessWidget {
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: .55),
+                blurRadius: 8,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: XActSpace.s2),
-        Text(label, style: XActText.bodySm),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: XActText.bodySm.copyWith(fontSize: 13),
+        ),
       ],
     );
   }

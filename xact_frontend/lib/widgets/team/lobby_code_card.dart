@@ -2,73 +2,101 @@ import 'package:flutter/material.dart';
 
 import '../xact_branding.dart';
 
-/// Card displaying the lobby code with copy and share buttons.
+/// Game-code hero card with copy / QR / share actions.
 class GameCodeCard extends StatelessWidget {
   final String gameCode;
   final String codeLabel;
   final VoidCallback onCopy;
   final VoidCallback onShare;
+  final VoidCallback? onShowQr;
 
   const GameCodeCard({
     super.key,
     required this.gameCode,
-    this.codeLabel = 'Game Code',
+    this.codeLabel = 'Game code',
     required this.onCopy,
     required this.onShare,
+    this.onShowQr,
   });
 
   @override
   Widget build(BuildContext context) {
+    final formatted = gameCode.split('').join(' ');
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: XActSpace.s4,
-        vertical: XActSpace.s3,
-      ),
-      decoration: const BoxDecoration(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
         color: XActColors.surface,
-        borderRadius: XActRadius.md,
+        borderRadius: XActRadius.lg,
+        border: Border.all(color: XActColors.hairlineSoft),
+        boxShadow: XActElevation.e2,
       ),
-      child: Row(
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  codeLabel,
-                  style: XActText.caption.copyWith(color: XActColors.text3),
+          Positioned(
+            top: -40,
+            right: -30,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    XActColors.primary.withValues(alpha: .35),
+                    XActColors.primary.withValues(alpha: 0),
+                  ],
                 ),
-                const SizedBox(height: XActSpace.s1),
-                Text(
-                  gameCode,
-                  style: XActText.title.copyWith(
-                    fontFamilyFallback: const ['monospace'],
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              XActBranding.buildEyebrow(codeLabel),
+              const SizedBox(height: 4),
+              Text(
+                formatted,
+                style: XActText.codeXl.copyWith(
+                  fontSize: 24,
+                  letterSpacing: 3.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: XActBranding.buildGhostButton(
+                      text: 'Copy',
+                      icon: Icons.copy_rounded,
+                      height: 42,
+                      onPressed: onCopy,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            onPressed: onCopy,
-            icon: const Icon(Icons.copy, size: 18),
-            color: XActColors.text1,
-            tooltip: 'Copy code',
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha: .08),
-              shape: const RoundedRectangleBorder(borderRadius: XActRadius.sm),
-            ),
-          ),
-          const SizedBox(width: XActSpace.s2),
-          ElevatedButton.icon(
-            onPressed: onShare,
-            icon: const Icon(Icons.share, size: 16),
-            label: const Text('Share'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: XActColors.secondary,
-              foregroundColor: XActColors.text1,
-              shape: const RoundedRectangleBorder(borderRadius: XActRadius.sm),
-            ),
+                  if (onShowQr != null) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: XActBranding.buildGhostButton(
+                        text: 'QR',
+                        icon: Icons.qr_code_rounded,
+                        height: 42,
+                        onPressed: onShowQr,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: XActBranding.buildSecondaryButton(
+                      text: 'Share',
+                      icon: Icons.share_rounded,
+                      height: 42,
+                      onPressed: onShare,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
