@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -120,10 +122,40 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     }
 
     setState(() {
-      _points.add(point);
+      _points.insert(_bestInsertIndex(point), point);
       _selectedIndex = -1;
       _isMoveMode = false;
     });
+  }
+
+  // Returns the index at which [point] should be inserted so that it lands
+  // between the two existing corners that form the closest edge. This keeps
+  // the polygon shape natural instead of always appending chronologically.
+  int _bestInsertIndex(LatLng point) {
+    final n = _points.length;
+    if (n < 3) return n;
+
+    var bestIndex = n;
+    var bestCost = double.infinity;
+    for (var i = 0; i < n; i++) {
+      final a = _points[i];
+      final b = _points[(i + 1) % n];
+      final cost =
+          _planarDistance(point, a) +
+          _planarDistance(point, b) -
+          _planarDistance(a, b);
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestIndex = i + 1;
+      }
+    }
+    return bestIndex;
+  }
+
+  double _planarDistance(LatLng a, LatLng b) {
+    final dLat = a.latitude - b.latitude;
+    final dLng = a.longitude - b.longitude;
+    return math.sqrt(dLat * dLat + dLng * dLng);
   }
 
   void _deletePointAt(int index) {
