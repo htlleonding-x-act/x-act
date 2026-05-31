@@ -617,6 +617,7 @@ final class RealtimeEvents {
   static const String teamMemberLeft = 'team_member_left';
   static const String gameSessionStarted = 'game_session_started';
   static const String locationLogRecorded = 'location_log_recorded';
+  static const String mrXCaught = 'mr_x_caught';
 }
 
 final class RealtimeEventEnvelope {
@@ -837,6 +838,32 @@ final class TeamDeletedPayload {
     return TeamDeletedPayload(
       teamId: _readInt(json, ['teamId', 'id']),
       sessionId: _readInt(json, ['sessionId']),
+    );
+  }
+}
+
+final class MrXCaughtPayload {
+  final int sessionId;
+  final int newMrXTeamId;
+  final String newMrXTeamName;
+  final int formerMrXTeamId;
+  final String formerMrXTeamName;
+
+  const MrXCaughtPayload({
+    required this.sessionId,
+    required this.newMrXTeamId,
+    required this.newMrXTeamName,
+    required this.formerMrXTeamId,
+    required this.formerMrXTeamName,
+  });
+
+  factory MrXCaughtPayload.fromJson(Map<String, dynamic> json) {
+    return MrXCaughtPayload(
+      sessionId: _readInt(json, ['sessionId']),
+      newMrXTeamId: _readInt(json, ['newMrXTeamId']),
+      newMrXTeamName: (json['newMrXTeamName'] as String?) ?? 'Team',
+      formerMrXTeamId: _readInt(json, ['formerMrXTeamId']),
+      formerMrXTeamName: (json['formerMrXTeamName'] as String?) ?? 'Team',
     );
   }
 }

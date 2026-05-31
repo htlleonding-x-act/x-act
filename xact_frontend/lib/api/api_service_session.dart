@@ -235,6 +235,18 @@ extension ApiServiceSessionMethods on ApiService {
     });
   }
 
+  /// Reports that the current Mr. X team was caught by [catchingTeamId], which
+  /// triggers the backend to swap the two teams' roles. The resulting role
+  /// changes arrive via realtime team_updated + mr_x_caught events.
+  Future<void> markMrXCaught({
+    required int sessionId,
+    required int catchingTeamId,
+  }) async {
+    await _postJsonNoContent('/api/gamesessions/$sessionId/catch', {
+      'catchingTeamId': catchingTeamId,
+    });
+  }
+
   Future<void> registerCurrentMemberPresence() async {
     final sessionId = _session.currentSessionId;
     final teamId = _session.currentTeamId;

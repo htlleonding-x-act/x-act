@@ -117,6 +117,25 @@ extension ApiServiceHttpMethods on ApiService {
     }
   }
 
+  Future<void> _postJsonNoContent(
+    String path,
+    Map<String, dynamic> payload,
+  ) async {
+    final uri = _baseUri.resolve(path);
+    final response = await _http.post(
+      uri,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('HTTP ${response.statusCode} for POST $path');
+    }
+  }
+
   Future<void> _putJsonNoContent(
     String path,
     Map<String, dynamic> payload,

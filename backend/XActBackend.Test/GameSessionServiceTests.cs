@@ -521,13 +521,35 @@ public sealed class GameSessionServiceTests
 
     // --- CatchMrXAsync ---
 
+    private const int DefaultCatchingTeamId = 20;
+
+    private Team ArrangeActiveCatchScenario(
+        out Team mrXTeam,
+        TeamRole catchingRole = TeamRole.Detective,
+        int catchingTeamSessionId = DefaultSessionId)
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Active;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
+
+        mrXTeam = CreateTeam(10, "MrX Team", TeamRole.MrX, "#000000");
+        mrXTeam.SessionId = DefaultSessionId;
+        _teamRepository.GetTeamBySessionAndRoleAsync(DefaultSessionId, TeamRole.MrX, true).Returns(mrXTeam);
+
+        var catchingTeam = CreateTeam(DefaultCatchingTeamId, "Detective Team", catchingRole, "#2563EB");
+        catchingTeam.SessionId = catchingTeamSessionId;
+        _teamRepository.GetTeamByIdAsync(DefaultCatchingTeamId, true).Returns(catchingTeam);
+
+        return catchingTeam;
+    }
+
     [Fact]
     public async ValueTask CatchMrXAsync_ReturnsNotFound_WhenSessionMissing()
     {
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?) null);
-        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
         result.Switch(
-            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => Assert.Fail("Expected NotFound but got MrXCaughtResult"),
             _ => { /* expected */ },
             _ => Assert.Fail("Expected NotFound but got DomainError")
         );
@@ -539,9 +561,9 @@ public sealed class GameSessionServiceTests
         var session = CreateSession();
         session.Status = SessionStatus.Waiting;
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
-        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
         result.Switch(
-            _ => Assert.Fail("Expected DomainError but got Success"),
+            _ => Assert.Fail("Expected DomainError but got MrXCaughtResult"),
             _ => Assert.Fail("Expected DomainError but got NotFound"),
             domainError => domainError.Code.Should().Be(DomainErrorCodes.SessionNotActive)
         );
@@ -554,29 +576,70 @@ public sealed class GameSessionServiceTests
         session.Status = SessionStatus.Active;
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
         _teamRepository.GetTeamBySessionAndRoleAsync(DefaultSessionId, TeamRole.MrX, true).Returns((Team?) null);
-        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
         result.Switch(
-            _ => Assert.Fail("Expected NotFound but got Success"),
+            _ => Assert.Fail("Expected NotFound but got MrXCaughtResult"),
             _ => { /* expected */ },
             _ => Assert.Fail("Expected NotFound but got DomainError")
         );
     }
 
     [Fact]
-    public async ValueTask CatchMrXAsync_ReturnsSuccess_WhenActive()
+    public async ValueTask CatchMrXAsync_ReturnsNotFound_WhenCatchingTeamMissing()
     {
-        var session = CreateSession();
-        session.Status = SessionStatus.Active;
-        var mrXTeam = CreateTeam(10, "MrX Team", TeamRole.MrX, "#000000");
-        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
-        _teamRepository.GetTeamBySessionAndRoleAsync(DefaultSessionId, TeamRole.MrX, true).Returns(mrXTeam);
-        OneOf<Success, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId);
+        ArrangeActiveCatchScenario(out _);
+        _teamRepository.GetTeamByIdAsync(DefaultCatchingTeamId, true).Returns((Team?) null);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
         result.Switch(
+            _ => Assert.Fail("Expected NotFound but got MrXCaughtResult"),
             _ => { /* expected */ },
-            _ => Assert.Fail("Expected Success but got NotFound"),
-            _ => Assert.Fail("Expected Success but got DomainError")
+            _ => Assert.Fail("Expected NotFound but got DomainError")
         );
-        mrXTeam.IsCaught.Should().BeTrue();
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsDomainError_WhenCatchingTeamNotInSession()
+    {
+        ArrangeActiveCatchScenario(out _, catchingTeamSessionId: DefaultSessionId + 1);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got MrXCaughtResult"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.TeamNotInSession)
+        );
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsDomainError_WhenCatchingTeamNotDetective()
+    {
+        ArrangeActiveCatchScenario(out _, catchingRole: TeamRole.Spectator);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got MrXCaughtResult"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.CatchingTeamNotEligible)
+        );
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_SwapsRoles_WhenActive()
+    {
+        var catchingTeam = ArrangeActiveCatchScenario(out var mrXTeam);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
+        result.Switch(
+            caught =>
+            {
+                caught.NewMrXTeam.Should().BeSameAs(catchingTeam);
+                caught.FormerMrXTeam.Should().BeSameAs(mrXTeam);
+            },
+            _ => Assert.Fail("Expected MrXCaughtResult but got NotFound"),
+            _ => Assert.Fail("Expected MrXCaughtResult but got DomainError")
+        );
+
+        catchingTeam.Role.Should().Be(TeamRole.MrX);
+        mrXTeam.Role.Should().Be(TeamRole.Detective);
+        catchingTeam.IsCaught.Should().BeFalse();
+        mrXTeam.IsCaught.Should().BeFalse();
         await _uow.Received(1).SaveChangesAsync();
     }
 }
