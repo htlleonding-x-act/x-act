@@ -83,10 +83,12 @@ internal sealed class ChatService(IUnitOfWork uow, IClock clock, ILogger<ChatSer
     public async ValueTask<OneOf<ChatMessage, NotFound, DomainError>> PostSessionMessageAsync(int sessionId, int senderMemberId, string content)
     {
         OneOf<TeamMember, NotFound> senderResult = await ResolveSenderAsync(sessionId, senderMemberId);
+        if (senderResult.TryPickT1(out NotFound notFound, out TeamMember sender))
+        {
+            return notFound;
+        }
 
-        return await senderResult.Match<ValueTask<OneOf<ChatMessage, NotFound, DomainError>>>(
-            async sender => await CreateMessageAsync(sessionId, teamId: null, sender, content),
-            notFound => ValueTask.FromResult<OneOf<ChatMessage, NotFound, DomainError>>(notFound));
+        return await CreateMessageAsync(sessionId, teamId: null, sender, content);
     }
 
     public async ValueTask<OneOf<ChatMessage, NotFound, DomainError>> PostTeamMessageAsync(int sessionId, int teamId, int senderMemberId, string content)
@@ -99,20 +101,19 @@ internal sealed class ChatService(IUnitOfWork uow, IClock clock, ILogger<ChatSer
         }
 
         OneOf<TeamMember, NotFound> senderResult = await ResolveSenderAsync(sessionId, senderMemberId);
+        if (senderResult.TryPickT1(out NotFound notFound, out TeamMember sender))
+        {
+            return notFound;
+        }
 
-        return await senderResult.Match<ValueTask<OneOf<ChatMessage, NotFound, DomainError>>>(
-            async sender =>
-            {
-                // Access control: a member can only post to the channel of the team they belong to.
-                if (sender.TeamId != teamId)
-                {
-                    logger.LogWarning("Rejected team chat message because member {MemberId} is not part of team {TeamId}", senderMemberId, teamId);
-                    return DomainError.ChatNotTeamMember(senderMemberId, teamId);
-                }
+        // Access control: a member can only post to the channel of the team they belong to.
+        if (sender.TeamId != teamId)
+        {
+            logger.LogWarning("Rejected team chat message because member {MemberId} is not part of team {TeamId}", senderMemberId, teamId);
+            return DomainError.ChatNotTeamMember(senderMemberId, teamId);
+        }
 
-                return await CreateMessageAsync(sessionId, teamId, sender, content);
-            },
-            notFound => ValueTask.FromResult<OneOf<ChatMessage, NotFound, DomainError>>(notFound));
+        return await CreateMessageAsync(sessionId, teamId, sender, content);
     }
 
     private async ValueTask<OneOf<TeamMember, NotFound>> ResolveSenderAsync(int sessionId, int senderMemberId)
@@ -134,7 +135,7 @@ internal sealed class ChatService(IUnitOfWork uow, IClock clock, ILogger<ChatSer
         return sender;
     }
 
-    private async ValueTask<OneOf<ChatMessage, NotFound, DomainError>> CreateMessageAsync(int sessionId, int? teamId, TeamMember sender, string content)
+    private async ValueTask<ChatMessage> CreateMessageAsync(int sessionId, int? teamId, TeamMember sender, string content)
     {
         string senderName = await ResolveSenderNameAsync(sender);
 

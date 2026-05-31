@@ -169,7 +169,6 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .HasForeignKey(e => e.SessionId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Team chat messages cascade with their team; "All" messages (TeamId null) are unaffected.
         chatMessage
             .HasOne(e => e.Team)
             .WithMany()
@@ -177,7 +176,6 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .OnDelete(DeleteBehavior.Cascade)
             .IsRequired(false);
 
-        // Keep history when a member leaves: detach the sender instead of deleting the message.
         chatMessage
             .HasOne(e => e.Sender)
             .WithMany()
@@ -185,7 +183,8 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .OnDelete(DeleteBehavior.SetNull)
             .IsRequired(false);
 
-        // Channel reads are "newest messages for a (session, team) channel".
-        chatMessage.HasIndex(e => new { e.SessionId, e.TeamId, e.SentAt });
+        chatMessage
+            .HasIndex(e => new { e.SessionId, e.TeamId, e.SentAt, e.Id })
+            .IsDescending(false, false, true, true);
     }
 }
