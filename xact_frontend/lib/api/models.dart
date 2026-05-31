@@ -618,6 +618,7 @@ final class RealtimeEvents {
   static const String gameSessionStarted = 'game_session_started';
   static const String locationLogRecorded = 'location_log_recorded';
   static const String mrXCaught = 'mr_x_caught';
+  static const String chatMessagePosted = 'chat_message_posted';
 }
 
 final class RealtimeEventEnvelope {
@@ -633,6 +634,46 @@ final class RealtimeEventEnvelope {
       payload: payload is Map
           ? payload.cast<String, dynamic>()
           : <String, dynamic>{},
+    );
+  }
+}
+
+/// A single chat message. Parses both the REST DTO (`id`) and the realtime
+/// `chat_message_posted` payload (`messageId`). A `null` [teamId] denotes the
+/// global "All" channel; a non-null value is that team's private channel.
+final class ChatMessage {
+  final int id;
+  final int sessionId;
+  final int? teamId;
+  final int? senderMemberId;
+  final int? senderTeamId;
+  final String senderName;
+  final String content;
+  final DateTime sentAt;
+
+  const ChatMessage({
+    required this.id,
+    required this.sessionId,
+    required this.teamId,
+    required this.senderMemberId,
+    required this.senderTeamId,
+    required this.senderName,
+    required this.content,
+    required this.sentAt,
+  });
+
+  bool get isGlobal => teamId == null;
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: _readInt(json, ['id', 'messageId']),
+      sessionId: _readInt(json, ['sessionId']),
+      teamId: _readNullableInt(json, ['teamId']),
+      senderMemberId: _readNullableInt(json, ['senderMemberId']),
+      senderTeamId: _readNullableInt(json, ['senderTeamId']),
+      senderName: (json['senderName'] as String?) ?? 'Unknown',
+      content: (json['content'] as String?) ?? '',
+      sentAt: tryParseIsoDateTime(json['sentAt']) ?? DateTime.now().toUtc(),
     );
   }
 }

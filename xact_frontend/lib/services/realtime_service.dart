@@ -133,6 +133,30 @@ final class RealtimeService {
     }
   }
 
+  Future<void> joinTeamChannel({
+    required int sessionId,
+    required int teamId,
+  }) async {
+    final connection = _connection;
+    if (connection == null || !isConnected) {
+      return;
+    }
+
+    await connection.invoke('JoinTeamChannel', args: [sessionId, teamId]);
+  }
+
+  Future<void> leaveTeamChannel({
+    required int sessionId,
+    required int teamId,
+  }) async {
+    final connection = _connection;
+    if (connection == null || !isConnected) {
+      return;
+    }
+
+    await connection.invoke('LeaveTeamChannel', args: [sessionId, teamId]);
+  }
+
   Future<void> registerMemberPresence({
     required int sessionId,
     required int teamId,

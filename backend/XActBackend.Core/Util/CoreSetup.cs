@@ -16,6 +16,7 @@ public static class CoreSetup
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITeamService, TeamService>();
         services.AddScoped<ITeamMemberService, TeamMemberService>();
+        services.AddScoped<IChatService, ChatService>();
         services.AddScoped<IGameSessionSnapshotService, GameSessionSnapshotService>();
     }
 }

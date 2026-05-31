@@ -22,6 +22,7 @@ public interface IUnitOfWork
     public ITeamMemberRepository TeamMemberRepository { get; }
     public ILocationLogRepository LocationLogRepository { get; }
     public IPowerUpUsageRepository PowerUpUsageRepository { get; }
+    public IChatMessageRepository ChatMessageRepository { get; }
     public Task SaveChangesAsync();
 }
 
@@ -38,6 +39,7 @@ internal sealed class UnitOfWork(DatabaseContext context, ILogger<UnitOfWork> lo
     public ITeamMemberRepository TeamMemberRepository => new TeamMemberRepository(context.TeamMembers);
     public ILocationLogRepository LocationLogRepository => new LocationLogRepository(context.LocationLogs);
     public IPowerUpUsageRepository PowerUpUsageRepository => new PowerUpUsageRepository(context.PowerUpUsages);
+    public IChatMessageRepository ChatMessageRepository => new ChatMessageRepository(context.ChatMessages);
 
     public async ValueTask BeginTransactionAsync()
     {

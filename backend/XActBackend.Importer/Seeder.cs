@@ -24,6 +24,7 @@ internal static class Seeder
         InsertGeofencePoints(ctx);
         InsertLocationLogs(ctx);
         InsertPowerUpUsages(ctx);
+        InsertChatMessages(ctx);
 
         await ctx.SaveChangesAsync();
         await SyncIdentitySequencesAsync(ctx);
@@ -43,7 +44,8 @@ internal static class Seeder
             "TeamMember",
             "GeofencePoint",
             "LocationLog",
-            "PowerUpUsage"
+            "PowerUpUsage",
+            "ChatMessage"
         ];
 
         foreach (string tableName in tableNames)
@@ -283,6 +285,34 @@ internal static class Seeder
                 MemberId = SeedData.DetectiveMemberId,
                 PowerUpType = PowerUpType.BlackTicket,
                 UsedAt = SeedData.BaseInstant.Plus(Duration.FromMinutes(30))
+            }
+        );
+    }
+
+    private static void InsertChatMessages(DatabaseContext ctx)
+    {
+        ctx.ChatMessages.AddRange(
+            new ChatMessage
+            {
+                Id = SeedData.AllChatMessageId,
+                SessionId = SeedData.SessionId,
+                TeamId = null,
+                SenderMemberId = SeedData.HostMemberId,
+                SenderTeamId = SeedData.MrXTeamId,
+                SenderName = "host_user",
+                Content = "Welcome everyone, good luck!",
+                SentAt = SeedData.BaseInstant.Plus(Duration.FromMinutes(1))
+            },
+            new ChatMessage
+            {
+                Id = SeedData.TeamChatMessageId,
+                SessionId = SeedData.SessionId,
+                TeamId = SeedData.DetectiveTeamId,
+                SenderMemberId = SeedData.DetectiveMemberId,
+                SenderTeamId = SeedData.DetectiveTeamId,
+                SenderName = "detective_user",
+                Content = "Let's spread out across the map.",
+                SentAt = SeedData.BaseInstant.Plus(Duration.FromMinutes(2))
             }
         );
     }

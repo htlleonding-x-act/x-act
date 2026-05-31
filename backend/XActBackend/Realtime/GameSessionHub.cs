@@ -96,6 +96,33 @@ public sealed class GameSessionHub(
         return Groups.RemoveFromGroupAsync(Context.ConnectionId, RealtimeGroups.Session(sessionId));
     }
 
+    public async Task JoinTeamChannel(int sessionId, int teamId)
+    {
+        if (sessionId <= 0 || teamId <= 0)
+        {
+            throw new HubException("Invalid team channel id");
+        }
+
+        // Only allow joining a team channel that actually exists in the session and has members.
+        IReadOnlyCollection<TeamMember> teamMembers = await teamMemberService.GetMembersByTeamIdAsync(sessionId, teamId, tracking: false);
+        if (teamMembers.Count == 0)
+        {
+            throw new HubException("Team channel not found");
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Team(sessionId, teamId));
+    }
+
+    public Task LeaveTeamChannel(int sessionId, int teamId)
+    {
+        if (sessionId <= 0 || teamId <= 0)
+        {
+            throw new HubException("Invalid team channel id");
+        }
+
+        return Groups.RemoveFromGroupAsync(Context.ConnectionId, RealtimeGroups.Team(sessionId, teamId));
+    }
+
     public async Task<GameSessionSnapshot> RequestSnapshot(int sessionId)
     {
         if (sessionId <= 0)

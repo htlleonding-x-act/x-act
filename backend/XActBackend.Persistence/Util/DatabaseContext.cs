@@ -17,6 +17,7 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
     public DbSet<TeamMember> TeamMembers { get; set; }
     public DbSet<LocationLog> LocationLogs { get; set; }
     public DbSet<PowerUpUsage> PowerUpUsages { get; set; }
+    public DbSet<ChatMessage> ChatMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,7 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         modelBuilder.Entity<TeamMember>(ConfigureTeamMember);
         modelBuilder.Entity<LocationLog>(ConfigureLocationLog);
         modelBuilder.Entity<PowerUpUsage>(ConfigurePowerUpUsage);
+        modelBuilder.Entity<ChatMessage>(ConfigureChatMessage);
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -154,5 +156,35 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .HasOne(e => e.Member)
             .WithMany(m => m.PowerUpUsages)
             .HasForeignKey(e => e.MemberId);
+    }
+
+    private static void ConfigureChatMessage(EntityTypeBuilder<ChatMessage> chatMessage)
+    {
+        chatMessage.Property(e => e.Content).HasMaxLength(ChatMessage.MaxContentLength);
+        chatMessage.Property(e => e.SenderName).HasMaxLength(ChatMessage.MaxSenderNameLength);
+
+        chatMessage
+            .HasOne(e => e.Session)
+            .WithMany()
+            .HasForeignKey(e => e.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        chatMessage
+            .HasOne(e => e.Team)
+            .WithMany()
+            .HasForeignKey(e => e.TeamId)
+            .OnDelete(DeleteBehavior.Cascade)
+            .IsRequired(false);
+
+        chatMessage
+            .HasOne(e => e.Sender)
+            .WithMany()
+            .HasForeignKey(e => e.SenderMemberId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        chatMessage
+            .HasIndex(e => new { e.SessionId, e.TeamId, e.SentAt, e.Id })
+            .IsDescending(false, false, true, true);
     }
 }
