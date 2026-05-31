@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/models.dart';
 
+import '../xact_branding.dart';
+
 /// Displays a team name followed by a role badge.
 class TeamNameRoleLabel extends StatelessWidget {
   final String teamName;
@@ -41,18 +43,18 @@ class TeamNameRoleLabel extends StatelessWidget {
       );
     }
 
-    final badgeColor = _roleColor(role);
+    final roleColor = XActColors.roleColor(role);
     final resolvedRoleStyle = roleStyle ??
         TextStyle(
-          color: badgeColor,
+          color: roleColor,
           fontSize: (resolvedTeamStyle.fontSize ?? 14) - 2,
           fontWeight: FontWeight.w700,
           height: 1.1,
         );
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 4,
+      spacing: XActSpace.s2,
+      runSpacing: XActSpace.s1,
       crossAxisAlignment: WrapCrossAlignment.center,
       alignment: _wrapAlignment(textAlign),
       children: [
@@ -64,13 +66,15 @@ class TeamNameRoleLabel extends StatelessWidget {
           overflow: overflow,
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: badgeColor.withAlpha(38),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: badgeColor.withAlpha(140), width: 1),
+          padding: const EdgeInsets.symmetric(
+            horizontal: XActSpace.s2,
+            vertical: 3,
           ),
-          child: Text(roleLabel, style: resolvedRoleStyle),
+          decoration: BoxDecoration(
+            color: roleColor.withValues(alpha: .16),
+            borderRadius: XActRadius.pill,
+          ),
+          child: Text(roleLabel.toUpperCase(), style: resolvedRoleStyle),
         ),
       ],
     );
@@ -86,15 +90,6 @@ class TeamNameRoleLabel extends StatelessWidget {
     }
 
     return teamRoleDisplayLabel(currentRole);
-  }
-
-  Color _roleColor(TeamRole? currentRole) {
-    return switch (currentRole) {
-      TeamRole.mrX => const Color(0xFFFCA5A5),
-      TeamRole.detective => const Color(0xFF93C5FD),
-      TeamRole.spectator => const Color(0xFFCBD5E1),
-      null => Colors.white70,
-    };
   }
 
   WrapAlignment _wrapAlignment(TextAlign align) {

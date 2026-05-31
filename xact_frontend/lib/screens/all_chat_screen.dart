@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/chat_input_bar.dart';
+import '../widgets/xact_branding.dart';
 
 class AllChatScreen extends StatelessWidget {
   const AllChatScreen({super.key});
@@ -7,43 +8,63 @@ class AllChatScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF1E293B),
+      color: XActColors.bg,
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: XActColors.hairlineSoft),
+              ),
+            ),
+            child: Row(
               children: [
-                Text(
-                  'All Chat',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'All Chat',
+                        style: XActText.heading.copyWith(fontSize: 17),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: XActColors.success,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Everyone sees this',
+                            style: XActText.caption.copyWith(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Messages visible to everyone',
-                  style: TextStyle(color: Colors.white54, fontSize: 14),
                 ),
               ],
             ),
           ),
           Expanded(
-            child: const Center(
+            child: Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
                   'All-chat is waiting for backend realtime integration.',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  style: XActText.bodySm.copyWith(color: XActColors.text3),
                   textAlign: TextAlign.center,
                 ),
               ),
             ),
           ),
-          ChatInputBar(hintText: 'Message all chat...', onSend: null),
+          const ChatInputBar(hintText: 'Message everyone…', onSend: null),
         ],
       ),
     );

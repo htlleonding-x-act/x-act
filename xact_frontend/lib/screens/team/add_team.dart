@@ -14,15 +14,7 @@ class AddTeamResult {
   });
 }
 
-/// Dialog that lets the lobby leader create a new team.
-///
-/// Usage:
-/// ```dart
-/// final result = await showDialog<AddTeamResult>(
-///   context: context,
-///   builder: (_) => const AddTeamDialog(),
-/// );
-/// ```
+/// Dialog that lets the lobby leader create or edit a team.
 class AddTeamDialog extends StatefulWidget {
   final String title;
   final String submitLabel;
@@ -35,17 +27,16 @@ class AddTeamDialog extends StatefulWidget {
     required this.initialName,
     required this.initialMaxPlayers,
     required this.initialColor,
-  }) : title = 'Edit Team',
-       submitLabel = 'Save';
+  })  : title = 'Edit team',
+        submitLabel = 'Save';
 
   const AddTeamDialog.create({
     super.key,
     this.initialName = 'Team 3',
-  })
-    : title = 'Add New Team',
-      submitLabel = 'Create',
-      initialMaxPlayers = 3,
-      initialColor = Colors.teal;
+  })  : title = 'Add new team',
+        submitLabel = 'Create',
+        initialMaxPlayers = 3,
+        initialColor = const Color(0xFF5B7CFA);
 
   @override
   State<AddTeamDialog> createState() => _AddTeamDialogState();
@@ -56,16 +47,15 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
   late int _maxPlayers;
   late Color _selectedColor;
 
-  // ── Available team colors ───────────────────────────────────────────────
   static const List<Color> _colorOptions = [
-    Colors.teal,
-    Colors.orange,
-    Colors.pink,
-    Colors.cyan,
-    Colors.amber,
-    Colors.indigo,
-    Colors.lime,
-    Colors.deepOrange,
+    Color(0xFF5B7CFA), // detective blue
+    Color(0xFF34D399), // success green
+    Color(0xFFF6B05B), // warning amber
+    Color(0xFFFF4D5E), // primary red
+    Color(0xFFA78BFA), // violet
+    Color(0xFF06B6D4), // cyan
+    Color(0xFFF472B6), // pink
+    Color(0xFF94A3B8), // slate
   ];
 
   @override
@@ -90,7 +80,6 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
       ).showSnackBar(const SnackBar(content: Text('Please enter a team name')));
       return;
     }
-    // TODO: Call backend POST /api/teams to persist the new team
     Navigator.of(context).pop(
       AddTeamResult(name: name, color: _selectedColor, maxPlayers: _maxPlayers),
     );
@@ -102,9 +91,13 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Dialog(
-      backgroundColor: XActBranding.cardColor,
+      backgroundColor: XActColors.surface,
+      surfaceTintColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: XActColors.hairlineSoft),
+      ),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 420,
@@ -117,70 +110,90 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Title ────────────────────────────────────────────────────
-              Text(
-                widget.title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ── Team name ────────────────────────────────────────────────
-              XActBranding.buildTextField(
-                label: 'Team Name',
-                hintText: 'e.g. Team 3',
-                controller: _nameController,
-              ),
-              const SizedBox(height: 16),
-
-              // ── Max players ──────────────────────────────────────────────
-              const Text(
-                'Max Players',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
               Row(
                 children: [
-                  IconButton(
-                    onPressed: _maxPlayers > 1
-                        ? () => setState(() => _maxPlayers--)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                    color: Colors.white54,
-                  ),
-                  Text(
-                    '$_maxPlayers',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        XActBranding.buildEyebrow('Lobby'),
+                        const SizedBox(height: 2),
+                        Text(widget.title, style: XActText.heading),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: _maxPlayers < 10
-                        ? () => setState(() => _maxPlayers++)
-                        : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                    color: Colors.white54,
+                  XActBranding.circleIconButton(
+                    icon: Icons.close_rounded,
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // ── Color picker ─────────────────────────────────────────────
-              const Text(
-                'Team Color',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
+              const SizedBox(height: 18),
+              XActBranding.buildTextField(
+                label: 'Team name',
+                hintText: 'e.g. Team 3',
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Max players',
+                style: XActText.bodySm.copyWith(
+                  color: XActColors.text3,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: .2,
+                ),
               ),
               const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .03),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: XActColors.hairlineSoft),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: _maxPlayers > 1
+                          ? () => setState(() => _maxPlayers--)
+                          : null,
+                      icon: const Icon(Icons.remove_rounded),
+                      color: XActColors.text2,
+                    ),
+                    Text(
+                      '$_maxPlayers',
+                      style: XActText.heading.copyWith(fontSize: 20),
+                    ),
+                    IconButton(
+                      onPressed: _maxPlayers < 10
+                          ? () => setState(() => _maxPlayers++)
+                          : null,
+                      icon: const Icon(Icons.add_rounded),
+                      color: XActColors.text2,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Team color',
+                style: XActText.bodySm.copyWith(
+                  color: XActColors.text3,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: .2,
+                ),
+              ),
+              const SizedBox(height: 10),
               Wrap(
-                spacing: 10,
-                runSpacing: 10,
+                spacing: 12,
+                runSpacing: 12,
                 children: _colorOptions.map((c) {
-                  final isSelected = c == _selectedColor;
+                  final isSelected = c.toARGB32() == _selectedColor.toARGB32();
                   return GestureDetector(
                     onTap: () => setState(() => _selectedColor = c),
                     child: Container(
@@ -189,41 +202,41 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
                       decoration: BoxDecoration(
                         color: c,
                         shape: BoxShape.circle,
-                        border: isSelected
-                            ? Border.all(color: Colors.white, width: 3)
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: .06),
+                          width: isSelected ? 3 : 1,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: c.withValues(alpha: .5),
+                                  blurRadius: 12,
+                                ),
+                              ]
                             : null,
                       ),
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 24),
-
-              // ── Action buttons ───────────────────────────────────────────
+              const SizedBox(height: 22),
               Row(
                 children: [
                   Expanded(
-                    child: TextButton(
+                    child: XActBranding.buildGhostButton(
+                      text: 'Cancel',
+                      height: 48,
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Colors.white54),
-                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: ElevatedButton(
+                    child: XActBranding.buildSecondaryButton(
+                      text: widget.submitLabel,
+                      height: 48,
                       onPressed: _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: XActBranding.primaryBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text(widget.submitLabel),
                     ),
                   ),
                 ],

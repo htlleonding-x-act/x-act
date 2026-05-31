@@ -17,54 +17,36 @@ class LobbyBottomButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x00000000), XActColors.bg],
+          stops: [0, .4],
+        ),
+      ),
       child: Column(
         children: [
-          // ── Randomize Teams ───────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onRandomize,
-              icon: const Icon(Icons.shuffle, size: 18),
-              label: const Text('Randomize Teams'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: XActBranding.primaryBlue,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
+          XActBranding.buildGhostButton(
+            text: 'Randomize Teams',
+            icon: Icons.shuffle_rounded,
+            height: 48,
+            onPressed: onRandomize,
           ),
-          const SizedBox(height: 8),
-
-          // ── Start Game ────────────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: canStartGame ? onStartGame : null,
-              icon: const Icon(Icons.play_arrow, size: 20),
-              label: const Text(
-                'Start Game',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: canStartGame ? Colors.green : Colors.white10,
-                foregroundColor: canStartGame ? Colors.white : Colors.white38,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-            ),
+          const SizedBox(height: XActSpace.s3),
+          XActBranding.buildSuccessButton(
+            text: 'Start Game',
+            icon: Icons.play_arrow_rounded,
+            onPressed: canStartGame ? onStartGame : null,
           ),
           if (!canStartGame) ...[
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'Need 1 Mister X, 1 Detective, and no players in Unassigned',
-              style: TextStyle(color: Colors.white38, fontSize: 12),
+              style: XActText.caption.copyWith(color: XActColors.text4),
+              textAlign: TextAlign.center,
             ),
           ],
         ],

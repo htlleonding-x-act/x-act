@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../api/api_service.dart';
+import 'xact_branding.dart';
 
 class MapHeader extends StatefulWidget {
   const MapHeader({super.key});
@@ -93,59 +94,60 @@ class _MapHeaderState extends State<MapHeader> {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: const BoxDecoration(
-          color: Color(0xFF0F172A),
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(12),
-            bottomRight: Radius.circular(12),
+      top: 12,
+      left: 12,
+      right: 12,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+          decoration: BoxDecoration(
+            color: XActColors.glass,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: XActColors.hairlineSoft),
+            boxShadow: XActElevation.e2,
           ),
-        ),
-        child: SafeArea(
-          bottom: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'X-ACT',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: XActColors.primarySoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.timer_outlined,
+                      color: XActColors.primary,
+                      size: 20,
                     ),
                   ),
+                  const SizedBox(width: 12),
                   FutureBuilder<MapHeaderData>(
                     future: _load,
                     builder: (context, snapshot) {
-                      final text = snapshot.hasError
-                          ? 'Next ping: unavailable'
-                          : (_totalSeconds > 0
-                                ? 'Next ping: $_countdownText'
-                                : (snapshot.data?.nextPingText ??
-                                      'Next ping: ...'));
-                      return Row(
-                        children: [
-                          Icon(
-                            Icons.access_time,
-                            color: Colors.orange.shade400,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            text,
-                            style: TextStyle(
-                              color: Colors.orange.shade400,
-                              fontSize: 16,
+                      return Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            XActBranding.buildEyebrow('Next ping'),
+                            const SizedBox(height: 2),
+                            Text(
+                              snapshot.hasError
+                                  ? 'unavailable'
+                                  : (_totalSeconds > 0
+                                      ? _countdownText
+                                      : (snapshot.data?.nextPingText ?? '…')),
+                              style: XActText.mono.copyWith(
+                                fontSize: 20,
+                                color: XActColors.text1,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -157,10 +159,10 @@ class _MapHeaderState extends State<MapHeader> {
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: _progress,
-                    minHeight: 6,
-                    backgroundColor: Colors.white12,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.orange.shade400,
+                    minHeight: 4,
+                    backgroundColor: Colors.white.withValues(alpha: .08),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      XActColors.primary,
                     ),
                   ),
                 ),

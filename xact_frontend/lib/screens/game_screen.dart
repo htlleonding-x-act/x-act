@@ -7,6 +7,7 @@ import 'all_chat_screen.dart';
 import 'team_chat_screen.dart';
 import 'report_screen.dart';
 import '../widgets/map_area.dart';
+import '../widgets/xact_branding.dart';
 import '../services/app_session.dart';
 import '../services/location_service.dart';
 
@@ -175,49 +176,104 @@ class _GameScreenState extends State<GameScreen> {
       canPop: _allowDirectPop || !_hasActiveGameSession,
       onPopInvokedWithResult: _onPopInvokedWithResult,
       child: Scaffold(
+        backgroundColor: XActColors.bg,
         body: _isMapFullscreen
             ? MapArea(onFullscreenToggle: _toggleFullscreen, isFullscreen: true)
-            : Column(
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: MapArea(onFullscreenToggle: _toggleFullscreen),
-                  ),
-                  Expanded(flex: 4, child: _screens[_selectedIndex]),
-                ],
+            : SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: MapArea(onFullscreenToggle: _toggleFullscreen),
+                    ),
+                    Expanded(flex: 4, child: _screens[_selectedIndex]),
+                  ],
+                ),
               ),
-        bottomNavigationBar: _isMapFullscreen
-            ? null
-            : BottomNavigationBar(
-                currentIndex: _selectedIndex,
-                onTap: (index) {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
-                },
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: const Color(0xFF0F172A),
-                selectedItemColor: Colors.blue.shade400,
-                unselectedItemColor: Colors.white54,
-                items: const [
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.groups),
-                    label: 'Team',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.forum),
-                    label: 'All Chat',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.chat),
-                    label: 'Team Chat',
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Icon(Icons.warning),
-                    label: 'Report',
-                  ),
-                ],
+        bottomNavigationBar: _isMapFullscreen ? null : _buildBottomNav(),
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    const items = [
+      (Icons.groups_rounded, 'Team'),
+      (Icons.forum_rounded, 'All Chat'),
+      (Icons.chat_bubble_rounded, 'Team Chat'),
+      (Icons.flag_rounded, 'Report'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: XActColors.bg,
+        border: Border(
+          top: BorderSide(color: XActColors.hairlineSoft),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            for (int i = 0; i < items.length; i++)
+              _buildNavItem(
+                icon: items[i].$1,
+                label: items[i].$2,
+                active: _selectedIndex == i,
+                onTap: () => setState(() => _selectedIndex = i),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return InkResponse(
+      onTap: onTap,
+      radius: 36,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 3,
+              width: 28,
+              child: active
+                  ? Container(
+                      decoration: BoxDecoration(
+                        color: XActColors.secondary,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 4),
+            Icon(
+              icon,
+              size: 22,
+              color: active ? XActColors.text1 : XActColors.text4,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: XActText.caption.copyWith(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: active ? XActColors.text1 : XActColors.text4,
+                letterSpacing: .4,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

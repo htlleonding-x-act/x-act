@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'xact_branding.dart';
+
 final class MapLegendTeamEntry {
   final String label;
   final Color color;
@@ -20,7 +22,7 @@ class MapLegend extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = <Widget>[
-      _LegendItem(color: myLocationColor, label: 'Your Location'),
+      _LegendItem(color: myLocationColor, label: 'You'),
     ];
 
     for (final entry in teamEntries) {
@@ -32,15 +34,21 @@ class MapLegend extends StatelessWidget {
       bottom: 16,
       left: 16,
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(8),
+          color: XActColors.glass,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: XActColors.hairlineSoft),
+          boxShadow: XActElevation.e2,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: items,
+          children: [
+            XActBranding.buildEyebrow('Legend'),
+            const SizedBox(height: 8),
+            ...items,
+          ],
         ),
       ),
     );
@@ -61,10 +69,22 @@ class _LegendItem extends StatelessWidget {
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color,
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: .55),
+                blurRadius: 8,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(color: Colors.white)),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: XActText.bodySm.copyWith(fontSize: 13),
+        ),
       ],
     );
   }

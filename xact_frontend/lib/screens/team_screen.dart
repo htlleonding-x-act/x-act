@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api/api_service.dart';
 import '../widgets/team/team_card.dart';
+import '../widgets/xact_branding.dart';
 
 class TeamScreen extends StatefulWidget {
   const TeamScreen({super.key});
@@ -22,7 +23,7 @@ class _TeamScreenState extends State<TeamScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF0F172A),
+      color: XActColors.bg,
       child: FutureBuilder<List<TeamCardData>>(
         future: _load,
         builder: (context, snapshot) {
@@ -33,20 +34,16 @@ class _TeamScreenState extends State<TeamScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       'Failed to load teams',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: XActText.subheading,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       snapshot.error.toString(),
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: XActText.caption.copyWith(
+                        color: XActColors.text3,
                         fontSize: 13,
                       ),
                       textAlign: TextAlign.center,
@@ -62,7 +59,7 @@ class _TeamScreenState extends State<TeamScreen> {
             return const Center(
               child: Padding(
                 padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator(color: XActColors.secondary),
               ),
             );
           }
@@ -72,12 +69,12 @@ class _TeamScreenState extends State<TeamScreen> {
               .toList(growable: false);
 
           if (visibleTeams.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
                   'No teams found',
-                  style: TextStyle(color: Colors.white70),
+                  style: XActText.bodySm.copyWith(color: XActColors.text3),
                 ),
               ),
             );
