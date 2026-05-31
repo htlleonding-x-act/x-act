@@ -1,6 +1,7 @@
 part of 'api_service.dart';
 
 final class TeamCardData {
+  final int teamId;
   final String teamName;
   final TeamRole? role;
   final Color color;
@@ -8,6 +9,7 @@ final class TeamCardData {
   final List<String> members;
 
   const TeamCardData({
+    required this.teamId,
     required this.teamName,
     required this.role,
     required this.color,

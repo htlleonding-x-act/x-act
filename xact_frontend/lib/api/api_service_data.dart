@@ -23,6 +23,7 @@ extension ApiServiceDataMethods on ApiService {
               .toList(growable: false);
 
           return TeamCardData(
+            teamId: team.teamId,
             teamName: team.teamName,
             role: team.role,
             color: color,
