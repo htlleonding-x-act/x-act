@@ -2,16 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
+import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
+import 'package:xact_frontend/screens/lobby/map_preview_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/game_start_transition_service.dart';
+import 'package:xact_frontend/services/geofence_store.dart';
 import 'package:xact_frontend/widgets/team/add_team_button.dart';
 import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
 import 'package:xact_frontend/widgets/team/lobby_header.dart';
+import 'package:xact_frontend/widgets/team/lobby_settings_sheet.dart';
 import 'package:xact_frontend/widgets/team/share_game_code_dialog.dart';
 import 'package:xact_frontend/widgets/team/lobby_team_card.dart';
 import 'package:xact_frontend/widgets/team/spectators_card.dart';
@@ -41,6 +46,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   bool _loading = true;
   bool _working = false;
   bool _gameTransitionStarted = false;
+  int _mrXRevealInterval = 5;
 
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
@@ -69,6 +75,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   void initState() {
     super.initState();
     _refreshLobby();
+    _loadSessionDetails();
     _initRealtime();
   }
 
@@ -560,6 +567,90 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     }
   }
 
+  Future<void> _loadSessionDetails() async {
+    try {
+      final details = await ApiService.instance.getGameSession(widget.sessionId);
+      if (mounted) setState(() => _mrXRevealInterval = details.mrXRevealInterval);
+    } catch (_) {}
+  }
+
+  Future<void> _openMapPreview() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapPreviewScreen(
+          sessionId: widget.sessionId,
+          gameName: widget.gameName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSettings() async {
+    final newInterval = await LobbySettingsSheet.show(
+      context: context,
+      sessionId: widget.sessionId,
+      initialPingInterval: _mrXRevealInterval,
+      onEditMap: isLobbyLeader()
+          ? () {
+              Navigator.of(context).pop();
+              _openMapEditor();
+            }
+          : null,
+    );
+    if (newInterval != null && mounted) {
+      setState(() => _mrXRevealInterval = newInterval);
+    }
+  }
+
+  Future<void> _openMapEditor() async {
+    setState(() => _working = true);
+    List<LatLng> existingPoints;
+    try {
+      final pts =
+          await ApiService.instance.loadGeofencePoints(widget.sessionId) ??
+          const [];
+      existingPoints = pts
+          .map((p) => LatLng(p.latitude, p.longitude))
+          .toList(growable: false);
+    } catch (_) {
+      existingPoints = const [];
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+
+    if (!mounted) return;
+
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DefineGameAreaScreen(
+          sessionId: widget.sessionId,
+          gameName: widget.gameName,
+          initialPoints: existingPoints,
+          fromLobby: true,
+        ),
+      ),
+    );
+
+    if (saved != true || !mounted) return;
+
+    setState(() => _working = true);
+    try {
+      await ApiService.instance.saveGeofenceArea(
+        sessionId: widget.sessionId,
+        points: GeofenceStore.instance.points,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not save map area: $e')));
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final leader = isLobbyLeader();
@@ -577,6 +668,8 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
               isLeader: leader,
+              onViewMap: _openMapPreview,
+              onSettings: leader ? _openSettings : null,
             ),
             Expanded(
               child: RefreshIndicator(

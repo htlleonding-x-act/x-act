@@ -13,11 +13,15 @@ import '../../widgets/xact_branding.dart';
 class DefineGameAreaScreen extends StatefulWidget {
   final int sessionId;
   final String gameName;
+  final List<LatLng>? initialPoints;
+  final bool fromLobby;
 
   const DefineGameAreaScreen({
     super.key,
     required this.sessionId,
     required this.gameName,
+    this.initialPoints,
+    this.fromLobby = false,
   });
 
   @override
@@ -54,6 +58,9 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialPoints != null && widget.initialPoints!.isNotEmpty) {
+      _points.addAll(widget.initialPoints!);
+    }
     _resolveInitialCenter();
   }
 
@@ -353,10 +360,12 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              XActBranding.buildEyebrow('Step 2 of 3'),
-              const SizedBox(height: 2),
+              if (!widget.fromLobby) ...[
+                XActBranding.buildEyebrow('Step 2 of 3'),
+                const SizedBox(height: 2),
+              ],
               Text(
-                'Define play area',
+                widget.fromLobby ? 'Edit play area' : 'Define play area',
                 style: XActText.heading,
                 overflow: TextOverflow.ellipsis,
               ),
