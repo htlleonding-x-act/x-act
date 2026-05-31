@@ -30,5 +30,8 @@ internal static class SeedData
 
     public const int PowerUpUsageId = 1;
 
+    public const int AllChatMessageId = 1;
+    public const int TeamChatMessageId = 2;
+
     public static readonly Instant BaseInstant = Instant.FromUtc(2026, 1, 1, 10, 0);
 }
