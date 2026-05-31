@@ -122,9 +122,24 @@ extension ApiServiceDataMethods on ApiService {
   //   - The current player's own marker is rendered from local GPS by the
   //     map widget, not from this list, so these rules apply to everyone
   //     else.
+  //   - When the current viewer is Mr. X, every other player is hidden — Mr.
+  //     X must not learn detective positions from the map. The "You" marker
+  //     still comes from local GPS in the map widget.
   Future<List<PlayerPositionData>> loadPlayerPositions(int sessionId) async {
     final snapshot = await loadLobbySnapshot(sessionId);
     final out = <PlayerPositionData>[];
+
+    final currentTeamId = _session.currentTeamId;
+    final currentTeamRole = currentTeamId == null
+        ? null
+        : snapshot.teams
+              .where((team) => team.teamId == currentTeamId)
+              .map((team) => team.role)
+              .firstOrNull;
+
+    if (currentTeamRole == TeamRole.mrX) {
+      return out;
+    }
 
     final latestLocationByMemberId = <int, SnapshotLatestLocation>{};
     for (final location in snapshot.latestLocations) {
