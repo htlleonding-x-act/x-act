@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../api/api_service.dart';
+import '../api/models.dart';
 import 'start/start_screen.dart';
 import 'team_screen.dart';
 import 'all_chat_screen.dart';
@@ -24,6 +25,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _trackingInitCancelled = false;
   bool _allowDirectPop = false;
   Timer? _trackingRetryTimer;
+  StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -36,6 +38,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     unawaited(_startLocationTrackingSafely());
+    unawaited(_initRealtimeAnnouncements());
     _trackingRetryTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted || _trackingInitCancelled) {
         return;
@@ -45,6 +48,52 @@ class _GameScreenState extends State<GameScreen> {
         unawaited(_startLocationTrackingSafely());
       }
     });
+  }
+
+  Future<void> _initRealtimeAnnouncements() async {
+    final sessionId = AppSession.instance.currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+
+    try {
+      await ApiService.instance.ensureRealtimeSessionSubscription(sessionId);
+      _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
+        if (event.type == RealtimeEvents.mrXCaught) {
+          _onMrXCaught(MrXCaughtPayload.fromJson(event.payload));
+        }
+      });
+    } catch (_) {
+      // Announcements are best-effort; the game keeps working without them.
+    }
+  }
+
+  void _onMrXCaught(MrXCaughtPayload payload) {
+    if (!mounted) {
+      return;
+    }
+
+    final currentTeamId = AppSession.instance.currentTeamId;
+    final String message;
+    if (currentTeamId == payload.newMrXTeamId) {
+      message = 'Your team caught Mister X — you are now Mister X!';
+    } else if (currentTeamId == payload.formerMrXTeamId) {
+      message = 'You were caught! ${payload.newMrXTeamName} is now Mister X.';
+    } else {
+      message =
+          '${payload.newMrXTeamName} caught Mister X — they are the new Mister X!';
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message, style: XActText.bodySm),
+          backgroundColor: XActColors.surface2,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   Future<void> _startLocationTrackingSafely() async {
@@ -60,6 +109,7 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _trackingInitCancelled = true;
     _trackingRetryTimer?.cancel();
+    _realtimeEventSub?.cancel();
     LocationService.instance.stopTracking();
     super.dispose();
   }

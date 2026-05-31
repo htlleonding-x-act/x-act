@@ -132,7 +132,12 @@ class _MapAreaState extends State<MapArea> {
         if (event.type == RealtimeEvents.teamMemberJoined ||
             event.type == RealtimeEvents.teamMemberUpdated ||
             event.type == RealtimeEvents.teamMemberLeft ||
-            event.type == RealtimeEvents.locationLogRecorded) {
+            event.type == RealtimeEvents.locationLogRecorded ||
+            // A Mr. X catch swaps two teams' roles (team_updated), which changes
+            // who is visible on the map and the legend, so re-filter on these too.
+            event.type == RealtimeEvents.teamAdded ||
+            event.type == RealtimeEvents.teamUpdated ||
+            event.type == RealtimeEvents.teamDeleted) {
           _refreshPlayers();
         }
       });
