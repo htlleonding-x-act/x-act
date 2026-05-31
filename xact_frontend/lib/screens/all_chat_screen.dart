@@ -26,13 +26,24 @@ class _AllChatScreenState extends State<AllChatScreen> {
   void initState() {
     super.initState();
     _eventSubscription = ApiService.instance.realtimeEvents.listen(_onEvent);
-    unawaited(_loadHistory());
+    unawaited(_init());
   }
 
   @override
   void dispose() {
     _eventSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _init() async {
+    // Make sure the realtime connection is started and subscribed to the
+    // session group before we rely on _onEvent for live updates.
+    try {
+      await ApiService.instance.ensureSessionChannelSubscription();
+    } catch (_) {
+      // Realtime is best-effort; history still loads below.
+    }
+    await _loadHistory();
   }
 
   Future<void> _loadHistory() async {
@@ -161,7 +172,7 @@ class _AllChatScreenState extends State<AllChatScreen> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Could not load chat. Pull to retry by reopening this tab.',
+            'Could not load chat. Reopen this tab to retry.',
             style: XActText.bodySm.copyWith(color: XActColors.text3),
             textAlign: TextAlign.center,
           ),

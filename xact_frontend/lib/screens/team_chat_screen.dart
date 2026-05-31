@@ -202,7 +202,6 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
           Expanded(child: _buildBody()),
           ChatInputBar(
             hintText: 'Message your team…',
-            leadingIcon: Icons.location_on_rounded,
             onSend: _teamId == null ? null : _handleSend,
           ),
         ],

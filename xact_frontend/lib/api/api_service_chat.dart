@@ -57,6 +57,17 @@ extension ApiServiceChatMethods on ApiService {
     return ChatMessage.fromJson(json);
   }
 
+  /// Ensure the realtime connection is started and subscribed to the active
+  /// session group, so global "All" chat events are delivered to this client.
+  Future<void> ensureSessionChannelSubscription({int? sessionId}) async {
+    final resolvedSessionId = sessionId ?? await getActiveSessionId();
+    if (resolvedSessionId == null) {
+      return;
+    }
+
+    await _ensureRealtimeSubscription(resolvedSessionId);
+  }
+
   /// Ensure the realtime connection has joined the private team channel so
   /// team messages are delivered to this client.
   Future<void> ensureTeamChannelSubscription({

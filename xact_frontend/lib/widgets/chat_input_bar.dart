@@ -8,12 +8,18 @@ class ChatInputBar extends StatefulWidget {
   /// Called with the trimmed message text when the user sends. When `null`,
   /// the input is shown in a disabled state.
   final ValueChanged<String>? onSend;
+
+  /// Action for the leading icon button. When `null` (or when the bar is
+  /// disabled) the leading button is omitted so it is not a focusable,
+  /// no-op control for keyboard and screen-reader users.
+  final VoidCallback? onLeadingPressed;
   final IconData leadingIcon;
 
   const ChatInputBar({
     super.key,
     required this.hintText,
     this.onSend,
+    this.onLeadingPressed,
     this.leadingIcon = Icons.add_rounded,
   });
 
@@ -71,11 +77,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
         top: false,
         child: Row(
           children: [
-            XActBranding.circleIconButton(
-              icon: widget.leadingIcon,
-              onPressed: () {},
-            ),
-            const SizedBox(width: 8),
+            if (enabled && widget.onLeadingPressed != null) ...[
+              XActBranding.circleIconButton(
+                icon: widget.leadingIcon,
+                onPressed: widget.onLeadingPressed!,
+              ),
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: SizedBox(
                 height: 44,
