@@ -20,6 +20,7 @@ public static class DomainErrorCodes
     public const string TeamLeaderAlreadyExists = "team_leader_already_exists";
     public const string PowerUpNotAllowedForTeamRole = "power_up_not_allowed_for_team_role";
     public const string GeofencePointLimitReached = "geofence_point_limit_reached";
+    public const string ChatNotTeamMember = "chat_not_team_member";
 }
 
 public sealed record DomainError(string Code, string Message)
@@ -78,4 +79,8 @@ public sealed record DomainError(string Code, string Message)
     public static DomainError GeofencePointLimitReached(int sessionId, int limit) =>
         new(DomainErrorCodes.GeofencePointLimitReached,
             $"Session {sessionId} has reached the maximum of {limit} geofence points.");
+
+    public static DomainError ChatNotTeamMember(int memberId, int teamId) =>
+        new(DomainErrorCodes.ChatNotTeamMember,
+            $"Member {memberId} is not part of team {teamId} and cannot post to its chat channel.");
 }

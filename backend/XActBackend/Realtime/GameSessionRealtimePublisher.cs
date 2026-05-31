@@ -114,12 +114,36 @@ internal sealed class GameSessionRealtimePublisher(
                 formerMrXTeam.Id,
                 formerMrXTeam.TeamName));
 
-    private async ValueTask PublishToSessionAsync(int sessionId, string eventType, object payload)
+    public ValueTask PublishChatMessageAsync(ChatMessage message)
+    {
+        var payload = new ChatMessagePostedPayload(
+            message.Id,
+            message.SessionId,
+            message.TeamId,
+            message.SenderMemberId,
+            message.SenderTeamId,
+            message.SenderName,
+            message.Content,
+            message.SentAt);
+
+        // "All" messages (TeamId null) go to the whole session group; team messages go to the
+        // private team group so only members who joined that channel receive them.
+        string group = message.TeamId is int teamId
+            ? RealtimeGroups.Team(message.SessionId, teamId)
+            : RealtimeGroups.Session(message.SessionId);
+
+        return PublishToGroupAsync(group, message.SessionId, RealtimeEvents.ChatMessagePosted, payload);
+    }
+
+    private ValueTask PublishToSessionAsync(int sessionId, string eventType, object payload) =>
+        PublishToGroupAsync(RealtimeGroups.Session(sessionId), sessionId, eventType, payload);
+
+    private async ValueTask PublishToGroupAsync(string group, int sessionId, string eventType, object payload)
     {
         try
         {
             await hubContext.Clients
-                .Group(RealtimeGroups.Session(sessionId))
+                .Group(group)
                 .SendAsync(RealtimeMethods.Event, new RealtimeEventEnvelope(eventType, payload));
         }
         catch (Exception ex)

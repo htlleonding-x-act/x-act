@@ -19,11 +19,15 @@ public static class RealtimeEvents
     public const string GameSessionStarted = "game_session_started";
     public const string LocationLogRecorded = "location_log_recorded";
     public const string MrXCaught = "mr_x_caught";
+    public const string ChatMessagePosted = "chat_message_posted";
 }
 
 public static class RealtimeGroups
 {
     public static string Session(int sessionId) => $"session:{sessionId}";
+
+    // Private per-team channel; team chat is only delivered to connections that joined this group.
+    public static string Team(int sessionId, int teamId) => $"session:{sessionId}:team:{teamId}";
 }
 
 public sealed record RealtimeEventEnvelope(string Type, object Payload);
@@ -160,4 +164,15 @@ public sealed record LocationLogRecordedPayload(
     double AccuracyMeters,
     TransportMode TransportMode,
     bool IsRevealedPosition
+);
+
+public sealed record ChatMessagePostedPayload(
+    int MessageId,
+    int SessionId,
+    int? TeamId,
+    int? SenderMemberId,
+    int? SenderTeamId,
+    string SenderName,
+    string Content,
+    Instant SentAt
 );
