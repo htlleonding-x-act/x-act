@@ -18,6 +18,7 @@ public static class RealtimeEvents
     public const string TeamMemberLeft = "team_member_left";
     public const string GameSessionStarted = "game_session_started";
     public const string LocationLogRecorded = "location_log_recorded";
+    public const string MrXCaught = "mr_x_caught";
 }
 
 public static class RealtimeGroups
@@ -138,6 +139,14 @@ public sealed record GameSessionStartedPayload(
     SessionStatus Status,
     Instant? StartTime,
     Instant? EndTime
+);
+
+public sealed record MrXCaughtPayload(
+    int SessionId,
+    int NewMrXTeamId,
+    string NewMrXTeamName,
+    int FormerMrXTeamId,
+    string FormerMrXTeamName
 );
 
 public sealed record LocationLogRecordedPayload(

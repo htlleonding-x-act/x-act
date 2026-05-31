@@ -312,26 +312,41 @@ public sealed class GameSessionController(
     [HttpPost]
     [Route("{sessionId:int}/catch")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async ValueTask<IActionResult> CatchMrX([FromRoute] int sessionId)
+    public async ValueTask<IActionResult> CatchMrX([FromRoute] int sessionId, [FromBody] CatchMrXRequest request)
     {
+        if (!ValidateRequest<CatchMrXRequest.Validator, CatchMrXRequest>(request))
+        {
+            logger.LogWarning("Rejected catch for game session {SessionId} because validation failed", sessionId);
+            return BadRequest();
+        }
+
         try
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound, DomainError> result = await gameSessionService.CatchMrXAsync(sessionId);
+            OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result =
+                await gameSessionService.CatchMrXAsync(sessionId, request.CatchingTeamId);
 
-            return await result.Match<ValueTask<IActionResult>>(async success =>
+            return await result.Match<ValueTask<IActionResult>>(async caught =>
             {
                 await transaction.CommitAsync();
-                logger.LogInformation("MrX was caught in game session {SessionId}", sessionId);
+
+                // Both teams changed role, so push the updated team state to every client and
+                // announce the swap so each client can surface it to the player.
+                await realtimePublisher.PublishTeamUpdatedAsync(caught.NewMrXTeam);
+                await realtimePublisher.PublishTeamUpdatedAsync(caught.FormerMrXTeam);
+                await realtimePublisher.PublishMrXCaughtAsync(caught.NewMrXTeam, caught.FormerMrXTeam);
+
+                logger.LogInformation("MrX was caught in game session {SessionId}: team {NewMrXTeamId} is now MrX", sessionId, caught.NewMrXTeam.Id);
 
                 return NoContent();
             }, async notFound =>
             {
                 await transaction.RollbackAsync();
-                logger.LogWarning("Rejected catch for game session {SessionId} because session or MrX team was not found", sessionId);
+                logger.LogWarning("Rejected catch for game session {SessionId} because session, MrX team or catching team was not found", sessionId);
 
                 return NotFound();
             }, async domainError =>
@@ -348,6 +363,17 @@ public sealed class GameSessionController(
             await transaction.RollbackAsync();
 
             return Problem();
+        }
+    }
+}
+
+public sealed record CatchMrXRequest(int CatchingTeamId)
+{
+    public sealed class Validator : AbstractValidator<CatchMrXRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.CatchingTeamId).GreaterThan(0);
         }
     }
 }

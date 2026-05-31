@@ -225,8 +225,7 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
 
     // --- CatchMrX ---
 
-    [Fact]
-    public async ValueTask CatchMrX_NoContent()
+    private async ValueTask ActivateSeededSessionAsync()
     {
         await ModifyDatabaseContentAsync(context =>
         {
@@ -234,16 +233,43 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
             session!.Status = SessionStatus.Active;
             return new ValueTask(context.SaveChangesAsync());
         });
+    }
 
-        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionId}/catch", null, TestCancellationToken);
+    [Fact]
+    public async ValueTask CatchMrX_NoContent_AndSwapsRoles()
+    {
+        await ActivateSeededSessionAsync();
+
+        var request = new CatchMrXRequest(SeedData.DetectiveTeamId);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionId}/catch", request, JsonOptions, TestCancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // The catching detective team is now Mr.X, and the former Mr.X team is now a detective team.
+        var formerMrX = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.MrXTeamId}", TestCancellationToken);
+        var newMrX = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}", TestCancellationToken);
+        var formerMrXTeam = await formerMrX.Content.ReadFromJsonAsync<TeamDetailsDto>(JsonOptions, TestCancellationToken);
+        var newMrXTeam = await newMrX.Content.ReadFromJsonAsync<TeamDetailsDto>(JsonOptions, TestCancellationToken);
+        formerMrXTeam!.Role.Should().Be(TeamRole.Detective);
+        newMrXTeam!.Role.Should().Be(TeamRole.MrX);
+    }
+
+    [Fact]
+    public async ValueTask CatchMrX_BadRequest_WhenCatchingTeamIdInvalid()
+    {
+        await ActivateSeededSessionAsync();
+
+        var request = new CatchMrXRequest(0);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionId}/catch", request, JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
     public async ValueTask CatchMrX_NotFound()
     {
-        var response = await ApiClient.PostAsync($"{BaseUrl}/9999/catch", null, TestCancellationToken);
+        var request = new CatchMrXRequest(SeedData.DetectiveTeamId);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/9999/catch", request, JsonOptions, TestCancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -251,7 +277,20 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
     [Fact]
     public async ValueTask CatchMrX_Conflict_WhenNotActive()
     {
-        var response = await ApiClient.PostAsync($"{BaseUrl}/{SeedData.SessionId}/catch", null, TestCancellationToken);
+        var request = new CatchMrXRequest(SeedData.DetectiveTeamId);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionId}/catch", request, JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async ValueTask CatchMrX_Conflict_WhenCatchingTeamIsNotDetective()
+    {
+        await ActivateSeededSessionAsync();
+
+        // The current Mr.X team is not a detective team and therefore cannot "catch" Mr.X.
+        var request = new CatchMrXRequest(SeedData.MrXTeamId);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionId}/catch", request, JsonOptions, TestCancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }

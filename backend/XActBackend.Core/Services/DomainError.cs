@@ -11,6 +11,7 @@ public static class DomainErrorCodes
     public const string SessionNotJoinable = "session_not_joinable";
     public const string SessionNotActive = "session_not_active";
     public const string MrXTeamAlreadyExists = "mr_x_team_already_exists";
+    public const string CatchingTeamNotEligible = "catching_team_not_eligible";
     public const string TeamHasMembers = "team_has_members";
     public const string InvalidMemberIdentity = "invalid_member_identity";
     public const string TeamNotInSession = "team_not_in_session";
@@ -46,6 +47,10 @@ public sealed record DomainError(string Code, string Message)
 
     public static DomainError MrXTeamAlreadyExists(int sessionId) =>
         new(DomainErrorCodes.MrXTeamAlreadyExists, $"Session {sessionId} already has an Mr.X team.");
+
+    public static DomainError CatchingTeamNotEligible(int teamId, TeamRole role) =>
+        new(DomainErrorCodes.CatchingTeamNotEligible,
+            $"Team {teamId} has role {role} and cannot catch Mr.X; only a detective team can.");
 
     public static DomainError TeamHasMembers(int teamId) =>
         new(DomainErrorCodes.TeamHasMembers, $"Team {teamId} still has members and cannot be deleted.");

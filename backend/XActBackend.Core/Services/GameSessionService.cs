@@ -72,11 +72,13 @@ public interface IGameSessionService
     public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId);
 
     /// <summary>
-    ///     Mark Mr.X as caught for a game session.
+    ///     Mark Mr.X as caught by a detective team and swap the two teams' roles: the catching
+    ///     team becomes the new Mr.X team and the former Mr.X team becomes a detective team.
     /// </summary>
     /// <param name="sessionId">The id of the game session</param>
-    /// <returns>Result indicating if Mr.X could be marked as caught</returns>
-    public ValueTask<OneOf<Success, NotFound, DomainError>> CatchMrXAsync(int sessionId);
+    /// <param name="catchingTeamId">The id of the detective team that caught Mr.X</param>
+    /// <returns>The swapped teams, or an error if the catch could not be processed</returns>
+    public ValueTask<OneOf<MrXCaughtResult, NotFound, DomainError>> CatchMrXAsync(int sessionId, int catchingTeamId);
 
     /// <summary>
     ///     Data used to create or update a game session.
@@ -99,6 +101,13 @@ public interface IGameSessionService
         int PlannedDurationMinutes = 60,
         int MrXRevealInterval = 5
     );
+
+    /// <summary>
+    ///     The outcome of a successful Mr.X catch: the two teams whose roles were swapped.
+    /// </summary>
+    /// <param name="NewMrXTeam">The team that caught Mr.X and is now the Mr.X team</param>
+    /// <param name="FormerMrXTeam">The team that was Mr.X and is now a detective team</param>
+    public sealed record MrXCaughtResult(Team NewMrXTeam, Team FormerMrXTeam);
 }
 
 internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<GameSessionService> logger) : IGameSessionService
@@ -340,7 +349,7 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound, DomainError>> CatchMrXAsync(int sessionId)
+    public async ValueTask<OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError>> CatchMrXAsync(int sessionId, int catchingTeamId)
     {
         var gameSession = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking: false);
         if (gameSession is null)
@@ -361,13 +370,42 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             return new NotFound();
         }
 
-        mrXTeam.IsCaught = true;
+        var catchingTeam = await uow.TeamRepository.GetTeamByIdAsync(catchingTeamId, tracking: true);
+        if (catchingTeam is null)
+        {
+            logger.LogWarning("Rejected catch for session {SessionId} because catching team {TeamId} was not found", sessionId, catchingTeamId);
+            return new NotFound();
+        }
+
+        if (catchingTeam.SessionId != sessionId)
+        {
+            logger.LogWarning("Rejected catch for session {SessionId} because catching team {TeamId} belongs to session {OtherSessionId}", sessionId, catchingTeamId, catchingTeam.SessionId);
+            return DomainError.TeamNotInSession(catchingTeamId, sessionId);
+        }
+
+        // Only a detective team can catch Mr.X. This also rejects the degenerate case where the
+        // caller passes the current Mr.X team (its role is MrX, not Detective) or a spectator team.
+        if (catchingTeam.Role != TeamRole.Detective)
+        {
+            logger.LogWarning("Rejected catch for session {SessionId} because catching team {TeamId} has role {Role}", sessionId, catchingTeamId, catchingTeam.Role);
+            return DomainError.CatchingTeamNotEligible(catchingTeamId, catchingTeam.Role);
+        }
+
+        // Swap roles: the catching team takes over as Mr.X, the former Mr.X becomes a detective team.
+        mrXTeam.Role = TeamRole.Detective;
+        mrXTeam.IsCaught = false;
+        catchingTeam.Role = TeamRole.MrX;
+        catchingTeam.IsCaught = false;
 
         await uow.SaveChangesAsync();
 
-        logger.LogInformation("MrX was caught in session {SessionId}, team {TeamId}", sessionId, mrXTeam.Id);
+        logger.LogInformation(
+            "MrX was caught in session {SessionId}: team {CatchingTeamId} is now MrX, former MrX team {FormerMrXTeamId} is now a detective team",
+            sessionId,
+            catchingTeam.Id,
+            mrXTeam.Id);
 
-        return new Success();
+        return new IGameSessionService.MrXCaughtResult(catchingTeam, mrXTeam);
     }
 
     private static bool IsValidStatusTransition(SessionStatus currentStatus, SessionStatus requestedStatus) =>

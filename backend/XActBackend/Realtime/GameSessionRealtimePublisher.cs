@@ -103,6 +103,17 @@ internal sealed class GameSessionRealtimePublisher(
                 log.TransportMode,
                 log.IsRevealedPosition));
 
+    public ValueTask PublishMrXCaughtAsync(Team newMrXTeam, Team formerMrXTeam) =>
+        PublishToSessionAsync(
+            newMrXTeam.SessionId,
+            RealtimeEvents.MrXCaught,
+            new MrXCaughtPayload(
+                newMrXTeam.SessionId,
+                newMrXTeam.Id,
+                newMrXTeam.TeamName,
+                formerMrXTeam.Id,
+                formerMrXTeam.TeamName));
+
     private async ValueTask PublishToSessionAsync(int sessionId, string eventType, object payload)
     {
         try

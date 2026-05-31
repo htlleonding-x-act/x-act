@@ -24,6 +24,7 @@ public abstract class BaseController : ControllerBase
             DomainErrorCodes.SessionNotJoinable => StatusCodes.Status409Conflict,
             DomainErrorCodes.SessionNotActive => StatusCodes.Status409Conflict,
             DomainErrorCodes.MrXTeamAlreadyExists => StatusCodes.Status409Conflict,
+            DomainErrorCodes.CatchingTeamNotEligible => StatusCodes.Status409Conflict,
             DomainErrorCodes.TeamHasMembers => StatusCodes.Status409Conflict,
             DomainErrorCodes.UserDeleted => StatusCodes.Status409Conflict,
             DomainErrorCodes.UserAlreadyJoined => StatusCodes.Status409Conflict,
