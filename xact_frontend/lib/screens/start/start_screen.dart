@@ -10,156 +10,152 @@ class StartScreen extends StatefulWidget {
 }
 
 class _StartScreenState extends State<StartScreen> {
-  bool _isExpanded = false;
+  bool _showHowTo = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: XActBranding.backgroundColor,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              XActBranding.buildHeader(),
-              const Spacer(flex: 2),
-              _buildHowToGetStartedDropdown(),
-              const SizedBox(height: 16),
-              _buildPlayNowButton(context),
-              const SizedBox(height: 24),
-              XActBranding.buildFooter(),
-              const Spacer(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHowToGetStartedDropdown() {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: Colors.white24),
-              backgroundColor: XActBranding.cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.help_outline, color: Colors.white70),
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
+      backgroundColor: XActColors.bg,
+      body: Stack(
+        children: [
+          Positioned.fill(child: XActBranding.aurora()),
+          SafeArea(
+            child: Column(
               children: [
-                const Text(
-                  'How to Get Started',
-                  style: TextStyle(color: Colors.white, fontSize: 16),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: XActBranding.buildHeader(),
+                      ),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 8),
-                AnimatedRotation(
-                  turns: _isExpanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: const Icon(
-                    Icons.expand_more,
-                    color: Colors.white70,
-                    size: 20,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.bottomCenter,
+                        child: _showHowTo
+                            ? Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: XActSpace.s3,
+                                ),
+                                child: _buildHowToCard(),
+                              )
+                            : const SizedBox(width: double.infinity),
+                      ),
+                      XActBranding.buildGhostButton(
+                        text: 'How to play',
+                        icon: Icons.help_outline_rounded,
+                        trailing: Icon(
+                          _showHowTo
+                              ? Icons.expand_more_rounded
+                              : Icons.expand_less_rounded,
+                          color: XActColors.text3,
+                          size: 18,
+                        ),
+                        onPressed: () =>
+                            setState(() => _showHowTo = !_showHowTo),
+                      ),
+                      const SizedBox(height: XActSpace.s3),
+                      XActBranding.buildPrimaryButton(
+                        text: 'Play Now',
+                        icon: Icons.play_arrow_rounded,
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const PlayNowScreen(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: XActSpace.s4),
+                      Center(child: XActBranding.buildFooter()),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ),
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: _buildStepsCard(),
-          ),
-          crossFadeState: _isExpanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 200),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStepsCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          _buildStepItem(1, 'Create a new game or join a friends game'),
-          const SizedBox(height: 16),
-          _buildStepItem(2, 'Choose your team (Mister X or Detectives)'),
-          const SizedBox(height: 16),
-          _buildStepItem(3, 'Wait for all players to pick their team'),
-          const SizedBox(height: 16),
-          _buildStepItem(4, 'Host starts the game and the fun begins!'),
         ],
       ),
     );
   }
 
-  Widget _buildStepItem(int number, String text) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHowToCard() {
+    final steps = [
+      ('Create or join', 'A game code links your crew'),
+      ('Pick a side', 'Become Mister X — or hunt them'),
+      ('Hit the streets', 'Real city. Real chase.'),
+    ];
+
+    return Column(
       children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: const BoxDecoration(
-            color: XActBranding.primaryRed,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Text(
-              number.toString(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              text,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-            ),
-          ),
-        ),
+        for (int i = 0; i < steps.length; i++) ...[
+          if (i > 0) const SizedBox(height: XActSpace.s2),
+          _buildStep(i + 1, steps[i].$1, steps[i].$2),
+        ],
       ],
     );
   }
 
-  Widget _buildPlayNowButton(BuildContext context) {
-    return XActBranding.buildPrimaryButton(
-      text: 'Play Now',
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const PlayNowScreen()),
-        );
-      },
+  Widget _buildStep(int n, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: XActColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: XActColors.hairlineSoft),
+        boxShadow: XActElevation.e1,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: XActColors.primarySoft,
+            ),
+            child: Center(
+              child: Text(
+                '$n',
+                style: XActText.bodySm.copyWith(
+                  color: XActColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: XActText.bodySm.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: XActText.caption.copyWith(
+                    fontSize: 12,
+                    color: XActColors.text3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

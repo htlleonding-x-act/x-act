@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:xact_frontend/api/models.dart';
 
 import '../xact_branding.dart';
 import 'team_data.dart';
-import 'team_name_role_label.dart';
 
-/// Card showing an overview of all teams and unassigned players with color-coded chips.
+/// Compact overview row showing player counts per team / unassigned.
 class TeamOverviewCard extends StatelessWidget {
   final int spectatorCount;
   final List<TeamData> teams;
@@ -18,84 +16,17 @@ class TeamOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: XActBranding.cardColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final totalPlayers =
+        spectatorCount + teams.fold<int>(0, (s, t) => s + t.players.length);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Row(
         children: [
-          const Row(
-            children: [
-              Icon(Icons.people, color: Colors.white70, size: 18),
-              SizedBox(width: 6),
-              Text(
-                'Team Overview',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 16,
-            runSpacing: 6,
-            children: [
-              _overviewChip('Unassigned', Colors.grey, '$spectatorCount/∞'),
-              ...teams.map(
-                (t) => _overviewChip(
-                  t.name,
-                  t.color,
-                  '${t.players.length}/${t.maxPlayers}',
-                  role: t.role,
-                ),
-              ),
-            ],
-          ),
+          XActBranding.buildEyebrow('Teams · $totalPlayers players'),
+          const Spacer(),
         ],
       ),
-    );
-  }
-
-  Widget _overviewChip(
-    String name,
-    Color color,
-    String count, {
-    TeamRole? role,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        TeamNameRoleLabel(
-          teamName: name,
-          role: role,
-          teamNameStyle: const TextStyle(color: Colors.white70, fontSize: 13),
-          roleStyle: const TextStyle(
-            color: Color(0xFFBFDBFE),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          count,
-          style: const TextStyle(color: Colors.white38, fontSize: 13),
-        ),
-      ],
     );
   }
 }

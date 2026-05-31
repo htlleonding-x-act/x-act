@@ -16,13 +16,26 @@ class JoinGameScreen extends StatefulWidget {
 }
 
 class _JoinGameScreenState extends State<JoinGameScreen> {
-  final _gameCodeController = TextEditingController();
+  static const int _codeLength = 6;
+
+  final _codeController = TextEditingController();
+  final _codeFocus = FocusNode();
   final _usernameController = TextEditingController();
   bool _joining = false;
 
   @override
+  void initState() {
+    super.initState();
+    _codeController.addListener(() => setState(() {}));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _codeFocus.requestFocus();
+    });
+  }
+
+  @override
   void dispose() {
-    _gameCodeController.dispose();
+    _codeController.dispose();
+    _codeFocus.dispose();
     _usernameController.dispose();
     super.dispose();
   }
@@ -34,14 +47,16 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
 
     if (!mounted || scanned == null) return;
 
-    _gameCodeController.text = scanned;
-    _gameCodeController.selection = TextSelection.collapsed(
+    _codeController.text = scanned.toUpperCase();
+    _codeController.selection = TextSelection.collapsed(
       offset: scanned.length,
     );
 
     if (_usernameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Game code scanned. Enter a username to join.')),
+        const SnackBar(
+          content: Text('Game code scanned. Enter a name to join.'),
+        ),
       );
       return;
     }
@@ -49,8 +64,8 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
     _onJoin();
   }
 
-  void _onJoin() async {
-    final gameCode = _gameCodeController.text.trim().toUpperCase();
+  Future<void> _onJoin() async {
+    final gameCode = _codeController.text.trim().toUpperCase();
     final username = _usernameController.text.trim();
 
     if (gameCode.isEmpty || username.isEmpty) {
@@ -70,6 +85,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
       );
       return;
     }
+
     setState(() => _joining = true);
 
     try {
@@ -90,9 +106,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
             break;
           }
         }
-        if (existingMembership != null) {
-          break;
-        }
+        if (existingMembership != null) break;
       }
 
       TeamDetails? spectatorTeam;
@@ -110,8 +124,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         colorCode: '#64748B',
       );
 
-      final member =
-          existingMembership ??
+      final member = existingMembership ??
           await ApiService.instance.addUserMember(
             sessionId: session.sessionId,
             teamId: spectatorTeam.teamId,
@@ -125,9 +138,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
       );
 
       final locationReady = await _ensureLocationReadyBeforeLobby();
-      if (!locationReady || !mounted) {
-        return;
-      }
+      if (!locationReady || !mounted) return;
 
       Navigator.push(
         context,
@@ -149,9 +160,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     } finally {
-      if (mounted) {
-        setState(() => _joining = false);
-      }
+      if (mounted) setState(() => _joining = false);
     }
   }
 
@@ -161,9 +170,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         timeLimit: const Duration(seconds: 10),
       );
       if (!mounted) return false;
-      if (position != null) {
-        return true;
-      }
+      if (position != null) return true;
 
       final retry = await showDialog<bool>(
         context: context,
@@ -188,9 +195,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         },
       );
 
-      if (retry != true) {
-        return false;
-      }
+      if (retry != true) return false;
     }
 
     return false;
@@ -199,94 +204,250 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: XActBranding.backgroundColor,
+      backgroundColor: XActColors.bg,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            16 + MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              XActBranding.buildHeader(),
-              const SizedBox(height: 32),
-              _buildJoinForm(),
-              const SizedBox(height: 16),
-              XActBranding.buildFooter(),
-            ],
-          ),
+        child: Column(
+          children: [
+            XActBranding.buildTopBar(
+              context: context,
+              eyebrow: 'With code',
+              title: 'Join a Game',
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _codeFocus.requestFocus(),
+                behavior: HitTestBehavior.opaque,
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    8,
+                    24,
+                    24 + MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Column(
+                          children: [
+                            Text(
+                              'Enter the code',
+                              style: XActText.displaySm,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Six characters · letters & numbers',
+                              style: XActText.caption.copyWith(
+                                fontSize: 14,
+                                color: XActColors.text3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      _CodeCells(
+                        value: _codeController.text,
+                        length: _codeLength,
+                      ),
+                      // Hidden field that drives the visible cells.
+                      SizedBox(
+                        height: 0,
+                        child: Offstage(
+                          child: TextField(
+                            controller: _codeController,
+                            focusNode: _codeFocus,
+                            autofocus: false,
+                            maxLength: _codeLength,
+                            textCapitalization: TextCapitalization.characters,
+                            keyboardType: TextInputType.visiblePassword,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z0-9]'),
+                              ),
+                              _UpperCaseTextFormatter(),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      XActBranding.buildGhostButton(
+                        text: 'Scan QR instead',
+                        icon: Icons.qr_code_scanner_rounded,
+                        height: 48,
+                        onPressed: _joining ? null : _onScan,
+                      ),
+                      const SizedBox(height: XActSpace.s6),
+                      XActBranding.buildTextField(
+                        label: 'Your display name',
+                        hintText: 'Enter your name…',
+                        controller: _usernameController,
+                      ),
+                      const SizedBox(height: XActSpace.s4),
+                      _InfoBanner(
+                        text:
+                            'We use your location only during a match. Your name is visible to teammates.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+              child: XActBranding.buildPrimaryButton(
+                text: _joining ? 'Joining…' : 'Join Game',
+                onPressed: _joining ? null : _onJoin,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildJoinForm() {
-    return XActBranding.buildFormCard(
-      child: Column(
+class _CodeCells extends StatelessWidget {
+  final String value;
+  final int length;
+
+  const _CodeCells({required this.value, required this.length});
+
+  @override
+  Widget build(BuildContext context) {
+    final chars = value.split('');
+    final focusedIndex = chars.length.clamp(0, length - 1);
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(length, (i) {
+        final filled = i < chars.length;
+        final focused = i == focusedIndex && !filled;
+        return Padding(
+          padding: EdgeInsets.only(right: i == length - 1 ? 0 : 8),
+          child: Container(
+            width: 48,
+            height: 60,
+            decoration: BoxDecoration(
+              color: filled
+                  ? XActColors.surface2
+                  : Colors.white.withValues(alpha: .03),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: focused
+                    ? XActColors.secondary
+                    : XActColors.hairlineSoft,
+                width: focused ? 2 : 1,
+              ),
+              boxShadow: focused
+                  ? [
+                      BoxShadow(
+                        color: XActColors.secondary.withValues(alpha: .18),
+                        blurRadius: 0,
+                        spreadRadius: 2,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: filled
+                  ? Text(
+                      chars[i],
+                      style: XActText.mono.copyWith(
+                        fontSize: 26,
+                        letterSpacing: 0,
+                        color: XActColors.text1,
+                      ),
+                    )
+                  : (focused
+                      ? const _BlinkingCaret()
+                      : const SizedBox.shrink()),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _BlinkingCaret extends StatefulWidget {
+  const _BlinkingCaret();
+
+  @override
+  State<_BlinkingCaret> createState() => _BlinkingCaretState();
+}
+
+class _BlinkingCaretState extends State<_BlinkingCaret>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _ctrl,
+      child: Container(
+        width: 2,
+        height: 26,
+        decoration: BoxDecoration(
+          color: XActColors.secondary,
+          borderRadius: BorderRadius.circular(1),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoBanner extends StatelessWidget {
+  final String text;
+  const _InfoBanner({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: XActColors.secondarySoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: XActColors.secondary.withValues(alpha: .2),
+        ),
+      ),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Join Friend\'s Game',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: XActColors.secondary,
           ),
-          const SizedBox(height: 20),
-          XActBranding.buildTextField(
-            label: 'Game Code',
-            hintText: 'Enter 6-character code...',
-            controller: _gameCodeController,
-            keyboardType: TextInputType.text,
-            maxLength: 6,
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-              UpperCaseTextFormatter(),
-            ],
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _joining ? null : _onScan,
-            icon: const Icon(Icons.qr_code_scanner, size: 20),
-            label: const Text('Scan QR Code'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white24),
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: XActText.bodySm.copyWith(
+                color: XActColors.text2,
+                height: 1.45,
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          XActBranding.buildTextField(
-            label: 'Username',
-            hintText: 'Enter your username...',
-            controller: _usernameController,
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: XActBranding.buildSecondaryButton(
-                  text: _joining ? 'Joining...' : 'Join',
-                  onPressed: _joining ? null : _onJoin,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: XActBranding.buildCancelButton(
-                  text: 'Cancel',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -294,7 +455,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
   }
 }
 
-class UpperCaseTextFormatter extends TextInputFormatter {
+class _UpperCaseTextFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
@@ -303,3 +464,6 @@ class UpperCaseTextFormatter extends TextInputFormatter {
     return newValue.copyWith(text: newValue.text.toUpperCase());
   }
 }
+
+// Kept for back-compat with any external imports.
+class UpperCaseTextFormatter extends _UpperCaseTextFormatter {}

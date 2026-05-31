@@ -12,6 +12,7 @@ import '../services/geofence_store.dart';
 import '../services/location_service.dart';
 import 'map_header.dart';
 import 'map_legend.dart';
+import 'xact_branding.dart';
 
 class MapArea extends StatefulWidget {
   final VoidCallback? onFullscreenToggle;
@@ -59,7 +60,7 @@ class _MapAreaState extends State<MapArea> {
 
   List<PlayerMarker> _otherPlayers = [];
   List<MapLegendTeamEntry> _legendTeamEntries = const [];
-  Color _myMarkerColor = Colors.blue;
+  Color _myMarkerColor = XActColors.secondary;
 
   @override
   void initState() {
@@ -224,7 +225,7 @@ class _MapAreaState extends State<MapArea> {
             )
             .toList(growable: false);
 
-        _myMarkerColor = currentTeamColor ?? Colors.blue;
+        _myMarkerColor = currentTeamColor ?? XActColors.secondary;
       });
     } catch (_) {
       // Keep existing markers when refresh fails.
@@ -313,9 +314,9 @@ class _MapAreaState extends State<MapArea> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: XActColors.bg2,
         border: Border(
-          bottom: BorderSide(color: Colors.blue.shade700, width: 2),
+          bottom: BorderSide(color: XActColors.hairlineSoft),
         ),
       ),
       child: Stack(
@@ -373,8 +374,8 @@ class _MapAreaState extends State<MapArea> {
                   polygons: [
                     Polygon(
                       points: _geofencePoints,
-                      color: Colors.blue.withValues(alpha: 0.07),
-                      borderColor: Colors.blue.shade400,
+                      color: XActColors.secondary.withValues(alpha: 0.10),
+                      borderColor: XActColors.secondary,
                       borderStrokeWidth: 2.5,
                     ),
                   ],
@@ -389,29 +390,35 @@ class _MapAreaState extends State<MapArea> {
           // Out-of-bounds warning banner
           if (_isOutOfBounds)
             Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
+              top: 100,
+              left: 16,
+              right: 16,
               child: Material(
                 color: Colors.transparent,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  color: Colors.red.shade800.withValues(alpha: 0.93),
-                  child: const Row(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: XActColors.primary.withValues(alpha: .92),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: XActElevation.glowRed,
+                  ),
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.warning_amber_rounded,
                         color: Colors.white,
                         size: 18,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'You are outside the game area!',
-                        style: TextStyle(
+                        'You are outside the game area',
+                        style: XActText.bodySm.copyWith(
                           color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -422,34 +429,38 @@ class _MapAreaState extends State<MapArea> {
           // "No GPS fix yet" indicator
           if (_myPosition == null)
             Positioned(
-              top: 8,
+              top: 100,
               left: 0,
               right: 0,
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+                    horizontal: 14,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black87,
+                    color: XActColors.glass,
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: XActColors.hairlineSoft),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      SizedBox(
+                      const SizedBox(
                         width: 12,
                         height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.amber,
+                          color: XActColors.warning,
                         ),
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Text(
                         'Acquiring GPS…',
-                        style: TextStyle(color: Colors.amber, fontSize: 12),
+                        style: XActText.caption.copyWith(
+                          color: XActColors.warning,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -595,14 +606,18 @@ class _ZoomButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(8),
+        color: XActColors.glass,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: XActColors.hairlineSoft),
+        boxShadow: XActElevation.e2,
       ),
       child: IconButton(
-        icon: Icon(icon, color: Colors.white),
+        icon: Icon(icon, color: XActColors.text1, size: 20),
         onPressed: onPressed,
-        splashRadius: 24,
+        splashRadius: 22,
       ),
     );
   }

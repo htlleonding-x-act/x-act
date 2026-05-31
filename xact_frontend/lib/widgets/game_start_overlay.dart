@@ -19,16 +19,17 @@ class GameStartOverlay extends StatelessWidget {
             ? 'GO!'
             : (transition.secondsRemaining?.toString() ?? '');
 
-        final accentColor = transition.isGoPhase
-            ? const Color(0xFF22C55E)
-            : XActBranding.primaryRed;
+        final accentColor =
+            transition.isGoPhase ? XActColors.success : XActColors.primary;
 
         return IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 180),
             opacity: 1,
-            child: Stack(
+            child: Material(
+              type: MaterialType.transparency,
+              child: Stack(
               children: [
                 Positioned.fill(
                   child: DecoratedBox(
@@ -87,17 +88,11 @@ class GameStartOverlay extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
+                            XActBranding.buildEyebrow(
                               transition.isGoPhase
-                                  ? 'HUNT IS LIVE'
-                                  : 'GAME STARTS IN',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 28,
-                                letterSpacing: 3.5,
-                                fontWeight: FontWeight.w800,
-                              ),
+                                  ? 'Hunt is live'
+                                  : 'Game starts in',
+                              color: accentColor,
                             ),
                             const SizedBox(height: 10),
                             Text(
@@ -105,14 +100,12 @@ class GameStartOverlay extends StatelessWidget {
                                   ? 'Good luck. Catch Mister X.'
                                   : 'Get ready for the chase',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.72),
-                                fontSize: 16,
-                                letterSpacing: 0.8,
-                                fontWeight: FontWeight.w500,
+                              style: XActText.heading.copyWith(
+                                fontSize: 22,
+                                color: XActColors.text1,
                               ),
                             ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 18),
                             AnimatedSwitcher(
                               duration: const Duration(milliseconds: 260),
                               switchInCurve: Curves.easeOutBack,
@@ -135,20 +128,16 @@ class GameStartOverlay extends StatelessWidget {
                                 text,
                                 key: ValueKey<String>(text),
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: XActText.display.copyWith(
                                   color: accentColor,
-                                  fontSize: transition.isGoPhase ? 124 : 136,
+                                  fontSize: transition.isGoPhase ? 112 : 128,
+                                  letterSpacing: -4,
                                   height: 0.95,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w700,
                                   shadows: [
                                     Shadow(
                                       color: accentColor.withValues(alpha: 0.42),
-                                      blurRadius: 28,
-                                    ),
-                                    const Shadow(
-                                      color: Colors.black54,
-                                      blurRadius: 10,
-                                      offset: Offset(0, 3),
+                                      blurRadius: 32,
                                     ),
                                   ],
                                 ),
@@ -161,6 +150,7 @@ class GameStartOverlay extends StatelessWidget {
                   ),
                 ),
               ],
+              ),
             ),
           ),
         );

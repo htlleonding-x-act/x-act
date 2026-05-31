@@ -577,7 +577,6 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
               isLeader: leader,
-              onQrPressed: () => _showShareDialog(),
             ),
             Expanded(
               child: RefreshIndicator(
@@ -592,30 +591,54 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                     children: [
                       GameCodeCard(
                         gameCode: widget.gameCode,
-                        codeLabel: 'Game Code',
+                        codeLabel: 'Game code',
                         onCopy: _copyGameCode,
+                        onShowQr: () => _showShareDialog(),
                         onShare: () => _showShareDialog(autoShare: true),
                       ),
                       if (_working) ...[
                         const SizedBox(height: 8),
-                        const LinearProgressIndicator(),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: const LinearProgressIndicator(
+                            backgroundColor: Colors.white12,
+                            color: XActColors.secondary,
+                            minHeight: 3,
+                          ),
+                        ),
                       ],
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Drag players to assign teams',
-                        style: TextStyle(color: Colors.white38, fontSize: 13),
-                      ),
                       const SizedBox(height: 16),
                       TeamOverviewCard(
                         spectatorCount: _spectators.length,
                         teams: _teams,
+                      ),
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.touch_app_outlined,
+                              size: 14,
+                              color: XActColors.text4,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Long-press a player to drag them between teams',
+                              style: XActText.caption.copyWith(
+                                color: XActColors.text4,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
                       SpectatorsCard(
                         spectators: _spectators,
                         onPlayerDropped: _movePlayerToSpectators,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       ..._teams.asMap().entries.map(
                         (entry) => Padding(
                           padding: const EdgeInsets.only(bottom: 12),

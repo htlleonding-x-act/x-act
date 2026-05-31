@@ -92,15 +92,15 @@ class _ScanGameCodeScreenState extends State<ScanGameCodeScreen> {
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: XActColors.hairlineSoft),
                     ),
                     child: Text(
-                      _hint ?? 'Point your camera at the host\'s QR code',
+                      _hint ?? "Point your camera at the host's QR code",
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _hint == null ? Colors.white : Colors.amber,
-                        fontSize: 14,
+                      style: XActText.bodySm.copyWith(
+                        color: _hint == null ? XActColors.text1 : XActColors.warning,
                       ),
                     ),
                   ),
@@ -157,10 +157,17 @@ class _ScannerOverlay extends StatelessWidget {
                 height: size,
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: XActBranding.primaryRed,
+                    color: XActColors.secondary,
                     width: 3,
                   ),
                   borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: XActColors.secondary.withValues(alpha: .25),
+                      blurRadius: 32,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
               ),
             ),

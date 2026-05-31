@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../widgets/chat_input_bar.dart';
-import '../widgets/team/team_name_role_label.dart';
+import '../widgets/xact_branding.dart';
 
 import '../api/api_service.dart';
 
@@ -28,72 +28,81 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
         final header = snapshot.data;
         final hasError = snapshot.hasError;
 
-        final fallbackTeamName = hasError ? 'Team Chat' : 'Loading...';
+        final teamName = header?.teamName ?? (hasError ? 'Team Chat' : 'Loading…');
+        final teamColor = header == null
+            ? XActColors.roleDetective
+            : XActColors.roleColor(header.role);
 
-        final memberCountText = header == null
-            ? (hasError ? 'Failed to load team info' : 'Loading team info...')
-            : 'Private team chat • ${header.memberCount} members';
+        final subtitle = header == null
+            ? (hasError ? 'Failed to load team info' : 'Loading team info…')
+            : '${header.memberCount} teammates · private';
 
         return Container(
-          color: const Color(0xFF1E293B),
+          color: XActColors.bg,
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: XActColors.hairlineSoft),
+                  ),
+                ),
+                child: Row(
                   children: [
-                    if (header == null)
-                      Text(
-                        fallbackTeamName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    else
-                      TeamNameRoleLabel(
-                        teamName: header.teamName,
-                        role: header.role,
-                        teamNameStyle: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        roleStyle: const TextStyle(
-                          color: Color(0xFFBFDBFE),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: teamColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: teamColor.withValues(alpha: .6),
+                            blurRadius: 8,
+                          ),
+                        ],
                       ),
-                    const SizedBox(height: 4),
-                    Text(
-                      memberCountText,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 14,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            teamName,
+                            style: XActText.heading.copyWith(fontSize: 17),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: XActText.caption.copyWith(fontSize: 12),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
               Expanded(
-                child: const Center(
+                child: Center(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
                     child: Text(
                       'Team-chat is waiting for backend realtime integration.',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                      style: XActText.bodySm.copyWith(color: XActColors.text3),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 ),
               ),
-              ChatInputBar(hintText: 'Message your team...', onSend: null),
+              ChatInputBar(
+                hintText: 'Message your team…',
+                leadingIcon: Icons.location_on_rounded,
+                onSend: null,
+              ),
             ],
           ),
         );

@@ -1,52 +1,57 @@
 import 'package:flutter/material.dart';
 
-/// Header row for the game lobby showing title, player count and QR button.
+import '../xact_branding.dart';
+
+/// Header row for the game lobby showing title and player count.
 class GameLobbyHeader extends StatelessWidget {
   final String gameName;
   final int totalPlayers;
   final bool isLeader;
-  final VoidCallback? onQrPressed;
+  final VoidCallback? onClose;
 
   const GameLobbyHeader({
     super.key,
     required this.gameName,
     required this.totalPlayers,
     required this.isLeader,
-    this.onQrPressed,
+    this.onClose,
   });
 
   @override
   Widget build(BuildContext context) {
+    final subtitle =
+        '$totalPlayers ${totalPlayers == 1 ? 'player' : 'players'}'
+        '${isLeader ? ' · Host' : ''}';
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Row(
         children: [
+          XActBranding.circleIconButton(
+            icon: Icons.arrow_back_rounded,
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  gameName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                XActBranding.buildEyebrow('Lobby · $subtitle'),
                 const SizedBox(height: 2),
                 Text(
-                  '$totalPlayers players in game lobby'
-                  '${isLeader ? '  •  Game Host' : ''}',
-                  style: const TextStyle(color: Colors.white60, fontSize: 13),
+                  gameName,
+                  style: XActText.title.copyWith(fontSize: 24),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.qr_code, color: Colors.white70),
-            onPressed: onQrPressed,
-            tooltip: 'Share game code',
-          ),
+          if (onClose != null)
+            XActBranding.circleIconButton(
+              icon: Icons.close_rounded,
+              onPressed: onClose!,
+            ),
         ],
       ),
     );
