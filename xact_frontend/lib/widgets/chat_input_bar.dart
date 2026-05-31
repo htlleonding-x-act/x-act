@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'xact_branding.dart';
 
-class ChatInputBar extends StatelessWidget {
+class ChatInputBar extends StatefulWidget {
   final String hintText;
-  final VoidCallback? onSend;
+
+  /// Called with the trimmed message text when the user sends. When `null`,
+  /// the input is shown in a disabled state.
+  final ValueChanged<String>? onSend;
   final IconData leadingIcon;
 
   const ChatInputBar({
@@ -15,7 +18,49 @@ class ChatInputBar extends StatelessWidget {
   });
 
   @override
+  State<ChatInputBar> createState() => _ChatInputBarState();
+}
+
+class _ChatInputBarState extends State<ChatInputBar> {
+  final TextEditingController _controller = TextEditingController();
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_handleTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_handleTextChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTextChanged() {
+    final hasText = _controller.text.trim().isNotEmpty;
+    if (hasText != _hasText) {
+      setState(() => _hasText = hasText);
+    }
+  }
+
+  void _send() {
+    final onSend = widget.onSend;
+    final text = _controller.text.trim();
+    if (onSend == null || text.isEmpty) {
+      return;
+    }
+
+    onSend(text);
+    _controller.clear();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final enabled = widget.onSend != null;
+    final canSend = enabled && _hasText;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
@@ -27,7 +72,7 @@ class ChatInputBar extends StatelessWidget {
         child: Row(
           children: [
             XActBranding.circleIconButton(
-              icon: leadingIcon,
+              icon: widget.leadingIcon,
               onPressed: () {},
             ),
             const SizedBox(width: 8),
@@ -35,10 +80,14 @@ class ChatInputBar extends StatelessWidget {
               child: SizedBox(
                 height: 44,
                 child: TextField(
+                  controller: _controller,
+                  enabled: enabled,
                   style: XActText.body.copyWith(fontSize: 15),
                   cursorColor: XActColors.secondary,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
                   decoration: InputDecoration(
-                    hintText: hintText,
+                    hintText: widget.hintText,
                     hintStyle: XActText.body.copyWith(
                       fontSize: 15,
                       color: XActColors.text4,
@@ -65,30 +114,32 @@ class ChatInputBar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  textInputAction: TextInputAction.send,
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    XActColors.secondaryLight,
-                    XActColors.secondaryDark,
-                  ],
+            Opacity(
+              opacity: canSend ? 1 : .4,
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      XActColors.secondaryLight,
+                      XActColors.secondaryDark,
+                    ],
+                  ),
+                  boxShadow: canSend ? XActElevation.glowBlue : null,
                 ),
-                boxShadow: XActElevation.glowBlue,
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.send_rounded, color: Colors.white),
-                iconSize: 18,
-                onPressed: onSend,
+                child: IconButton(
+                  icon: const Icon(Icons.send_rounded, color: Colors.white),
+                  iconSize: 18,
+                  onPressed: canSend ? _send : null,
+                ),
               ),
             ),
           ],
