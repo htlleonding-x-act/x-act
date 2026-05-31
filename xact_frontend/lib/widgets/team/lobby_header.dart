@@ -8,6 +8,8 @@ class GameLobbyHeader extends StatelessWidget {
   final int totalPlayers;
   final bool isLeader;
   final VoidCallback? onClose;
+  final VoidCallback? onViewMap;
+  final VoidCallback? onSettings;
 
   const GameLobbyHeader({
     super.key,
@@ -15,6 +17,8 @@ class GameLobbyHeader extends StatelessWidget {
     required this.totalPlayers,
     required this.isLeader,
     this.onClose,
+    this.onViewMap,
+    this.onSettings,
   });
 
   @override
@@ -47,11 +51,27 @@ class GameLobbyHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (onClose != null)
+          if (onViewMap != null) ...[
+            const SizedBox(width: 4),
+            XActBranding.circleIconButton(
+              icon: Icons.map_outlined,
+              onPressed: onViewMap!,
+            ),
+          ],
+          if (onSettings != null) ...[
+            const SizedBox(width: 4),
+            XActBranding.circleIconButton(
+              icon: Icons.settings_rounded,
+              onPressed: onSettings!,
+            ),
+          ],
+          if (onClose != null) ...[
+            const SizedBox(width: 4),
             XActBranding.circleIconButton(
               icon: Icons.close_rounded,
               onPressed: onClose!,
             ),
+          ],
         ],
       ),
     );

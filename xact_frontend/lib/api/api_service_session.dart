@@ -532,6 +532,32 @@ extension ApiServiceSessionMethods on ApiService {
     );
   }
 
+  Future<GameSessionDetails> getGameSession(int sessionId) async =>
+      _getGameSession(sessionId);
+
+  Future<void> updateSessionPingInterval({
+    required int sessionId,
+    required int mrXRevealInterval,
+  }) async {
+    String statusString(SessionStatus? s) => switch (s) {
+      SessionStatus.active => 'ACTIVE',
+      SessionStatus.finished => 'FINISHED',
+      _ => 'WAITING',
+    };
+
+    final details = await _getGameSession(sessionId);
+    await _putJsonNoContent('/api/gamesessions/$sessionId', {
+      'hostUserId': details.hostUserId,
+      'sessionName': details.sessionName,
+      'joinCode': details.joinCode,
+      'status': statusString(details.status),
+      'startTime': null,
+      'endTime': null,
+      'plannedDurationMinutes': details.plannedDurationMinutes,
+      'mrXRevealInterval': mrXRevealInterval,
+    });
+  }
+
   Future<void> saveGeofenceArea({
     required int sessionId,
     required List<LatLng> points,
