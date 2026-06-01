@@ -21,6 +21,7 @@ builder.Services.AddRealtime(isDev);
 builder.Services.AddControllers(o => { o.ModelBinderProviders.Insert(0, new NodaTimeModelBinderProvider()); })
        .AddJsonOptions(o => ConfigureJsonSerialization(o, isDev));
 builder.Services.ConfigureAdditionalRouteConstraints();
+builder.Services.AddKeycloakAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
@@ -29,6 +30,8 @@ app.Services.ApplyMigrations();
 // no https here, every production backend sits behind a reverse proxy that terminates tls
 
 app.UseCors(Setup.CorsPolicyName);
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.MapControllers();
 app.MapHub<GameSessionHub>("/hubs/game-session");

@@ -17,9 +17,27 @@ services:
       timeout: 5s
       retries: 5
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    container_name: xact-keycloak
+    command: start-dev
+    restart: always
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: adminpassword
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/xact_db
+      KC_DB_USERNAME: admin
+      KC_DB_PASSWORD: supersecretpassword
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     build:
-      context: ./backend  
+      context: ./backend
       dockerfile: Dockerfile
     container_name: xact-backend
     restart: always
@@ -28,9 +46,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=xact_db;Username=admin;Password=supersecretpassword
+      - Authentication__Authority=http://keycloak:8080/realms/master
+      - Authentication__RequireHttpsMetadata=false
     depends_on:
       postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_started
 
 volumes:
   postgres_data:
