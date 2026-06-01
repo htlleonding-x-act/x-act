@@ -59,7 +59,7 @@ public sealed class AuthController(
                return await addResult.Match<ValueTask<IActionResult>>(async createdUser =>
                {
                   await transaction.CommitAsync();
-                        return CreatedAtAction("GetUserById", "User", new { userId = createdUser.Id }, UserDetailsDto.FromUser(createdUser));
+                        return CreatedAtAction(nameof(UserController.GetUserById), "User", new { userId = createdUser.Id }, UserDetailsDto.FromUser(createdUser));
                }, async _ =>
                 {
                    await transaction.RollbackAsync();
