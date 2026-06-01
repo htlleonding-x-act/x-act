@@ -21,13 +21,14 @@ builder.Services.AddRealtime(isDev);
 builder.Services.AddControllers(o => { o.ModelBinderProviders.Insert(0, new NodaTimeModelBinderProvider()); })
        .AddJsonOptions(o => ConfigureJsonSerialization(o, isDev));
 builder.Services.ConfigureAdditionalRouteConstraints();
+builder.Services.AddKeycloakAuthentication(builder.Configuration);
+
 
 var app = builder.Build();
 
 app.Services.ApplyMigrations();
 
 // Configure Keycloak authentication
-builder.Services.AddKeycloakAuthentication(builder.Configuration);
 
 
 // not using HTTPS, because all production backends _have_ to be behind a reverse proxy which will handle SSL termination
