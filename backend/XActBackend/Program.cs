@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NodaTime.Serialization.SystemTextJson;
 using XActBackend;
+using XActBackend.Persistence.Util;
 using XActBackend.Realtime;
 using XActBackend.Shared;
 using XActBackend.Util;
@@ -22,6 +23,8 @@ builder.Services.AddControllers(o => { o.ModelBinderProviders.Insert(0, new Noda
 builder.Services.ConfigureAdditionalRouteConstraints();
 
 var app = builder.Build();
+
+app.Services.ApplyMigrations();
 
 // not using HTTPS, because all production backends _have_ to be behind a reverse proxy which will handle SSL termination
 
