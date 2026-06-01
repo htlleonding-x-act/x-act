@@ -30,7 +30,7 @@ public interface IUserRepository
     /// <param name="id">The id of the user</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>The user, if found</returns>
-    public ValueTask<User?> GetUserByIdAsync(int id, bool tracking);
+    public ValueTask<User?> GetUserByIdAsync(string id, bool tracking);
 
     /// <summary>
     ///     Get a user by email.
@@ -84,7 +84,7 @@ internal sealed class UserRepository(DbSet<User> userSet) : IUserRepository
         return users;
     }
 
-    public async ValueTask<User?> GetUserByIdAsync(int id, bool tracking)
+    public async ValueTask<User?> GetUserByIdAsync(string id, bool tracking)
     {
         IQueryable<User> source = tracking ? Users : UsersNoTracking;
 

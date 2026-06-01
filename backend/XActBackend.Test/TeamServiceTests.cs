@@ -40,6 +40,7 @@ public sealed class TeamServiceTests
         new()
         {
             Id = sessionId,
+            HostUserId = "1",
             SessionName = "Waiting Session",
             JoinCode = "WAIT01",
             Status = SessionStatus.Waiting,
@@ -166,6 +167,7 @@ public sealed class TeamServiceTests
             new GameSession
             {
                 Id = DefaultSessionId,
+                HostUserId = "1",
                 SessionName = "Active",
                 JoinCode = "ACTIVE1",
                 Status = SessionStatus.Active,
@@ -267,6 +269,7 @@ public sealed class TeamServiceTests
             new GameSession
             {
                 Id = DefaultSessionId,
+                HostUserId = "1",
                 SessionName = "Active",
                 JoinCode = "ACTIVE1",
                 Status = SessionStatus.Active,

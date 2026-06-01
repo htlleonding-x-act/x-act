@@ -159,9 +159,9 @@ internal sealed class ChatService(IUnitOfWork uow, IClock clock, ILogger<ChatSer
 
     private async ValueTask<string> ResolveSenderNameAsync(TeamMember sender)
     {
-        if (sender.UserId is int userId)
+        if (!string.IsNullOrWhiteSpace(sender.UserId))
         {
-            var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking: false);
+            var user = await uow.UserRepository.GetUserByIdAsync(sender.UserId, tracking: false);
             if (!string.IsNullOrWhiteSpace(user?.Username))
             {
                 return Truncate(user.Username);

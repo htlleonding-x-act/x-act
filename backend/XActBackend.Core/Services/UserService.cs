@@ -23,7 +23,7 @@ public interface IUserService
     /// <param name="userId">The id of the user to find</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>The user, if found</returns>
-    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId, bool tracking);
+    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(string userId, bool tracking);
 
     /// <summary>
     ///     Get a user by email address.
@@ -55,7 +55,7 @@ public interface IUserService
     /// <param name="userData">The new user data</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>Result indicating if the update was successful</returns>
-    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, UserData userData, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, UserData userData, bool tracking);
 
     /// <summary>
     ///     Delete a user.
@@ -63,7 +63,7 @@ public interface IUserService
     /// <param name="userId">The id of the user to delete</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>Result indicating if the deletion was successful</returns>
-    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking);
 
     /// <summary>
     ///     Data used to create or update a user.
@@ -93,7 +93,7 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         return users;
     }
 
-    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId, bool tracking)
+    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(string userId, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 
@@ -139,7 +139,7 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, IUserService.UserData userData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, IUserService.UserData userData, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 
@@ -160,7 +160,7 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 

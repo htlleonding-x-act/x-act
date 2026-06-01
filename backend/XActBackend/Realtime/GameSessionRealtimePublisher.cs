@@ -71,7 +71,7 @@ internal sealed class GameSessionRealtimePublisher(
                 member.CurrentLongitude,
                 member.LastUpdated));
 
-    public ValueTask PublishTeamMemberLeftAsync(int sessionId, int teamId, int memberId, int? userId, string? guestName, Instant leftAt) =>
+    public ValueTask PublishTeamMemberLeftAsync(int sessionId, int teamId, int memberId, string? userId, string? guestName, Instant leftAt) =>
         PublishToSessionAsync(
             sessionId,
             RealtimeEvents.TeamMemberLeft,

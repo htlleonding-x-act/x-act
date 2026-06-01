@@ -234,7 +234,7 @@ public sealed class TeamMemberListResponse
     public required List<TeamMemberInformationDto> Items { get; init; }
 }
 
-public sealed record TeamMemberInformationDto(int Id, int SessionId, int TeamId, int? UserId, string? GuestName, bool IsTeamLeader)
+public sealed record TeamMemberInformationDto(int Id, int SessionId, int TeamId, string? UserId, string? GuestName, bool IsTeamLeader)
 {
     public static TeamMemberInformationDto FromTeamMember(TeamMember member) =>
     new(member.Id, member.SessionId, member.TeamId, member.UserId, member.GuestName, member.IsTeamLeader);
@@ -244,7 +244,7 @@ public sealed record TeamMemberDetailsDto(
     int Id,
     int SessionId,
     int TeamId,
-    int? UserId,
+    string? UserId,
     string? GuestName,
     bool IsTeamLeader,
     double? CurrentLatitude,
@@ -257,7 +257,7 @@ public sealed record TeamMemberDetailsDto(
 }
 
 public sealed record TeamMemberAddRequest(
-    int? UserId,
+    string? UserId,
     string? GuestName,
     bool IsTeamLeader = false,
     double? CurrentLatitude = null,
@@ -269,10 +269,10 @@ public sealed record TeamMemberAddRequest(
     {
         public Validator()
         {
-            RuleFor(x => x.UserId).GreaterThan(0).When(x => x.UserId.HasValue);
+            RuleFor(x => x.UserId).NotEmpty().When(x => !string.IsNullOrWhiteSpace(x.UserId));
             RuleFor(x => x.GuestName).MaximumLength(50).When(x => !string.IsNullOrWhiteSpace(x.GuestName));
-            RuleFor(x => x).Must(x => (x.UserId.HasValue && string.IsNullOrWhiteSpace(x.GuestName))
-                                  || (!x.UserId.HasValue && !string.IsNullOrWhiteSpace(x.GuestName)))
+            RuleFor(x => x).Must(x => (!string.IsNullOrWhiteSpace(x.UserId) && string.IsNullOrWhiteSpace(x.GuestName))
+                                  || (string.IsNullOrWhiteSpace(x.UserId) && !string.IsNullOrWhiteSpace(x.GuestName)))
                           .WithMessage("Either UserId or GuestName must be set, but not both.");
             RuleFor(x => x.CurrentLatitude).InclusiveBetween(-90, 90).When(x => x.CurrentLatitude.HasValue);
             RuleFor(x => x.CurrentLongitude).InclusiveBetween(-180, 180).When(x => x.CurrentLongitude.HasValue);
@@ -281,7 +281,7 @@ public sealed record TeamMemberAddRequest(
 }
 
 public sealed record TeamMemberUpdateRequest(
-    int? UserId,
+    string? UserId,
     string? GuestName,
     bool IsTeamLeader,
     double? CurrentLatitude,
@@ -293,10 +293,10 @@ public sealed record TeamMemberUpdateRequest(
     {
         public Validator()
         {
-            RuleFor(x => x.UserId).GreaterThan(0).When(x => x.UserId.HasValue);
+            RuleFor(x => x.UserId).NotEmpty().When(x => !string.IsNullOrWhiteSpace(x.UserId));
             RuleFor(x => x.GuestName).MaximumLength(50).When(x => !string.IsNullOrWhiteSpace(x.GuestName));
-            RuleFor(x => x).Must(x => (x.UserId.HasValue && string.IsNullOrWhiteSpace(x.GuestName))
-                                  || (!x.UserId.HasValue && !string.IsNullOrWhiteSpace(x.GuestName)))
+            RuleFor(x => x).Must(x => (!string.IsNullOrWhiteSpace(x.UserId) && string.IsNullOrWhiteSpace(x.GuestName))
+                                  || (string.IsNullOrWhiteSpace(x.UserId) && !string.IsNullOrWhiteSpace(x.GuestName)))
                           .WithMessage("Either UserId or GuestName must be set, but not both.");
             RuleFor(x => x.CurrentLatitude).InclusiveBetween(-90, 90).When(x => x.CurrentLatitude.HasValue);
             RuleFor(x => x.CurrentLongitude).InclusiveBetween(-180, 180).When(x => x.CurrentLongitude.HasValue);

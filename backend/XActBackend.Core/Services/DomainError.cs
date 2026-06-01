@@ -25,10 +25,10 @@ public static class DomainErrorCodes
 
 public sealed record DomainError(string Code, string Message)
 {
-    public static DomainError HostUserDeleted(int userId) =>
+    public static DomainError HostUserDeleted(string userId) =>
         new(DomainErrorCodes.HostUserDeleted, $"Host user {userId} is deleted and cannot host a session.");
 
-    public static DomainError HostUserAlreadyHasActiveSession(int userId) =>
+    public static DomainError HostUserAlreadyHasActiveSession(string userId) =>
         new(DomainErrorCodes.HostUserAlreadyHasActiveSession, $"Host user {userId} already has an open session.");
 
     public static DomainError JoinCodeInUse(string joinCode) =>
@@ -63,10 +63,10 @@ public sealed record DomainError(string Code, string Message)
     public static DomainError TeamNotInSession(int teamId, int sessionId) =>
         new(DomainErrorCodes.TeamNotInSession, $"Team {teamId} does not belong to session {sessionId}.");
 
-    public static DomainError UserDeleted(int userId) =>
+    public static DomainError UserDeleted(string userId) =>
         new(DomainErrorCodes.UserDeleted, $"User {userId} is deleted and cannot join a session.");
 
-    public static DomainError UserAlreadyJoined(int userId, int sessionId) =>
+    public static DomainError UserAlreadyJoined(string userId, int sessionId) =>
         new(DomainErrorCodes.UserAlreadyJoined, $"User {userId} is already a member of session {sessionId}.");
 
     public static DomainError TeamLeaderAlreadyExists(int teamId) =>

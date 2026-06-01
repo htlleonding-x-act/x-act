@@ -64,7 +64,7 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
     [Fact]
     public async ValueTask AddGameSession_ReturnsCreated()
     {
-        const int NewHostUserId = 10;
+        const string NewHostUserId = "10";
         await ModifyDatabaseContentAsync(context =>
         {
             context.Users.Add(new User

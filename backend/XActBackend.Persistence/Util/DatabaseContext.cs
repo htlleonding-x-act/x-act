@@ -51,6 +51,8 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
 
     private static void ConfigureUser(EntityTypeBuilder<User> user)
     {
+        user.HasKey(e => e.Id);
+        
         user.Property(e => e.Username).HasMaxLength(50);
         user.Property(e => e.Email).HasMaxLength(100);
 
