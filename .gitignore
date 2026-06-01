@@ -11,3 +11,5 @@ dist/
 
 # Ignore log files
 *.log
+
+backend/XActBackend.Persistence/Migrations/
