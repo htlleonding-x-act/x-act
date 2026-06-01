@@ -26,8 +26,15 @@ var app = builder.Build();
 
 app.Services.ApplyMigrations();
 
-// not using HTTPS, because all production backends _have_ to be behind a reverse proxy which will handle SSL termination
+// Configure Keycloak authentication
+builder.Services.AddKeycloakAuthentication(builder.Configuration);
 
+
+// not using HTTPS, because all production backends _have_ to be behind a reverse proxy which will handle SSL termination
+// Also for the Keycloak authentication
+app.UseAuthentication();
+app.UseAuthorization();
+// Default Stuff from template 
 app.UseCors(Setup.CorsPolicyName);
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.MapControllers();
