@@ -17,6 +17,12 @@ class EndMatchScreen extends StatefulWidget {
 
 class _EndMatchScreenState extends State<EndMatchScreen>
     with SingleTickerProviderStateMixin {
+  static const double _tabContentPaddingTop = XActSpace.s4;
+  static const double _tabContentPaddingBottom = XActSpace.s6;
+  static const double _tabSectionGap = XActSpace.s4;
+  static const double _bubbleGridGap = XActSpace.s3;
+  static const double _bubbleGridWideBreakpoint = 720;
+
   bool _loading = true;
   bool _working = false;
   GameSessionDetails? _sessionDetails;
@@ -492,31 +498,28 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         XActSpace.s4,
-        XActSpace.s1,
+        _tabContentPaddingTop,
         XActSpace.s4,
-        XActSpace.s5,
+        _tabContentPaddingBottom,
       ),
       children: [
         _SectionCard(
           title: 'Result snapshot',
           subtitle: 'A compact recap using the current session data.',
-          child: Column(
+          child: _buildDetailBubbleGrid(
             children: [
               _DetailRow(
                 label: 'Winning Team',
                 value: _winnerTeamName ?? 'Not available',
               ),
-              const SizedBox(height: 12),
               _DetailRow(
                 label: 'Match Duration',
                 value: _matchDurationText ?? 'Not available',
               ),
-              const SizedBox(height: 12),
               _DetailRow(
                 label: 'Planned Duration',
                 value: '${details?.plannedDurationMinutes ?? 0} min',
               ),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(
                 label: 'Reveal Interval',
                 value: '${details?.mrXRevealInterval ?? 0} min',
@@ -524,19 +527,17 @@ class _EndMatchScreenState extends State<EndMatchScreen>
             ],
           ),
         ),
-        const SizedBox(height: XActSpace.s3),
+        const SizedBox(height: _tabSectionGap),
         _SectionCard(
           title: 'Status summary',
           subtitle: 'Useful end-of-match signals from the backend.',
-          child: Column(
+          child: _buildDetailBubbleGrid(
             children: [
               _DetailRow(
                 label: 'Session Status',
                 value: _sessionDetails?.status?.name ?? 'Unknown',
               ),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(label: 'Players in Session', value: '$_playerCount'),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(
                 label: 'Latest Location Points',
                 value: '${snapshot?.latestLocations.length ?? 0}',
@@ -566,13 +567,13 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
         XActSpace.s4,
-        XActSpace.s1,
+        _tabContentPaddingTop,
         XActSpace.s4,
-        XActSpace.s5,
+        _tabContentPaddingBottom,
       ),
       itemCount: teams.length,
       separatorBuilder: (context, index) =>
-          const SizedBox(height: XActSpace.s3),
+          const SizedBox(height: _tabSectionGap),
       itemBuilder: (context, index) {
         final team = teams[index];
         final members = _snapshot!.membersByTeamId[team.teamId] ?? const [];
@@ -584,7 +585,9 @@ class _EndMatchScreenState extends State<EndMatchScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: _bubbleGridGap,
+                runSpacing: _bubbleGridGap,
                 children: [
                   _TagChip(
                     text: team.isCaught ? 'Caught' : 'Active',
@@ -592,7 +595,6 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                         ? XActColors.primary
                         : XActColors.success,
                   ),
-                  const SizedBox(width: 8),
                   _TagChip(
                     text: '${members.length} players',
                     color: XActColors.secondary,
@@ -637,37 +639,33 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     return ListView(
       padding: const EdgeInsets.fromLTRB(
         XActSpace.s4,
-        XActSpace.s1,
+        _tabContentPaddingTop,
         XActSpace.s4,
-        XActSpace.s5,
+        _tabContentPaddingBottom,
       ),
       children: [
         _SectionCard(
           title: 'Match timing',
           subtitle:
               'The backend only provides the session timing fields below.',
-          child: Column(
+          child: _buildDetailBubbleGrid(
             children: [
               _DetailRow(
                 label: 'Session Name',
                 value: details?.sessionName ?? 'Not available',
               ),
-              const SizedBox(height: 12),
               _DetailRow(
                 label: 'Session ID',
                 value: '${details?.sessionId ?? widget.sessionId}',
               ),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(
                 label: 'Start Time',
                 value: _formatDateTime(details?.startTime),
               ),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(
                 label: 'End Time',
                 value: _formatDateTime(details?.endTime),
               ),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(
                 label: 'Match Duration',
                 value: _matchDurationText ?? 'Not available',
@@ -675,27 +673,46 @@ class _EndMatchScreenState extends State<EndMatchScreen>
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: _tabSectionGap),
         _SectionCard(
           title: 'Match configuration',
           subtitle: 'Useful settings already known at end of play.',
-          child: Column(
+          child: _buildDetailBubbleGrid(
             children: [
               _DetailRow(
                 label: 'Planned Duration',
                 value: '${details?.plannedDurationMinutes ?? 0} min',
               ),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(
                 label: 'Reveal Interval',
                 value: '${details?.mrXRevealInterval ?? 0} min',
               ),
-              const SizedBox(height: XActSpace.s3),
               _DetailRow(label: 'Caught Teams', value: '$_caughtTeamCount'),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDetailBubbleGrid({required List<Widget> children}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWideLayout = constraints.maxWidth >= _bubbleGridWideBreakpoint;
+        final columns = isWideLayout ? 2 : 1;
+        final itemWidth = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - _bubbleGridGap) / 2;
+
+        return Wrap(
+          spacing: _bubbleGridGap,
+          runSpacing: _bubbleGridGap,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
     );
   }
 
