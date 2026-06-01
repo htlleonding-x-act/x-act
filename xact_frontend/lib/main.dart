@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:xact_frontend/api/api_service.dart';
-import 'package:xact_frontend/screens/start/start_screen.dart';
+import 'package:xact_frontend/screens/auth/login_screen.dart';
 import 'package:xact_frontend/widgets/game_start_overlay.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
@@ -92,7 +92,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
           ],
         );
       },
-      home: const StartScreen(),
+      home: const LoginScreen(),
     );
   }
 }
