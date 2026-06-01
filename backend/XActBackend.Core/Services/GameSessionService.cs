@@ -38,7 +38,7 @@ public interface IGameSessionService
 
     /// <param name="MrXRevealInterval">minutes between two mr.x reveals</param>
     public sealed record GameSessionData(
-        int HostUserId,
+        string HostUserId,
         string SessionName,
         string JoinCode,
         SessionStatus Status = SessionStatus.Waiting,

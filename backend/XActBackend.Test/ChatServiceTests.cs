@@ -17,7 +17,7 @@ public sealed class ChatServiceTests
     private const int TeamId = 2;
     private const int OtherTeamId = 3;
     private const int MemberId = 10;
-    private const int UserId = 5;
+    private const string UserId = "5";
 
     private static readonly Instant now = Instant.FromUtc(2026, 1, 1, 12, 0);
 
@@ -52,7 +52,7 @@ public sealed class ChatServiceTests
     }
 
     private static GameSession CreateSession() =>
-        new() { Id = SessionId, SessionName = "S", JoinCode = "ABCDE1", Status = SessionStatus.Active };
+        new() { Id = SessionId, HostUserId = "1", SessionName = "S", JoinCode = "ABCDE1", Status = SessionStatus.Active };
 
     private static Team CreateTeam(int teamId = TeamId, int sessionId = SessionId) =>
         new() { Id = teamId, SessionId = sessionId, TeamName = "T", ColorCode = "#112233", Role = TeamRole.Detective };

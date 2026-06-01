@@ -9,7 +9,7 @@ public interface IUserRepository
 
     public ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync(bool tracking);
 
-    public ValueTask<User?> GetUserByIdAsync(int id, bool tracking);
+    public ValueTask<User?> GetUserByIdAsync(string id, bool tracking);
 
     public ValueTask<User?> GetUserByEmailAsync(string email, bool tracking);
 
@@ -47,7 +47,7 @@ internal sealed class UserRepository(DbSet<User> userSet, IClock clock) : IUserR
         return users;
     }
 
-    public async ValueTask<User?> GetUserByIdAsync(int id, bool tracking)
+    public async ValueTask<User?> GetUserByIdAsync(string id, bool tracking)
     {
         IQueryable<User> source = tracking ? Users : UsersNoTracking;
 

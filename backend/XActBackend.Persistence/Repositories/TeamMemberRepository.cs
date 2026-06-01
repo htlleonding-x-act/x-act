@@ -5,7 +5,7 @@ namespace XActBackend.Persistence.Repositories;
 
 public interface ITeamMemberRepository
 {
-    public TeamMember AddTeamMember(int sessionId, int teamId, int? userId, string? guestName, bool isTeamLeader);
+    public TeamMember AddTeamMember(int sessionId, int teamId, string? userId, string? guestName, bool isTeamLeader);
 
     public ValueTask<IReadOnlyCollection<TeamMember>> GetMembersByTeamIdAsync(int teamId, bool tracking);
 
@@ -17,7 +17,7 @@ public interface ITeamMemberRepository
 
     public ValueTask<TeamMember?> GetMemberBySessionAndTeamIdAsync(int sessionId, int teamId, int memberId, bool tracking);
 
-    public ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, int userId, bool tracking);
+    public ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, string userId, bool tracking);
 
     public void RemoveTeamMember(TeamMember member);
 }
@@ -27,7 +27,7 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet, IClock c
     private IQueryable<TeamMember> Members => memberSet;
     private IQueryable<TeamMember> MembersNoTracking => Members.AsNoTracking();
 
-    public TeamMember AddTeamMember(int sessionId, int teamId, int? userId, string? guestName, bool isTeamLeader)
+    public TeamMember AddTeamMember(int sessionId, int teamId, string? userId, string? guestName, bool isTeamLeader)
     {
         var member = new TeamMember
         {
@@ -91,7 +91,7 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet, IClock c
         return await source.FirstOrDefaultAsync(m => m.SessionId == sessionId && m.TeamId == teamId && m.Id == memberId);
     }
 
-    public async ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, int userId, bool tracking)
+    public async ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, string userId, bool tracking)
     {
         IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
 

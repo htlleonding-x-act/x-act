@@ -18,7 +18,7 @@ public sealed class TeamMemberServiceTests
     private const int DefaultSessionId = 1;
     private const int DefaultTeamId = 1;
     private const int DefaultMemberId = 1;
-    private const int DefaultUserId = 10;
+    private const string DefaultUserId = "10";
 
     private readonly ITeamMemberRepository _teamMemberRepository;
     private readonly IGameSessionRepository _gameSessionRepository;
@@ -49,7 +49,7 @@ public sealed class TeamMemberServiceTests
         int id = DefaultMemberId,
         int sessionId = DefaultSessionId,
         int teamId = DefaultTeamId,
-        int? userId = DefaultUserId
+        string? userId = DefaultUserId
     ) =>
         new()
         {
@@ -63,6 +63,7 @@ public sealed class TeamMemberServiceTests
         new()
         {
             Id = DefaultSessionId,
+            HostUserId = DefaultUserId,
             SessionName = "Waiting Session",
             JoinCode = "WAIT01",
             Status = SessionStatus.Waiting,
@@ -72,6 +73,7 @@ public sealed class TeamMemberServiceTests
         new()
         {
             Id = DefaultSessionId,
+            HostUserId = DefaultUserId,
             SessionName = "Active Session",
             JoinCode = "ACT001",
             Status = SessionStatus.Active,
@@ -87,7 +89,7 @@ public sealed class TeamMemberServiceTests
             ColorCode = "#ff0000",
         };
 
-    private static User CreateUser(int id = DefaultUserId, bool isDeleted = false) =>
+    private static User CreateUser(string? id = DefaultUserId, bool isDeleted = false) =>
         new()
         {
             Id = id,

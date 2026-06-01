@@ -6,7 +6,7 @@ namespace XActBackend.Persistence.Repositories;
 public interface IGameSessionRepository
 {
     public GameSession AddGameSession(
-        int hostUserId,
+        string hostUserId,
         string sessionName,
         string joinCode,
         int plannedDurationMinutes,
@@ -22,7 +22,7 @@ public interface IGameSessionRepository
     public ValueTask<GameSession?> GetSessionByJoinCodeExcludingIdAsync(string joinCode, int excludedSessionId, bool tracking);
 
     /// <summary>active here means not finished yet, so a waiting session counts too</summary>
-    public ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(int hostUserId, bool tracking);
+    public ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(string hostUserId, bool tracking);
 
     public void RemoveSession(GameSession session);
 }
@@ -33,7 +33,7 @@ internal sealed class GameSessionRepository(DbSet<GameSession> sessionSet, ICloc
     private IQueryable<GameSession> SessionsNoTracking => Sessions.AsNoTracking();
 
     public GameSession AddGameSession(
-        int hostUserId,
+        string hostUserId,
         string sessionName,
         string joinCode,
         int plannedDurationMinutes,
@@ -86,7 +86,7 @@ internal sealed class GameSessionRepository(DbSet<GameSession> sessionSet, ICloc
         return await source.FirstOrDefaultAsync(s => s.JoinCode == joinCode && s.Id != excludedSessionId);
     }
 
-    public async ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(int hostUserId, bool tracking)
+    public async ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(string hostUserId, bool tracking)
     {
         IQueryable<GameSession> source = tracking ? Sessions : SessionsNoTracking;
 

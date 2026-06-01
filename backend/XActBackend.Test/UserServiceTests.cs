@@ -16,7 +16,7 @@ namespace XActBackend.Test;
 
 public sealed class UserServiceTests
 {
-    private const int DefaultUserId = 1;
+    private const string DefaultUserId = "1";
     private const string DefaultUsername = "user1";
     private const string DefaultEmail = "user1@test.com";
 
@@ -36,7 +36,7 @@ public sealed class UserServiceTests
     }
 
     private static User CreateUser(
-        int id = DefaultUserId,
+        string? id = DefaultUserId,
         string? username = null,
         string? email = null
     ) =>
@@ -50,7 +50,7 @@ public sealed class UserServiceTests
     private static List<User> CreateUsers() =>
         [
             CreateUser(DefaultUserId, DefaultUsername, DefaultEmail),
-            CreateUser(2, "user2", "user2@test.com"),
+            CreateUser("2", "user2", "user2@test.com"),
         ];
 
     [Fact]
