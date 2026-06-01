@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../api/api_service.dart';
 import '../api/models.dart';
+import 'end_match_screen.dart';
 import 'start/start_screen.dart';
 import 'team_screen.dart';
 import 'all_chat_screen.dart';
@@ -24,8 +25,12 @@ class _GameScreenState extends State<GameScreen> {
   bool _isMapFullscreen = false;
   bool _trackingInitCancelled = false;
   bool _allowDirectPop = false;
+  bool _endMatchNavigationStarted = false;
+  bool _endingGame = false;
   Timer? _trackingRetryTimer;
+  Timer? _sessionStatusPollTimer;
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
+  GameSessionDetails? _sessionDetails;
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -39,6 +44,16 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     unawaited(_startLocationTrackingSafely());
     unawaited(_initRealtimeAnnouncements());
+    unawaited(_loadSessionDetails());
+    unawaited(_checkForFinishedSession());
+    _sessionStatusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || _endMatchNavigationStarted) {
+        return;
+      }
+
+      unawaited(_checkForFinishedSession());
+      unawaited(_loadSessionDetails());
+    });
     _trackingRetryTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!mounted || _trackingInitCancelled) {
         return;
@@ -65,6 +80,24 @@ class _GameScreenState extends State<GameScreen> {
       });
     } catch (_) {
       // Announcements are best-effort; the game keeps working without them.
+    }
+  }
+
+  Future<void> _loadSessionDetails() async {
+    final sessionId = AppSession.instance.currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+
+    try {
+      final details = await ApiService.instance.getGameSession(sessionId);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() => _sessionDetails = details);
+    } catch (_) {
+      // Best-effort polling; the button can remain hidden until a successful fetch.
     }
   }
 
@@ -109,9 +142,36 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _trackingInitCancelled = true;
     _trackingRetryTimer?.cancel();
+    _sessionStatusPollTimer?.cancel();
     _realtimeEventSub?.cancel();
     LocationService.instance.stopTracking();
     super.dispose();
+  }
+
+  Future<void> _checkForFinishedSession() async {
+    if (_endMatchNavigationStarted || !mounted) {
+      return;
+    }
+
+    final sessionId = AppSession.instance.currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+
+    try {
+      final details = await ApiService.instance.getGameSession(sessionId);
+      if (!mounted || _endMatchNavigationStarted) {
+        return;
+      }
+
+      setState(() => _sessionDetails = details);
+
+      if (details.status == SessionStatus.finished) {
+        await _openEndMatchScreen();
+      }
+    } catch (_) {
+      // Best-effort poll; transient failures should not interrupt play.
+    }
   }
 
   Future<void> _startLocationTracking() async {
@@ -220,6 +280,66 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  Future<void> _openEndMatchScreen() async {
+    if (_endMatchNavigationStarted || !mounted) {
+      return;
+    }
+
+    final sessionId = AppSession.instance.currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+
+    _endMatchNavigationStarted = true;
+    _trackingInitCancelled = true;
+    _trackingRetryTimer?.cancel();
+    _sessionStatusPollTimer?.cancel();
+    _realtimeEventSub?.cancel();
+
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
+    }
+
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => EndMatchScreen(sessionId: sessionId)),
+    );
+  }
+
+  bool get _isHost {
+    final details = _sessionDetails;
+    final currentUserId = AppSession.instance.currentUserId;
+    return details != null &&
+        currentUserId != null &&
+        details.hostUserId == currentUserId;
+  }
+
+  Future<void> _endGameAsHost() async {
+    final sessionId = AppSession.instance.currentSessionId;
+    if (sessionId == null || _endingGame) {
+      return;
+    }
+
+    setState(() => _endingGame = true);
+    try {
+      await ApiService.instance.endGameSession(sessionId);
+      await _openEndMatchScreen();
+    } catch (error, stackTrace) {
+      debugPrint('Failed to end game session: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not end game: $error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _endingGame = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -241,12 +361,12 @@ class _GameScreenState extends State<GameScreen> {
                   ],
                 ),
               ),
-        bottomNavigationBar: _isMapFullscreen ? null : _buildBottomNav(),
+        bottomNavigationBar: _isMapFullscreen ? null : _buildBottomBar(),
       ),
     );
   }
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomBar() {
     const items = [
       (Icons.groups_rounded, 'Team'),
       (Icons.forum_rounded, 'All Chat'),
@@ -254,28 +374,42 @@ class _GameScreenState extends State<GameScreen> {
       (Icons.flag_rounded, 'Report'),
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: XActColors.bg,
-        border: Border(
-          top: BorderSide(color: XActColors.hairlineSoft),
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            for (int i = 0; i < items.length; i++)
-              _buildNavItem(
-                icon: items[i].$1,
-                label: items[i].$2,
-                active: _selectedIndex == i,
-                onTap: () => setState(() => _selectedIndex = i),
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_isHost && !_endMatchNavigationStarted) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+              child: XActBranding.buildPrimaryButton(
+                text: _endingGame ? 'Ending game…' : 'End Game',
+                icon: Icons.stop_circle_rounded,
+                height: 52,
+                onPressed: _endingGame ? null : _endGameAsHost,
               ),
+            ),
           ],
-        ),
+          Container(
+            decoration: BoxDecoration(
+              color: XActColors.bg,
+              border: Border(top: BorderSide(color: XActColors.hairlineSoft)),
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (int i = 0; i < items.length; i++)
+                  _buildNavItem(
+                    icon: items[i].$1,
+                    label: items[i].$2,
+                    active: _selectedIndex == i,
+                    onTap: () => setState(() => _selectedIndex = i),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
