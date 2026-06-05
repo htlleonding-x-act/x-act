@@ -197,9 +197,9 @@ public sealed record UserInformationDto(
 }
 
 public sealed record UserDetailsDto(
-    string? Id,
-    string? Username,
-    string? Email,
+    string Id,
+    string Username,
+    string Email,
     AccountType AccountType,
     Instant? SubscriptionEndDate,
     int TotalWins,
@@ -208,9 +208,9 @@ public sealed record UserDetailsDto(
 {
     public static UserDetailsDto FromUser(User user) =>
         new(
-            user.Id,
-            user.Username,
-            user.Email,
+            user.Id!,
+            user.Username!,
+            user.Email!,
             user.AccountType,
             user.SubscriptionEndDate,
             user.TotalWins,

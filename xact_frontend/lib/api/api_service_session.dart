@@ -29,12 +29,8 @@ extension ApiServiceSessionMethods on ApiService {
         );
         try {
           await _ensureRealtimeSubscription(details.sessionId);
-        } catch (_) {
-        }
-        await _ensureStandardTeams(
-          details.sessionId,
-          hostUserId: hostUserId,
-        );
+        } catch (_) {}
+        await _ensureStandardTeams(details.sessionId, hostUserId: hostUserId);
         return details;
       }
     }
@@ -42,43 +38,54 @@ extension ApiServiceSessionMethods on ApiService {
     throw Exception('Failed to create lobby after retries.');
   }
 
-  Future<int> ensureMvpUser({
+  Future<String> ensureMvpUser({
+    required String preferredName,
+    bool reuseByName = false,
+  }) async {
+    if (_session.currentUserId != null) return _session.currentUserId!;
+
+    if (_accessToken != null) {
+      try {
+        await _syncUserWithBackend();
+        if (_session.currentUserId != null) return _session.currentUserId!;
+      } catch (_) {}
+    }
+
+    return _createGuestUser(preferredName: preferredName, reuseByName: reuseByName);
+  }
+
+  Future<void> _syncUserWithBackend() async {
+    if (_accessToken == null) return;
+    final json = await _postJsonObjectOrThrow('/api/auth/register', {});
+    final user = UserDetails.fromJson(json);
+    _session.setIdentity(userId: user.userId, username: user.username);
+  }
+
+  Future<String> _createGuestUser({
     required String preferredName,
     bool reuseByName = false,
   }) async {
     final users = await _listUsers();
 
-    if (_session.currentUserId != null &&
-        users.any((u) => u.userId == _session.currentUserId)) {
-      return _session.currentUserId!;
-    }
-
     if (reuseByName) {
-      final preferredByName = users.where(
+      final match = users.where(
         (u) => u.username.toLowerCase() == preferredName.toLowerCase(),
       );
-      if (preferredByName.isNotEmpty) {
-        final user = preferredByName.first;
+      if (match.isNotEmpty) {
+        final user = match.first;
         _session.setIdentity(userId: user.userId, username: user.username);
         return user.userId;
       }
     }
 
-    final desired = preferredName.trim().isEmpty
-        ? 'Player'
-        : preferredName.trim();
-    final takenUsernames = users
-        .map((u) => u.username.toLowerCase())
-        .toSet();
+    final desired = preferredName.trim().isEmpty ? 'Player' : preferredName.trim();
+    final takenUsernames = users.map((u) => u.username.toLowerCase()).toSet();
     var candidate = desired;
     for (var i = 2; takenUsernames.contains(candidate.toLowerCase()); i++) {
       candidate = '$desired $i';
     }
 
-    final emailLocal = candidate
-        .toLowerCase()
-        .replaceAll(RegExp(r'\s+'), '.');
-
+    final emailLocal = candidate.toLowerCase().replaceAll(RegExp(r'\s+'), '.');
     final created = await _postJsonObjectOrThrow('/api/users', {
       'username': candidate,
       'email': '$emailLocal@xact.local',
@@ -102,8 +109,7 @@ extension ApiServiceSessionMethods on ApiService {
     );
     try {
       await _ensureRealtimeSubscription(session.sessionId);
-    } catch (_) {
-    }
+    } catch (_) {}
     await _ensureStandardTeams(session.sessionId);
     return session;
   }
@@ -114,19 +120,15 @@ extension ApiServiceSessionMethods on ApiService {
 
   Future<void> _ensureStandardTeams(
     int sessionId, {
-    int? hostUserId,
+    String? hostUserId,
   }) async {
     final snapshot = await loadLobbySnapshot(sessionId);
     TeamDetails? misterXTeam;
     TeamDetails? detectiveTeam;
 
     for (final team in snapshot.teams) {
-      if (team.role == TeamRole.mrX) {
-        misterXTeam ??= team;
-      }
-      if (team.role == TeamRole.detective) {
-        detectiveTeam ??= team;
-      }
+      if (team.role == TeamRole.mrX) misterXTeam ??= team;
+      if (team.role == TeamRole.detective) detectiveTeam ??= team;
     }
 
     misterXTeam ??= await addTeam(
@@ -172,7 +174,7 @@ extension ApiServiceSessionMethods on ApiService {
     final membersByTeamId = <int, List<TeamMemberDetails>>{};
     for (final team in teams) {
       final infos = await _listTeamMembersByTeam(sessionId, team.teamId);
-      final details = infos
+      membersByTeamId[team.teamId] = infos
           .map(
             (info) => TeamMemberDetails(
               memberId: info.memberId,
@@ -187,7 +189,6 @@ extension ApiServiceSessionMethods on ApiService {
             ),
           )
           .toList(growable: false);
-      membersByTeamId[team.teamId] = details;
     }
 
     return LobbySnapshot(
@@ -205,15 +206,16 @@ extension ApiServiceSessionMethods on ApiService {
     required String colorCode,
     int maxPlayerCount = 6,
   }) async {
-    final json =
-        await _postJsonObjectOrThrow('/api/gamesessions/$sessionId/teams', {
-          'teamName': teamName,
-          'role': _roleToApi(role),
-          'colorCode': colorCode,
-          'isCaught': false,
-          'maxPlayerCount': maxPlayerCount,
-        });
-
+    final json = await _postJsonObjectOrThrow(
+      '/api/gamesessions/$sessionId/teams',
+      {
+        'teamName': teamName,
+        'role': _roleToApi(role),
+        'colorCode': colorCode,
+        'isCaught': false,
+        'maxPlayerCount': maxPlayerCount,
+      },
+    );
     return TeamDetails.fromJson(json);
   }
 
@@ -235,9 +237,6 @@ extension ApiServiceSessionMethods on ApiService {
     });
   }
 
-  /// Reports that the current Mr. X team was caught by [catchingTeamId], which
-  /// triggers the backend to swap the two teams' roles. The resulting role
-  /// changes arrive via realtime team_updated + mr_x_caught events.
   Future<void> markMrXCaught({
     required int sessionId,
     required int catchingTeamId,
@@ -251,9 +250,7 @@ extension ApiServiceSessionMethods on ApiService {
     final sessionId = _session.currentSessionId;
     final teamId = _session.currentTeamId;
     final memberId = _session.currentMemberId;
-    if (sessionId == null || teamId == null || memberId == null) {
-      return;
-    }
+    if (sessionId == null || teamId == null || memberId == null) return;
 
     await _realtime.registerMemberPresence(
       sessionId: sessionId,
@@ -289,14 +286,13 @@ extension ApiServiceSessionMethods on ApiService {
         'lastUpdated': null,
       },
     );
-
     return TeamMemberDetails.fromJson(json);
   }
 
   Future<TeamMemberDetails> addUserMember({
     required int sessionId,
     required int teamId,
-    required int userId,
+    required String userId,
     bool isTeamLeader = false,
   }) async {
     final json = await _postJsonObjectOrThrow(
@@ -310,7 +306,6 @@ extension ApiServiceSessionMethods on ApiService {
         'lastUpdated': null,
       },
     );
-
     return TeamMemberDetails.fromJson(json);
   }
 
@@ -330,9 +325,7 @@ extension ApiServiceSessionMethods on ApiService {
     required int sourceTeamId,
     required int targetTeamId,
   }) async {
-    if (sourceTeamId == targetTeamId) {
-      return member;
-    }
+    if (sourceTeamId == targetTeamId) return member;
 
     await removeMember(
       sessionId: sessionId,
@@ -364,9 +357,7 @@ extension ApiServiceSessionMethods on ApiService {
   Future<void> endGameSession(int sessionId) async {
     final details = await _getGameSession(sessionId);
 
-    if (details.status == SessionStatus.finished) {
-      return;
-    }
+    if (details.status == SessionStatus.finished) return;
 
     if (details.status == SessionStatus.active) {
       await _postNoContent('/api/gamesessions/$sessionId/end');
@@ -383,9 +374,7 @@ extension ApiServiceSessionMethods on ApiService {
 
   Future<void> closeCurrentSession() async {
     final sessionId = _session.currentSessionId;
-    if (sessionId == null) {
-      return;
-    }
+    if (sessionId == null) return;
 
     final details = await _getGameSession(sessionId);
     final isHost =
@@ -403,13 +392,11 @@ extension ApiServiceSessionMethods on ApiService {
     _session.clearMembership();
   }
 
-  Future<void> _closeOpenSessionsForHost(int hostUserId) async {
+  Future<void> _closeOpenSessionsForHost(String hostUserId) async {
     final sessions = await _listGameSessions();
 
     for (final session in sessions) {
-      if (session.status == SessionStatus.finished) {
-        continue;
-      }
+      if (session.status == SessionStatus.finished) continue;
 
       try {
         final details = await _getGameSession(session.sessionId);
@@ -425,8 +412,7 @@ extension ApiServiceSessionMethods on ApiService {
           _session.currentJoinCode = null;
           _session.clearMembership();
         }
-      } catch (_) {
-      }
+      } catch (_) {}
     }
   }
 
@@ -450,16 +436,11 @@ extension ApiServiceSessionMethods on ApiService {
     try {
       await _ensureRealtimeSubscription(sessionId);
       final snapshot = await _realtime.requestSnapshot(sessionId);
-      if (snapshot != null && snapshot.sessionId == sessionId) {
-        return snapshot;
-      }
+      if (snapshot != null && snapshot.sessionId == sessionId) return snapshot;
 
       final latest = _realtime.latestSnapshot;
-      if (latest != null && latest.sessionId == sessionId) {
-        return latest;
-      }
-    } catch (_) {
-    }
+      if (latest != null && latest.sessionId == sessionId) return latest;
+    } catch (_) {}
 
     return null;
   }
@@ -480,7 +461,7 @@ extension ApiServiceSessionMethods on ApiService {
         .toList(growable: false);
 
     final latestByMemberId = {
-      for (final location in snapshot.latestLocations) location.memberId: location,
+      for (final loc in snapshot.latestLocations) loc.memberId: loc,
     };
 
     final membersByTeamId = <int, List<TeamMemberDetails>>{};
@@ -497,17 +478,15 @@ extension ApiServiceSessionMethods on ApiService {
         currentLongitude: location?.longitude ?? member.currentLongitude,
         lastUpdated: location?.timestamp ?? member.lastUpdated,
       );
-
       membersByTeamId.putIfAbsent(member.teamId, () => <TeamMemberDetails>[]);
       membersByTeamId[member.teamId]!.add(details);
     }
 
-    Map<int, UserInfo> usersById = <int, UserInfo>{};
+    Map<String, UserInfo> usersById = <String, UserInfo>{};
     try {
       final users = await _listUsers();
       usersById = {for (final user in users) user.userId: user};
-    } catch (_) {
-    }
+    } catch (_) {}
 
     return LobbySnapshot(
       teams: teams,
@@ -531,7 +510,6 @@ extension ApiServiceSessionMethods on ApiService {
         'sequenceOrder': sequenceOrder,
       },
     );
-
     return GeofencePointDetails.fromJson(json);
   }
 
@@ -592,23 +570,17 @@ extension ApiServiceSessionMethods on ApiService {
   }
 
   Future<int?> getActiveSessionId() async {
-    if (_session.currentSessionId != null) {
-      return _session.currentSessionId;
-    }
+    if (_session.currentSessionId != null) return _session.currentSessionId;
 
     final sessions = await _listGameSessions();
-    final active = sessions
-        .where((s) => s.status == SessionStatus.active)
-        .toList();
+    final active = sessions.where((s) => s.status == SessionStatus.active).toList();
     if (active.isNotEmpty) {
       _session.currentSessionId = active.first.sessionId;
       _session.currentJoinCode = active.first.joinCode;
       return active.first.sessionId;
     }
 
-    if (sessions.isEmpty) {
-      return null;
-    }
+    if (sessions.isEmpty) return null;
 
     _session.currentSessionId = sessions.first.sessionId;
     _session.currentJoinCode = sessions.first.joinCode;

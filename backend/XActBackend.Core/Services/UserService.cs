@@ -66,6 +66,16 @@ public interface IUserService
     public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking);
 
     /// <summary>
+    ///     Get an existing user by their Keycloak subject claim, or create one if none exists.
+    ///     Also creates the <see cref="XActBackend.Persistence.Model.UserAuthIdentity"/> link on first login.
+    /// </summary>
+    /// <param name="keycloakSubject">The Keycloak <c>sub</c> claim (UUID)</param>
+    /// <param name="username">Username to use if the user needs to be created</param>
+    /// <param name="email">Email to use if the user needs to be created</param>
+    /// <returns>The existing or newly created user, or an error if creation failed</returns>
+    public ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email);
+
+    /// <summary>
     ///     Data used to create or update a user.
     /// </summary>
     /// <param name="Username">The username</param>
@@ -112,6 +122,36 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         var user = await uow.UserRepository.GetUserByUsernameAsync(username, tracking);
 
         return user is not null ? user : new NotFound();
+    }
+
+    public async ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email)
+    {
+        try
+        {
+            var existingIdentity = await uow.UserAuthIdentityRepository.GetBySubjectAsync(keycloakSubject, tracking: false);
+            if (existingIdentity is not null)
+            {
+                var existingUser = await uow.UserRepository.GetUserByIdAsync(existingIdentity.UserId, tracking: false);
+                if (existingUser is not null)
+                    return existingUser;
+
+                logger.LogError(
+                    "UserAuthIdentity for subject {Subject} references missing user {UserId} — data inconsistency",
+                    keycloakSubject, existingIdentity.UserId);
+                return new Error();
+            }
+
+            var newUser = uow.UserRepository.AddUser(username, email, AccountType.Free, id: keycloakSubject);
+            uow.UserAuthIdentityRepository.AddAuthIdentity(newUser.Id!, keycloakSubject);
+            await uow.SaveChangesAsync();
+
+            return newUser;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get or create user for Keycloak subject {Subject}", keycloakSubject);
+            return new Error();
+        }
     }
 
     public async ValueTask<OneOf<User, Error>> AddUserAsync(IUserService.UserData newUser)

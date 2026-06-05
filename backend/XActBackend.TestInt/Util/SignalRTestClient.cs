@@ -52,7 +52,7 @@ internal sealed class SignalRTestClient : IAsyncDisposable
         int sessionId,
         int teamId,
         int memberId,
-        int? userId,
+        String? userId,
         string? guestName,
         CancellationToken cancellationToken)
     {

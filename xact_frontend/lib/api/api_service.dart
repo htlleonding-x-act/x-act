@@ -34,36 +34,42 @@ final class ApiService {
   bool get isAuthenticated => _accessToken != null;
 
   Future<bool> exchangeAuthCode(String code) async {
-    final uri = _baseUri.resolve('/auth/exchange');
-    final body = jsonEncode({
-      'code': code,
-      'redirect_uri': AuthConfig.redirectUri,
-    });
+    // Public client: exchange directly with Keycloak — no backend proxy needed.
+    final base = AuthConfig.authority.endsWith('/')
+        ? AuthConfig.authority
+        : '${AuthConfig.authority}/';
+    final tokenUri = Uri.parse('${base}protocol/openid-connect/token');
 
     final resp = await _http.post(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
+      tokenUri,
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: {
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': AuthConfig.redirectUri,
+        'client_id': AuthConfig.clientId,
       },
-      body: body,
     );
 
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      return false;
-    }
+    if (resp.statusCode < 200 || resp.statusCode >= 300) return false;
 
     final decoded = jsonDecode(resp.body) as Map<String, dynamic>;
-    if (decoded.containsKey('access_token')) {
-      _accessToken = decoded['access_token'] as String?;
-      final refresh = decoded['refresh_token'] as String?;
-      try {
-        await AuthStorage.saveTokens(accessToken: _accessToken!, refreshToken: refresh);
-      } catch (_) {}
-      return true;
-    }
+    final accessToken = decoded['access_token'] as String?;
+    if (accessToken == null) return false;
 
-    return false;
+    _accessToken = accessToken;
+    try {
+      await AuthStorage.saveTokens(
+        accessToken: accessToken,
+        refreshToken: decoded['refresh_token'] as String?,
+      );
+    } catch (_) {}
+
+    try {
+      await _syncUserWithBackend();
+    } catch (_) {}
+
+    return true;
   }
 
   Future<void> loadStoredToken() async {

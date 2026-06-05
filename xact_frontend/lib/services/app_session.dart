@@ -6,7 +6,7 @@ final class AppSession {
   int? currentSessionId;
   String? currentJoinCode;
 
-  int? currentUserId;
+  String? currentUserId;
   String? currentUsername;
 
   int? currentTeamId;
@@ -18,7 +18,7 @@ final class AppSession {
     currentJoinCode = joinCode;
   }
 
-  void setIdentity({required int userId, required String username}) {
+  void setIdentity({required String userId, required String username}) {
     currentUserId = userId;
     currentUsername = username;
   }

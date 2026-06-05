@@ -14,7 +14,7 @@ public interface IUserAuthIdentityRepository
     /// <param name="userId">The id of the user</param>
     /// <param name="providerSubject">The Keycloak <c>sub</c> claim</param>
     /// <returns>The created authentication identity entity</returns>
-    public UserAuthIdentity AddAuthIdentity(int userId, string providerSubject);
+    public UserAuthIdentity AddAuthIdentity(string userId, string providerSubject);
 
     /// <summary>
     ///     Get an authentication identity by Keycloak subject.
@@ -30,7 +30,7 @@ public interface IUserAuthIdentityRepository
     /// <param name="userId">The id of the user</param>
     /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
     /// <returns>All authentication identities for the user</returns>
-    public ValueTask<IReadOnlyCollection<UserAuthIdentity>> GetByUserIdAsync(int userId, bool tracking);
+    public ValueTask<IReadOnlyCollection<UserAuthIdentity>> GetByUserIdAsync(string userId, bool tracking);
 }
 
 internal sealed class UserAuthIdentityRepository(DbSet<UserAuthIdentity> authIdentitySet) : IUserAuthIdentityRepository
@@ -38,7 +38,7 @@ internal sealed class UserAuthIdentityRepository(DbSet<UserAuthIdentity> authIde
     private IQueryable<UserAuthIdentity> AuthIdentities => authIdentitySet;
     private IQueryable<UserAuthIdentity> AuthIdentitiesNoTracking => AuthIdentities.AsNoTracking();
 
-    public UserAuthIdentity AddAuthIdentity(int userId, string providerSubject)
+    public UserAuthIdentity AddAuthIdentity(string userId, string providerSubject)
     {
         var authIdentity = new UserAuthIdentity
         {
@@ -59,7 +59,7 @@ internal sealed class UserAuthIdentityRepository(DbSet<UserAuthIdentity> authIde
         return await source.FirstOrDefaultAsync(a => a.ProviderSubject == providerSubject);
     }
 
-    public async ValueTask<IReadOnlyCollection<UserAuthIdentity>> GetByUserIdAsync(int userId, bool tracking)
+    public async ValueTask<IReadOnlyCollection<UserAuthIdentity>> GetByUserIdAsync(string userId, bool tracking)
     {
         IQueryable<UserAuthIdentity> source = tracking ? AuthIdentities : AuthIdentitiesNoTracking;
 

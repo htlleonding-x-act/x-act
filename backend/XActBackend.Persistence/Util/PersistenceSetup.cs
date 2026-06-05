@@ -84,9 +84,15 @@ public static class PersistenceSetup
             {
                 options.Authority = configuration["Authentication:Authority"];
                 options.RequireHttpsMetadata = configuration.GetValue<bool>("Authentication:RequireHttpsMetadata", false);
+                // ValidIssuer may differ from Authority when the backend reaches Keycloak via
+                // a Docker-internal hostname (keycloak:8080) but tokens carry the external issuer
+                // (localhost:8080). Fall back to Authority when not explicitly set.
+                var validIssuer = configuration["Authentication:ValidIssuer"]
+                                  ?? configuration["Authentication:Authority"];
                 options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
                 {
                     ValidateIssuer = true,
+                    ValidIssuer = validIssuer,
                     ValidateAudience = false
                 };
             });

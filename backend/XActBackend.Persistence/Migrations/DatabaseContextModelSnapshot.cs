@@ -82,8 +82,9 @@ namespace XActBackend.Persistence.Migrations
                     b.Property<Instant?>("EndTime")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("HostUserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("HostUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("JoinCode")
                         .IsRequired()
@@ -282,8 +283,8 @@ namespace XActBackend.Persistence.Migrations
                     b.Property<int>("TeamId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -303,11 +304,8 @@ namespace XActBackend.Persistence.Migrations
 
             modelBuilder.Entity("XActBackend.Persistence.Model.User", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
                     b.Property<string>("AccountType")
                         .IsRequired()
@@ -366,8 +364,8 @@ namespace XActBackend.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -491,8 +489,7 @@ namespace XActBackend.Persistence.Migrations
                     b.HasOne("XActBackend.Persistence.Model.User", "User")
                         .WithMany("AuthIdentities")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("User");
                 });
