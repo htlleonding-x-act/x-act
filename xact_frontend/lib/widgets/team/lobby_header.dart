@@ -10,6 +10,7 @@ class GameLobbyHeader extends StatelessWidget {
   final VoidCallback? onClose;
   final VoidCallback? onViewMap;
   final VoidCallback? onSettings;
+  final VoidCallback? onProfile;
 
   const GameLobbyHeader({
     super.key,
@@ -19,6 +20,7 @@ class GameLobbyHeader extends StatelessWidget {
     this.onClose,
     this.onViewMap,
     this.onSettings,
+    this.onProfile,
   });
 
   @override
@@ -63,6 +65,13 @@ class GameLobbyHeader extends StatelessWidget {
             XActBranding.circleIconButton(
               icon: Icons.settings_rounded,
               onPressed: onSettings!,
+            ),
+          ],
+          if (onProfile != null) ...[
+            const SizedBox(width: 4),
+            XActBranding.circleIconButton(
+              icon: Icons.person_outline_rounded,
+              onPressed: onProfile!,
             ),
           ],
           if (onClose != null) ...[
