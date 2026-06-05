@@ -22,6 +22,9 @@ public interface IUserService
     /// <summary>soft delete: flags the user and replaces username and email with placeholders</summary>
     public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking);
 
+    /// <summary>finds the user linked to the keycloak subject, creates user and identity on first login</summary>
+    public ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email);
+
     public sealed record UserData(
         string Username,
         string Email,
@@ -60,6 +63,37 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         var user = await uow.UserRepository.GetUserByUsernameAsync(username, tracking);
 
         return user is not null ? user : new NotFound();
+    }
+
+    public async ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email)
+    {
+        try
+        {
+            var existingIdentity = await uow.UserAuthIdentityRepository.GetBySubjectAsync(keycloakSubject, tracking: false);
+            if (existingIdentity is not null)
+            {
+                var existingUser = await uow.UserRepository.GetUserByIdAsync(existingIdentity.UserId, tracking: false);
+                if (existingUser is not null)
+                {
+                    return existingUser;
+                }
+
+                logger.LogError("UserAuthIdentity for subject {Subject} references missing user {UserId}",
+                                keycloakSubject, existingIdentity.UserId);
+                return new Error();
+            }
+
+            var newUser = uow.UserRepository.AddUser(username, email, AccountType.Free, id: keycloakSubject);
+            uow.UserAuthIdentityRepository.AddAuthIdentity(newUser.Id!, keycloakSubject);
+            await uow.SaveChangesAsync();
+
+            return newUser;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get or create user for Keycloak subject {Subject}", keycloakSubject);
+            return new Error();
+        }
     }
 
     public async ValueTask<OneOf<User, DomainError, Error>> AddUserAsync(IUserService.UserData newUser)

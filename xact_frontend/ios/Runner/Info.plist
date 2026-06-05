@@ -51,5 +51,18 @@
 	<string>X-ACT needs your location in the background to keep tracking your position during the game.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>X-ACT uses the camera to scan game code QR codes so you can quickly join a friend's lobby.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>xact</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>xact</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

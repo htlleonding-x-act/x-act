@@ -5,7 +5,7 @@ namespace XActBackend.Persistence.Repositories;
 
 public interface IUserRepository
 {
-    public User AddUser(string username, string email, AccountType accountType);
+    public User AddUser(string username, string email, AccountType accountType, string? id = null);
 
     public ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync(bool tracking);
 
@@ -23,10 +23,11 @@ internal sealed class UserRepository(DbSet<User> userSet, IClock clock) : IUserR
     private IQueryable<User> Users => userSet;
     private IQueryable<User> UsersNoTracking => Users.AsNoTracking();
 
-    public User AddUser(string username, string email, AccountType accountType)
+    public User AddUser(string username, string email, AccountType accountType, string? id = null)
     {
         var user = new User
         {
+            Id = id ?? Guid.NewGuid().ToString(),
             Username = username,
             Email = email,
             AccountType = accountType,

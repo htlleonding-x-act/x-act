@@ -80,7 +80,7 @@ final class PlayerPositionData {
 final class LobbySnapshot {
   final List<TeamDetails> teams;
   final Map<int, List<TeamMemberDetails>> membersByTeamId;
-  final Map<int, UserInfo> usersById;
+  final Map<String, UserInfo> usersById;
   final List<SnapshotLatestLocation> latestLocations;
 
   const LobbySnapshot({
