@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/auth/auth_config.dart';
 import 'package:xact_frontend/auth/local_callback_server.dart';
+import 'package:xact_frontend/auth/web_url_cleaner.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
@@ -75,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (mounted && !launched) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Keycloak konnte nicht geöffnet werden.')),
+        const SnackBar(content: Text('Could not open the login page. Please try again.')),
       );
     }
 
@@ -99,12 +100,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
+      cleanBrowserUrl();
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const StartScreen()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login fehlgeschlagen. Bitte erneut versuchen.')),
+        const SnackBar(content: Text('Login failed. Please try again.')),
       );
     }
   }
@@ -159,15 +161,15 @@ class _LoginScreenState extends State<LoginScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Anmelden mit Keycloak',
+            'Sign in to play',
             style: XActText.title.copyWith(fontSize: 24),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 10),
           Text(
             _isLoading
-                ? 'Warte auf Login-Antwort...'
-                : 'Du wirst zum Keycloak-Login weitergeleitet.',
+                ? 'Waiting for authentication...'
+                : 'You will be redirected to log in.',
             style: XActText.body.copyWith(color: XActColors.text2, height: 1.45),
             textAlign: TextAlign.center,
           ),
@@ -176,16 +178,10 @@ class _LoginScreenState extends State<LoginScreen> {
             const Center(child: CircularProgressIndicator())
           else
             XActBranding.buildPrimaryButton(
-              text: 'Mit Keycloak anmelden',
+              text: 'Login',
               icon: Icons.login_rounded,
               onPressed: _launchKeycloak,
             ),
-          const SizedBox(height: 16),
-          Text(
-            'Server: ${AuthConfig.authority}',
-            style: XActText.caption.copyWith(color: XActColors.text3),
-            textAlign: TextAlign.center,
-          ),
         ],
       ),
     );
