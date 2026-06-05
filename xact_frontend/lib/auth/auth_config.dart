@@ -44,6 +44,8 @@ class AuthConfig {
         'redirect_uri': redirectUri,
         'response_type': 'code',
         'scope': 'openid',
+        // Always show the login form — prevents SSO silent re-auth after logout.
+        'prompt': 'login',
       },
     );
   }

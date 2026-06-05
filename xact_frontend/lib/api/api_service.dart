@@ -62,6 +62,7 @@ final class ApiService {
       await AuthStorage.saveTokens(
         accessToken: accessToken,
         refreshToken: decoded['refresh_token'] as String?,
+        idToken: decoded['id_token'] as String?,
       );
     } catch (_) {}
 
@@ -80,7 +81,28 @@ final class ApiService {
   }
 
   Future<void> logout() async {
+    // Back-channel logout: tell Keycloak to end the SSO session server-side.
+    // This requires the refresh token and does not need a browser redirect.
+    try {
+      final refreshToken = await AuthStorage.loadRefreshToken();
+      if (refreshToken != null) {
+        final base = AuthConfig.authority.endsWith('/')
+            ? AuthConfig.authority
+            : '${AuthConfig.authority}/';
+        await _http.post(
+          Uri.parse('${base}protocol/openid-connect/logout'),
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: {
+            'client_id': AuthConfig.clientId,
+            'refresh_token': refreshToken,
+          },
+        );
+      }
+    } catch (_) {}
+
     _accessToken = null;
+    _session.currentUserId = null;
+    _session.currentUsername = null;
     await AuthStorage.clear();
   }
 
