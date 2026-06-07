@@ -38,6 +38,7 @@ public sealed class GeofencePointServiceTests
         new()
         {
             Id = id,
+            HostUserId = "1",
             SessionName = "Test Session",
             JoinCode = "ABC123",
         };

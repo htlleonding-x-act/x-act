@@ -23,7 +23,7 @@ public interface IUserService
     /// <param name="userId">The id of the user to find</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>The user, if found</returns>
-    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId, bool tracking);
+    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(string userId, bool tracking);
 
     /// <summary>
     ///     Get a user by email address.
@@ -55,7 +55,7 @@ public interface IUserService
     /// <param name="userData">The new user data</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>Result indicating if the update was successful</returns>
-    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, UserData userData, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, UserData userData, bool tracking);
 
     /// <summary>
     ///     Delete a user.
@@ -63,7 +63,17 @@ public interface IUserService
     /// <param name="userId">The id of the user to delete</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>Result indicating if the deletion was successful</returns>
-    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking);
+
+    /// <summary>
+    ///     Get an existing user by their Keycloak subject claim, or create one if none exists.
+    ///     Also creates the <see cref="XActBackend.Persistence.Model.UserAuthIdentity"/> link on first login.
+    /// </summary>
+    /// <param name="keycloakSubject">The Keycloak <c>sub</c> claim (UUID)</param>
+    /// <param name="username">Username to use if the user needs to be created</param>
+    /// <param name="email">Email to use if the user needs to be created</param>
+    /// <returns>The existing or newly created user, or an error if creation failed</returns>
+    public ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email);
 
     /// <summary>
     ///     Data used to create or update a user.
@@ -93,7 +103,7 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         return users;
     }
 
-    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId, bool tracking)
+    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(string userId, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 
@@ -112,6 +122,36 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         var user = await uow.UserRepository.GetUserByUsernameAsync(username, tracking);
 
         return user is not null ? user : new NotFound();
+    }
+
+    public async ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email)
+    {
+        try
+        {
+            var existingIdentity = await uow.UserAuthIdentityRepository.GetBySubjectAsync(keycloakSubject, tracking: false);
+            if (existingIdentity is not null)
+            {
+                var existingUser = await uow.UserRepository.GetUserByIdAsync(existingIdentity.UserId, tracking: false);
+                if (existingUser is not null)
+                    return existingUser;
+
+                logger.LogError(
+                    "UserAuthIdentity for subject {Subject} references missing user {UserId} — data inconsistency",
+                    keycloakSubject, existingIdentity.UserId);
+                return new Error();
+            }
+
+            var newUser = uow.UserRepository.AddUser(username, email, AccountType.Free, id: keycloakSubject);
+            uow.UserAuthIdentityRepository.AddAuthIdentity(newUser.Id!, keycloakSubject);
+            await uow.SaveChangesAsync();
+
+            return newUser;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get or create user for Keycloak subject {Subject}", keycloakSubject);
+            return new Error();
+        }
     }
 
     public async ValueTask<OneOf<User, Error>> AddUserAsync(IUserService.UserData newUser)
@@ -139,7 +179,7 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, IUserService.UserData userData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, IUserService.UserData userData, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 
@@ -160,7 +200,7 @@ internal sealed class UserService(IUnitOfWork uow, ILogger<UserService> logger) 
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 

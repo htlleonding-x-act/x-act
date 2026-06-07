@@ -18,7 +18,7 @@ public interface IGameSessionRepository
     /// <param name="mrXRevealInterval">The Mr.X reveal interval in minutes</param>
     /// <returns>The created game session entity</returns>
     public GameSession AddGameSession(
-        int hostUserId,
+        string hostUserId,
         string sessionName,
         string joinCode,
         int plannedDurationMinutes,
@@ -63,7 +63,7 @@ public interface IGameSessionRepository
     /// <param name="hostUserId">The host user id</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>The active game session, if found</returns>
-    public ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(int hostUserId, bool tracking);
+    public ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(string hostUserId, bool tracking);
 
     /// <summary>
     ///     Remove a game session from the repository.
@@ -78,7 +78,7 @@ internal sealed class GameSessionRepository(DbSet<GameSession> sessionSet) : IGa
     private IQueryable<GameSession> SessionsNoTracking => Sessions.AsNoTracking();
 
     public GameSession AddGameSession(
-        int hostUserId,
+        string hostUserId,
         string sessionName,
         string joinCode,
         int plannedDurationMinutes,
@@ -131,7 +131,7 @@ internal sealed class GameSessionRepository(DbSet<GameSession> sessionSet) : IGa
         return await source.FirstOrDefaultAsync(s => s.JoinCode == joinCode && s.Id != excludedSessionId);
     }
 
-    public async ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(int hostUserId, bool tracking)
+    public async ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(string hostUserId, bool tracking)
     {
         IQueryable<GameSession> source = tracking ? Sessions : SessionsNoTracking;
 

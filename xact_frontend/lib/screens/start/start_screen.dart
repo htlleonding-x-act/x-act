@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/screens/auth/login_screen.dart';
+import 'package:xact_frontend/screens/settings/profile_screen.dart';
 import 'package:xact_frontend/screens/start/playnow_screen.dart';
+import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class StartScreen extends StatefulWidget {
@@ -12,6 +15,8 @@ class StartScreen extends StatefulWidget {
 class _StartScreenState extends State<StartScreen> {
   bool _showHowTo = false;
 
+  bool get _isLoggedIn => AppSession.instance.currentUserId != null;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -22,6 +27,7 @@ class _StartScreenState extends State<StartScreen> {
           SafeArea(
             child: Column(
               children: [
+                _buildTopBar(),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -64,16 +70,40 @@ class _StartScreenState extends State<StartScreen> {
                             setState(() => _showHowTo = !_showHowTo),
                       ),
                       const SizedBox(height: XActSpace.s3),
-                      XActBranding.buildPrimaryButton(
-                        text: 'Play Now',
-                        icon: Icons.play_arrow_rounded,
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PlayNowScreen(),
+                      if (_isLoggedIn) ...[
+                        XActBranding.buildPrimaryButton(
+                          text: 'Play Now',
+                          icon: Icons.play_arrow_rounded,
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PlayNowScreen(),
+                            ),
                           ),
                         ),
-                      ),
+                      ] else ...[
+                        XActBranding.buildPrimaryButton(
+                          text: 'Login · Register',
+                          icon: Icons.login_rounded,
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: XActSpace.s3),
+                        XActBranding.buildGhostButton(
+                          text: 'Continue as Guest',
+                          icon: Icons.person_outline_rounded,
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const PlayNowScreen(),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: XActSpace.s4),
                       Center(child: XActBranding.buildFooter()),
                     ],
@@ -83,6 +113,54 @@ class _StartScreenState extends State<StartScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    final username = AppSession.instance.currentUsername;
+    if (username == null) return const SizedBox.shrink();
+
+    final initial = username.trim().isEmpty
+        ? 'P'
+        : username.trim().substring(0, 1).toUpperCase();
+
+    return Align(
+      alignment: Alignment.topRight,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 12, right: 16),
+        child: GestureDetector(
+          onTap: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+            setState(() {});
+          },
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [XActColors.primaryLight, XActColors.primaryDark],
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: .15)),
+              boxShadow: XActElevation.e1,
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -139,9 +217,7 @@ class _StartScreenState extends State<StartScreen> {
               children: [
                 Text(
                   title,
-                  style: XActText.bodySm.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: XActText.bodySm.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(

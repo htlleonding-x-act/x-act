@@ -161,7 +161,7 @@ final class RealtimeService {
     required int sessionId,
     required int teamId,
     required int memberId,
-    int? userId,
+    String? userId,
     String? guestName,
   }) async {
     final connection = _connection;

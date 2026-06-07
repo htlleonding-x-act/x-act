@@ -42,14 +42,14 @@ public sealed class GameSessionHub(
         await base.OnDisconnectedAsync(exception);
     }
 
-    public Task RegisterMemberPresence(int sessionId, int teamId, int memberId, int? userId = null, string? guestName = null)
+    public Task RegisterMemberPresence(int sessionId, int teamId, int memberId, string? userId = null, string? guestName = null)
     {
         if (sessionId <= 0 || teamId <= 0 || memberId <= 0)
         {
             throw new HubException("Invalid member presence payload");
         }
 
-        int? normalizedUserId = userId.HasValue && userId.Value > 0 ? userId : null;
+        string? normalizedUserId = string.IsNullOrWhiteSpace(userId) ? null : userId;
         string? normalizedGuestName = string.IsNullOrWhiteSpace(guestName) ? null : guestName;
 
         presenceByConnection[Context.ConnectionId] = new MemberPresenceRegistration(
@@ -192,6 +192,6 @@ public sealed class GameSessionHub(
         int SessionId,
         int TeamId,
         int MemberId,
-        int? UserId,
+        string? UserId,
         string? GuestName);
 }

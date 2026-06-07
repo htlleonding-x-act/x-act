@@ -155,7 +155,7 @@ PowerUpType? tryParsePowerUpType(String value) {
 }
 
 final class UserInfo {
-  final int userId;
+  final String userId;
   final String username;
   final String email;
   final AccountType? accountType;
@@ -169,7 +169,7 @@ final class UserInfo {
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
-      userId: _readInt(json, ['id', 'userId']),
+      userId: json['id'] as String,
       username: json['username'] as String,
       email: json['email'] as String,
       accountType: switch (json['accountType']) {
@@ -181,10 +181,9 @@ final class UserInfo {
 }
 
 final class UserDetails {
-  final int userId;
+  final String userId;
   final String username;
   final String email;
-  final String? passwordHash;
   final AccountType? accountType;
   final DateTime? subscriptionEndDate;
   final int totalWins;
@@ -194,7 +193,6 @@ final class UserDetails {
     required this.userId,
     required this.username,
     required this.email,
-    required this.passwordHash,
     required this.accountType,
     required this.subscriptionEndDate,
     required this.totalWins,
@@ -203,10 +201,9 @@ final class UserDetails {
 
   factory UserDetails.fromJson(Map<String, dynamic> json) {
     return UserDetails(
-      userId: _readInt(json, ['id', 'userId']),
+      userId: json['id'] as String,
       username: json['username'] as String,
       email: json['email'] as String,
-      passwordHash: json['passwordHash'] as String?,
       accountType: switch (json['accountType']) {
         final String s => tryParseAccountType(s),
         _ => null,
@@ -252,7 +249,7 @@ final class GameSessionInfo {
 
 final class GameSessionDetails {
   final int sessionId;
-  final int hostUserId;
+  final String hostUserId;
   final String sessionName;
   final String joinCode;
   final SessionStatus? status;
@@ -284,7 +281,7 @@ final class GameSessionDetails {
   factory GameSessionDetails.fromJson(Map<String, dynamic> json) {
     return GameSessionDetails(
       sessionId: _readInt(json, ['id', 'sessionId']),
-      hostUserId: (json['hostUserId'] as num).toInt(),
+      hostUserId: json['hostUserId'] as String,
       sessionName: (json['sessionName'] as String?) ?? 'Session',
       joinCode: json['joinCode'] as String,
       status: switch (json['status']) {
@@ -375,7 +372,7 @@ final class TeamMemberInfo {
   final int memberId;
   final int teamId;
   final int sessionId;
-  final int? userId;
+  final String? userId;
   final String? guestName;
   final bool isTeamLeader;
 
@@ -393,7 +390,7 @@ final class TeamMemberInfo {
       memberId: _readInt(json, ['id', 'memberId']),
       teamId: _readInt(json, ['teamId']),
       sessionId: _readInt(json, ['sessionId']),
-      userId: _readNullableInt(json, ['userId']),
+      userId: json['userId'] as String?,
       guestName: json['guestName'] as String?,
       isTeamLeader: json['isTeamLeader'] as bool,
     );
@@ -404,7 +401,7 @@ final class TeamMemberDetails {
   final int memberId;
   final int teamId;
   final int sessionId;
-  final int? userId;
+  final String? userId;
   final String? guestName;
   final bool isTeamLeader;
   final double? currentLatitude;
@@ -428,7 +425,7 @@ final class TeamMemberDetails {
       memberId: _readInt(json, ['id', 'memberId']),
       teamId: _readInt(json, ['teamId']),
       sessionId: _readInt(json, ['sessionId']),
-      userId: _readNullableInt(json, ['userId']),
+      userId: json['userId'] as String?,
       guestName: json['guestName'] as String?,
       isTeamLeader: json['isTeamLeader'] as bool,
       currentLatitude: (json['currentLatitude'] as num?)?.toDouble(),
@@ -913,7 +910,7 @@ final class SnapshotTeamMember {
   final int id;
   final int sessionId;
   final int teamId;
-  final int? userId;
+  final String? userId;
   final String? guestName;
   final bool isTeamLeader;
   final double? currentLatitude;
@@ -939,7 +936,7 @@ final class SnapshotTeamMember {
       id: _readInt(json, ['id']),
       sessionId: _readInt(json, ['sessionId']),
       teamId: _readInt(json, ['teamId']),
-      userId: _readNullableInt(json, ['userId']),
+      userId: json['userId'] as String?,
       guestName: json['guestName'] as String?,
       isTeamLeader: (json['isTeamLeader'] as bool?) ?? false,
       currentLatitude: (json['currentLatitude'] as num?)?.toDouble(),
@@ -951,7 +948,7 @@ final class SnapshotTeamMember {
 
   SnapshotTeamMember copyWith({
     int? teamId,
-    int? userId,
+    String? userId,
     String? guestName,
     bool? isTeamLeader,
     double? currentLatitude,
@@ -1016,7 +1013,7 @@ final class TeamMemberJoinedPayload {
   final int memberId;
   final int sessionId;
   final int teamId;
-  final int? userId;
+  final String? userId;
   final String? guestName;
   final bool isTeamLeader;
   final double? currentLatitude;
@@ -1042,7 +1039,7 @@ final class TeamMemberJoinedPayload {
       memberId: _readInt(json, ['memberId', 'id']),
       sessionId: _readInt(json, ['sessionId']),
       teamId: _readInt(json, ['teamId']),
-      userId: _readNullableInt(json, ['userId']),
+      userId: json['userId'] as String?,
       guestName: json['guestName'] as String?,
       isTeamLeader: (json['isTeamLeader'] as bool?) ?? false,
       currentLatitude: (json['currentLatitude'] as num?)?.toDouble(),
@@ -1057,7 +1054,7 @@ final class TeamMemberUpdatedPayload {
   final int memberId;
   final int sessionId;
   final int teamId;
-  final int? userId;
+  final String? userId;
   final String? guestName;
   final bool isTeamLeader;
   final double? currentLatitude;
@@ -1081,7 +1078,7 @@ final class TeamMemberUpdatedPayload {
       memberId: _readInt(json, ['memberId', 'id']),
       sessionId: _readInt(json, ['sessionId']),
       teamId: _readInt(json, ['teamId']),
-      userId: _readNullableInt(json, ['userId']),
+      userId: json['userId'] as String?,
       guestName: json['guestName'] as String?,
       isTeamLeader: (json['isTeamLeader'] as bool?) ?? false,
       currentLatitude: (json['currentLatitude'] as num?)?.toDouble(),

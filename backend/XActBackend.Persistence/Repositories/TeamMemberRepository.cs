@@ -17,7 +17,7 @@ public interface ITeamMemberRepository
     /// <param name="guestName">Optional guest name for unregistered users</param>
     /// <param name="isTeamLeader">Flag indicating if the member is team leader</param>
     /// <returns>The created tracked team member entity</returns>
-    public TeamMember AddTeamMember(int sessionId, int teamId, int? userId, string? guestName, bool isTeamLeader);
+    public TeamMember AddTeamMember(int sessionId, int teamId, string? userId, string? guestName, bool isTeamLeader);
 
     /// <summary>
     ///     Get all members of a team.
@@ -69,7 +69,7 @@ public interface ITeamMemberRepository
     /// <param name="userId">The id of the user</param>
     /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
     /// <returns>The team member, if found</returns>
-    public ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, int userId, bool tracking);
+    public ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, string userId, bool tracking);
 
     /// <summary>
     ///     Remove a team member from the repository.
@@ -83,7 +83,7 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet) : ITeamM
     private IQueryable<TeamMember> Members => memberSet;
     private IQueryable<TeamMember> MembersNoTracking => Members.AsNoTracking();
 
-    public TeamMember AddTeamMember(int sessionId, int teamId, int? userId, string? guestName, bool isTeamLeader)
+    public TeamMember AddTeamMember(int sessionId, int teamId, string? userId, string? guestName, bool isTeamLeader)
     {
         var member = new TeamMember
         {
@@ -147,7 +147,7 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet) : ITeamM
         return await source.FirstOrDefaultAsync(m => m.SessionId == sessionId && m.TeamId == teamId && m.Id == memberId);
     }
 
-    public async ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, int userId, bool tracking)
+    public async ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, string userId, bool tracking)
     {
         IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
 

@@ -9,9 +9,9 @@ internal static class SeedData
     public const string SessionJoinCode = "ALPHA1";
     public const string SessionTwoJoinCode = "BRAVO2";
 
-    public const int HostUserId = 1;
-    public const int DetectiveUserId = 2;
-    public const int SpectatorUserId = 3;
+    public const string HostUserId = "1";
+    public const string DetectiveUserId = "2";
+    public const string SpectatorUserId = "3";
 
     public const int MrXTeamId = 1;
     public const int DetectiveTeamId = 2;

@@ -8,7 +8,7 @@ public class TeamMember
 
     public int TeamId { get; set; }
 
-    public int? UserId { get; set; }
+    public string? UserId { get; set; }
 
     public string? GuestName { get; set; }
 

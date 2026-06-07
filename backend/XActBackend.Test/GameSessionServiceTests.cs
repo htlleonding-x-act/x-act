@@ -16,7 +16,7 @@ namespace XActBackend.Test;
 public sealed class GameSessionServiceTests
 {
     private const int DefaultSessionId = 1;
-    private const int DefaultUserId = 1;
+    private const string DefaultUserId = "1";
     private const string DefaultSessionName = "Game 1";
     private const string DefaultJoinCode = "JOIN123";
 
@@ -57,6 +57,7 @@ public sealed class GameSessionServiceTests
         new()
         {
             Id = id,
+            HostUserId = DefaultUserId,
             SessionName = name ?? DefaultSessionName,
             JoinCode = joinCode ?? DefaultJoinCode,
         };
@@ -67,7 +68,7 @@ public sealed class GameSessionServiceTests
             CreateSession(2, "Game 2", "JOIN456"),
         ];
 
-    private static User CreateUser(int id = DefaultUserId, bool isDeleted = false) =>
+    private static User CreateUser(string? id = DefaultUserId, bool isDeleted = false) =>
         new()
         {
             Id = id,

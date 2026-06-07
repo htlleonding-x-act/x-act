@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NodaTime.Serialization.SystemTextJson;
 using XActBackend;
+using XActBackend.Persistence.Util;
 using XActBackend.Realtime;
 using XActBackend.Shared;
 using XActBackend.Util;
@@ -20,11 +21,21 @@ builder.Services.AddRealtime(isDev);
 builder.Services.AddControllers(o => { o.ModelBinderProviders.Insert(0, new NodaTimeModelBinderProvider()); })
        .AddJsonOptions(o => ConfigureJsonSerialization(o, isDev));
 builder.Services.ConfigureAdditionalRouteConstraints();
+builder.Services.AddKeycloakAuthentication(builder.Configuration);
+
 
 var app = builder.Build();
 
-// not using HTTPS, because all production backends _have_ to be behind a reverse proxy which will handle SSL termination
+app.Services.ApplyMigrations();
 
+// Configure Keycloak authentication
+
+
+// not using HTTPS, because all production backends _have_ to be behind a reverse proxy which will handle SSL termination
+// Also for the Keycloak authentication
+app.UseAuthentication();
+app.UseAuthorization();
+// Default Stuff from template 
 app.UseCors(Setup.CorsPolicyName);
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.MapControllers();

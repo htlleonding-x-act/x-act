@@ -71,7 +71,7 @@ public interface ITeamMemberService
     public sealed record TeamMemberData(
         int SessionId,
         int TeamId,
-        int? UserId,
+        string? UserId,
         string? GuestName,
         bool IsTeamLeader = false,
         double? CurrentLatitude = null,
@@ -200,12 +200,12 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock, ILogger<T
     private async ValueTask<OneOf<NotFound, DomainError, Success>> ValidateMemberMutationAsync(
         int sessionId,
         int teamId,
-        int? userId,
+        string? userId,
         string? guestName,
         bool isTeamLeader,
         int? currentMemberId)
     {
-        bool hasUser = userId.HasValue;
+        bool hasUser = !string.IsNullOrWhiteSpace(userId);
         bool hasGuest = !string.IsNullOrWhiteSpace(guestName);
         if (hasUser == hasGuest)
         {
@@ -239,26 +239,26 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock, ILogger<T
             return DomainError.TeamNotInSession(teamId, sessionId);
         }
 
-        if (userId.HasValue)
+        if (!string.IsNullOrWhiteSpace(userId))
         {
-            var user = await uow.UserRepository.GetUserByIdAsync(userId.Value, tracking: false);
+            var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking: false);
             if (user is null)
             {
-                logger.LogWarning("Rejected team member mutation because user {UserId} does not exist", userId.Value);
+                logger.LogWarning("Rejected team member mutation because user {UserId} does not exist", userId);
                 return new NotFound();
             }
 
             if (user.IsDeleted)
             {
-                logger.LogWarning("Rejected team member mutation because user {UserId} is deleted", userId.Value);
-                return DomainError.UserDeleted(userId.Value);
+                logger.LogWarning("Rejected team member mutation because user {UserId} is deleted", userId);
+                return DomainError.UserDeleted(userId);
             }
 
-            var existingMember = await uow.TeamMemberRepository.GetMemberBySessionAndUserIdAsync(sessionId, userId.Value, tracking: false);
+            var existingMember = await uow.TeamMemberRepository.GetMemberBySessionAndUserIdAsync(sessionId, userId, tracking: false);
             if (existingMember is not null && existingMember.Id != currentMemberId)
             {
-                logger.LogWarning("Rejected team member mutation because user {UserId} is already part of session {SessionId}", userId.Value, sessionId);
-                return DomainError.UserAlreadyJoined(userId.Value, sessionId);
+                logger.LogWarning("Rejected team member mutation because user {UserId} is already part of session {SessionId}", userId, sessionId);
+                return DomainError.UserAlreadyJoined(userId, sessionId);
             }
         }
 

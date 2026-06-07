@@ -92,7 +92,7 @@ public interface IGameSessionService
     /// <param name="PlannedDurationMinutes">The planned duration in minutes</param>
     /// <param name="MrXRevealInterval">The Mr.X reveal interval in minutes</param>
     public sealed record GameSessionData(
-        int HostUserId,
+        string HostUserId,
         string SessionName,
         string JoinCode,
         SessionStatus Status = SessionStatus.Waiting,

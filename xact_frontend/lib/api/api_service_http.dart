@@ -52,7 +52,10 @@ extension ApiServiceHttpMethods on ApiService {
     final uri = _baseUri.resolve(path);
     final response = await _http.get(
       uri,
-      headers: {'Accept': 'application/json'},
+      headers: {
+        'Accept': 'application/json',
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+      },
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -77,6 +80,7 @@ extension ApiServiceHttpMethods on ApiService {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
       },
       body: jsonEncode(payload),
     );
@@ -110,7 +114,10 @@ extension ApiServiceHttpMethods on ApiService {
     final uri = _baseUri.resolve(path);
     final response = await _http.post(
       uri,
-      headers: {'Accept': 'application/json'},
+      headers: {
+        'Accept': 'application/json',
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+      },
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('HTTP ${response.statusCode} for POST $path');
@@ -127,6 +134,7 @@ extension ApiServiceHttpMethods on ApiService {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
       },
       body: jsonEncode(payload),
     );
@@ -146,6 +154,7 @@ extension ApiServiceHttpMethods on ApiService {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
       },
       body: jsonEncode(payload),
     );
@@ -159,7 +168,10 @@ extension ApiServiceHttpMethods on ApiService {
     final uri = _baseUri.resolve(path);
     final response = await _http.delete(
       uri,
-      headers: {'Accept': 'application/json'},
+      headers: {
+        'Accept': 'application/json',
+        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+      },
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('HTTP ${response.statusCode} for DELETE $path');

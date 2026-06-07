@@ -4,7 +4,7 @@ import 'package:xact_frontend/api/models.dart';
 class LobbyPlayer {
   final int memberId;
   final int teamId;
-  final int? userId;
+  final String? userId;
   final String name;
   final bool isCurrentUser;
   final bool isTeamLeader;
