@@ -6,9 +6,9 @@ import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/widgets/game_start_overlay.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  ChatNotificationService.instance.init();
+  await ChatNotificationService.instance.init();
   runApp(const MainApp());
 }
 
