@@ -23,6 +23,9 @@ public interface IUnitOfWork
     public ILocationLogRepository LocationLogRepository { get; }
     public IPowerUpUsageRepository PowerUpUsageRepository { get; }
     public IChatMessageRepository ChatMessageRepository { get; }
+    public IKickVoteRepository KickVoteRepository { get; }
+    public IKickVoteBallotRepository KickVoteBallotRepository { get; }
+    public IOffenseRepository OffenseRepository { get; }
     public Task SaveChangesAsync();
 }
 
@@ -40,6 +43,9 @@ internal sealed class UnitOfWork(DatabaseContext context, ILogger<UnitOfWork> lo
     public ILocationLogRepository LocationLogRepository => new LocationLogRepository(context.LocationLogs);
     public IPowerUpUsageRepository PowerUpUsageRepository => new PowerUpUsageRepository(context.PowerUpUsages);
     public IChatMessageRepository ChatMessageRepository => new ChatMessageRepository(context.ChatMessages);
+    public IKickVoteRepository KickVoteRepository => new KickVoteRepository(context.KickVotes);
+    public IKickVoteBallotRepository KickVoteBallotRepository => new KickVoteBallotRepository(context.KickVoteBallots);
+    public IOffenseRepository OffenseRepository => new OffenseRepository(context.Offenses);
 
     public async ValueTask BeginTransactionAsync()
     {
