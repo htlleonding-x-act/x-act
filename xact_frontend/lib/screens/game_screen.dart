@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../services/chat_notification_service.dart';
 import '../api/api_service.dart';
 import '../api/models.dart';
 import 'end_match_screen.dart';
@@ -33,6 +34,7 @@ class _GameScreenState extends State<GameScreen> {
   Timer? _sessionStatusPollTimer;
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   GameSessionDetails? _sessionDetails;
+  StreamSubscription<void>? _chatNotificationSub;
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -48,6 +50,10 @@ class _GameScreenState extends State<GameScreen> {
     unawaited(_initRealtimeAnnouncements());
     unawaited(_loadSessionDetails());
     unawaited(_checkForFinishedSession());
+    _chatNotificationSub =
+        ChatNotificationService.instance.onChange.listen((_) {
+      if (mounted) setState(() {});
+    });
     _sessionStatusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _endMatchNavigationStarted) {
         return;
@@ -150,6 +156,7 @@ class _GameScreenState extends State<GameScreen> {
     _trackingRetryTimer?.cancel();
     _sessionStatusPollTimer?.cancel();
     _realtimeEventSub?.cancel();
+    _chatNotificationSub?.cancel();
     LocationService.instance.stopTracking();
     super.dispose();
   }
@@ -449,7 +456,16 @@ class _GameScreenState extends State<GameScreen> {
                     icon: items[i].$1,
                     label: items[i].$2,
                     active: _selectedIndex == i,
-                    onTap: () => setState(() => _selectedIndex = i),
+                    showDot: (i == 1 && ChatNotificationService.instance.hasUnreadAll) ||
+                             (i == 2 && ChatNotificationService.instance.hasUnreadTeam),
+                    onTap: () {
+                      setState(() => _selectedIndex = i);
+                      if (i == 1) {
+                        ChatNotificationService.instance.markAllChatRead();
+                      } else if (i == 2) {
+                        ChatNotificationService.instance.markTeamChatRead();
+                      }
+                    },
                   ),
               ],
             ),
@@ -464,6 +480,7 @@ class _GameScreenState extends State<GameScreen> {
     required String label,
     required bool active,
     required VoidCallback onTap,
+    bool showDot = false,
   }) {
     return InkResponse(
       onTap: onTap,
@@ -486,10 +503,34 @@ class _GameScreenState extends State<GameScreen> {
                   : null,
             ),
             const SizedBox(height: 4),
-            Icon(
-              icon,
-              size: 22,
-              color: active ? XActColors.text1 : XActColors.text4,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  icon,
+                  size: 22,
+                  color: active ? XActColors.text1 : XActColors.text4,
+                ),
+                if (showDot)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: XActColors.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: XActColors.primary.withValues(alpha: .6),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(

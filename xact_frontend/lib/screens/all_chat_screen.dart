@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../api/api_service.dart';
 import '../api/models.dart';
 import '../services/app_session.dart';
+import '../services/chat_notification_service.dart';
 import '../widgets/chat_input_bar.dart';
 import '../widgets/chat_message_list.dart';
 import '../widgets/xact_branding.dart';
@@ -27,6 +28,7 @@ class _AllChatScreenState extends State<AllChatScreen> {
     super.initState();
     _eventSubscription = ApiService.instance.realtimeEvents.listen(_onEvent);
     unawaited(_init());
+    ChatNotificationService.instance.markAllChatRead();
   }
 
   @override
@@ -84,6 +86,7 @@ class _AllChatScreenState extends State<AllChatScreen> {
     }
 
     setState(() => _messages.add(message));
+    ChatNotificationService.instance.markAllChatRead();
   }
 
   void _handleSend(String text) {

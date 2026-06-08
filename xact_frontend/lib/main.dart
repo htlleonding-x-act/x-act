@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/services/chat_notification_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
@@ -6,6 +7,8 @@ import 'package:xact_frontend/widgets/game_start_overlay.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  ChatNotificationService.instance.init();
   runApp(const MainApp());
 }
 
