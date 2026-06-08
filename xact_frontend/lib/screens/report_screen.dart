@@ -325,7 +325,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Future<void> _castBallot(bool approve) async {
     final vote = _vote;
-    if (vote == null) {
+    if (vote == null || _busy) {
       return;
     }
 
