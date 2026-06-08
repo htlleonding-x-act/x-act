@@ -414,6 +414,12 @@ extension ApiServiceSessionMethods on ApiService {
       await _finishSession(details);
     }
 
+    // Drop the realtime presence registration before leaving so a rematch started
+    // after this point (e.g. on the end-match screen) does not copy this player,
+    // who has left, into the new lobby as a ghost.
+    try {
+      await _realtime.unregisterMemberPresence();
+    } catch (_) {}
     await _realtime.unsubscribeSession(sessionId);
 
     _session.currentSessionId = null;

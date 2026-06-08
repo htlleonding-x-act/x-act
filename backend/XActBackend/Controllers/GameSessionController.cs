@@ -7,6 +7,7 @@ using XActBackend.Core.Services;
 using XActBackend.Core.Realtime;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
+using XActBackend.Realtime;
 using XActBackend.Util;
 
 namespace XActBackend.Controllers;
@@ -390,8 +391,13 @@ public sealed class GameSessionController(
         {
             await transaction.BeginTransactionAsync();
 
+            // Only carry over players still connected to the finished session so anyone who already
+            // left does not reappear in the new lobby as a ghost. A still-connected client is exactly
+            // the one that can migrate into the rematch.
+            IReadOnlySet<int> connectedMemberIds = GameSessionHub.GetConnectedMemberIds(sessionId);
+
             OneOf<GameSession, NotFound, DomainError> result =
-                await gameSessionService.CreateRematchSessionAsync(sessionId, request.JoinCode);
+                await gameSessionService.CreateRematchSessionAsync(sessionId, request.JoinCode, connectedMemberIds);
 
             return await result.Match<ValueTask<IActionResult>>(async rematchSession =>
             {

@@ -422,6 +422,80 @@ public sealed class GameSessionServiceTests
     }
 
     [Fact]
+    public async ValueTask CreateRematchSessionAsync_SkipsMembersThatLeft_WhenPresenceProvided()
+    {
+        const int finishedSessionId = 5;
+        const int rematchSessionId = 6;
+        const string newJoinCode = "REM123";
+        const int hostUserId = 7;
+
+        var finishedSession = new GameSession
+        {
+            Id = finishedSessionId,
+            HostUserId = hostUserId,
+            SessionName = "Chase Night",
+            JoinCode = DefaultJoinCode,
+            Status = SessionStatus.Finished,
+            PlannedDurationMinutes = 45,
+            MrXRevealInterval = 3,
+        };
+
+        var mrXTeam = CreateTeamWithMaxPlayers(20, "Team 1", TeamRole.MrX, "#000000", 6);
+        var detectiveTeam = CreateTeamWithMaxPlayers(21, "Team 2", TeamRole.Detective, "#5B7CFA", 5);
+        var sourceTeams = new List<Team> { mrXTeam, detectiveTeam };
+
+        var mrXMember = CreateMember(30, mrXTeam.Id, hostUserId, null, isTeamLeader: true);
+        var detectiveMember = CreateMember(31, detectiveTeam.Id, 8, null, isTeamLeader: true);
+        // Guest 32 has already left the finished session: it is absent from the connected set below.
+        var guestMember = CreateMember(32, detectiveTeam.Id, null, "Guest A", isTeamLeader: false);
+        var sourceMembers = new List<TeamMember> { mrXMember, detectiveMember, guestMember };
+
+        var rematchSession = new GameSession
+        {
+            Id = rematchSessionId,
+            HostUserId = hostUserId,
+            SessionName = finishedSession.SessionName,
+            JoinCode = newJoinCode,
+            Status = SessionStatus.Waiting,
+            PlannedDurationMinutes = finishedSession.PlannedDurationMinutes,
+            MrXRevealInterval = finishedSession.MrXRevealInterval,
+        };
+
+        var newMrXTeam = CreateTeamWithMaxPlayers(120, mrXTeam.TeamName, mrXTeam.Role, mrXTeam.ColorCode, mrXTeam.MaxPlayerCount);
+        var newDetectiveTeam = CreateTeamWithMaxPlayers(121, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount);
+
+        _gameSessionRepository.GetSessionByIdAsync(finishedSessionId, false).Returns(finishedSession);
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(hostUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeAsync(newJoinCode, false).Returns((GameSession?) null);
+        _teamRepository.GetTeamsBySessionIdAsync(finishedSessionId, false).Returns(sourceTeams);
+        _teamMemberRepository.GetMembersBySessionIdAsync(finishedSessionId, false).Returns(sourceMembers);
+        _geofencePointRepository.GetPointsBySessionIdAsync(finishedSessionId, false).Returns(new List<GeofencePoint>());
+
+        _gameSessionRepository.AddGameSession(hostUserId, finishedSession.SessionName, newJoinCode, 45, 3).Returns(rematchSession);
+        _teamRepository.AddTeam(rematchSessionId, mrXTeam.TeamName, mrXTeam.Role, mrXTeam.ColorCode, mrXTeam.MaxPlayerCount).Returns(newMrXTeam);
+        _teamRepository.AddTeam(rematchSessionId, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount).Returns(newDetectiveTeam);
+
+        // Only the host and the detective leader are still connected; the guest has left.
+        IReadOnlySet<int> connectedMemberIds = new HashSet<int> { mrXMember.Id, detectiveMember.Id };
+
+        OneOf<GameSession, NotFound, DomainError> result =
+            await _sut.CreateRematchSessionAsync(finishedSessionId, newJoinCode, connectedMemberIds);
+
+        result.Switch(
+            added => added.Should().BeSameAs(rematchSession),
+            _ => Assert.Fail("Expected GameSession but got NotFound"),
+            _ => Assert.Fail("Expected GameSession but got DomainError")
+        );
+
+        // The two still-connected members are copied into the new lobby.
+        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newMrXTeam.Id, hostUserId, null, true);
+        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, 8, null, true);
+
+        // The guest that left is not carried over as a ghost.
+        _teamMemberRepository.DidNotReceive().AddTeamMember(rematchSessionId, newDetectiveTeam.Id, null, "Guest A", false);
+    }
+
+    [Fact]
     public async ValueTask UpdateGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
     {
         var data = new IGameSessionService.GameSessionData(DefaultUserId, "Updated", "UPD123");

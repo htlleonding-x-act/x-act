@@ -86,8 +86,13 @@ public interface IGameSessionService
     /// </summary>
     /// <param name="finishedSessionId">The id of the finished session to base the rematch on</param>
     /// <param name="newJoinCode">The unique join code to assign to the new session</param>
+    /// <param name="activeMemberIds">
+    ///     The team-member ids still connected to the finished session. When this set is non-empty,
+    ///     only those members are copied into the rematch so players who already left are not carried
+    ///     over as ghosts. A null or empty set means presence is unknown, so every member is copied.
+    /// </param>
     /// <returns>The newly created waiting session, or an error if the rematch could not be created</returns>
-    public ValueTask<OneOf<GameSession, NotFound, DomainError>> CreateRematchSessionAsync(int finishedSessionId, string newJoinCode);
+    public ValueTask<OneOf<GameSession, NotFound, DomainError>> CreateRematchSessionAsync(int finishedSessionId, string newJoinCode, IReadOnlySet<int>? activeMemberIds = null);
 
     /// <summary>
     ///     Data used to create or update a game session.
@@ -417,7 +422,7 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         return new IGameSessionService.MrXCaughtResult(catchingTeam, mrXTeam);
     }
 
-    public async ValueTask<OneOf<GameSession, NotFound, DomainError>> CreateRematchSessionAsync(int finishedSessionId, string newJoinCode)
+    public async ValueTask<OneOf<GameSession, NotFound, DomainError>> CreateRematchSessionAsync(int finishedSessionId, string newJoinCode, IReadOnlySet<int>? activeMemberIds = null)
     {
         try
         {
@@ -496,10 +501,20 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
                 newTeamIdByOldTeamId[oldTeamId] = newTeam.Id;
             }
 
-            // Re-add every member into the matching new team. Live-position fields (CurrentLatitude,
-            // CurrentLongitude, LastUpdated) reset to null because AddTeamMember does not copy them.
+            // Re-add every still-present member into the matching new team. Live-position fields
+            // (CurrentLatitude, CurrentLongitude, LastUpdated) reset to null because AddTeamMember does
+            // not copy them. Members who already left the finished session (no live realtime
+            // connection) are skipped so they do not linger in the new lobby as ghosts. An empty/null
+            // presence set means we have no presence info, so every member is copied as a fallback.
+            var filterByPresence = activeMemberIds is { Count: > 0 };
+            var copiedMemberCount = 0;
             foreach (var sourceMember in sourceMembers)
             {
+                if (filterByPresence && !activeMemberIds!.Contains(sourceMember.Id))
+                {
+                    continue;
+                }
+
                 if (!newTeamIdByOldTeamId.TryGetValue(sourceMember.TeamId, out var newTeamId))
                 {
                     continue;
@@ -512,6 +527,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
                     sourceMember.GuestName,
                     sourceMember.IsTeamLeader
                 );
+
+                copiedMemberCount++;
             }
 
             foreach (var sourcePoint in sourceGeofencePoints)
@@ -527,8 +544,9 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             await uow.SaveChangesAsync();
 
             logger.LogInformation(
-                "Copied {TeamCount} teams, {MemberCount} members and {GeofenceCount} geofence points into rematch session {RematchSessionId}",
+                "Copied {TeamCount} teams, {MemberCount}/{SourceMemberCount} members and {GeofenceCount} geofence points into rematch session {RematchSessionId}",
                 sourceTeams.Count,
+                copiedMemberCount,
                 sourceMembers.Count,
                 sourceGeofencePoints.Count,
                 rematchSession.Id);

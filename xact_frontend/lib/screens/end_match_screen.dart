@@ -80,6 +80,10 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
       await ApiService.instance.ensureRealtimeSessionSubscription(
         widget.sessionId,
       );
+      // Mark this player as present on the finished session. The host's rematch
+      // only copies still-connected members, so a player who leaves this screen
+      // (and unregisters) is not carried over into the new lobby as a ghost.
+      await ApiService.instance.registerCurrentMemberPresence();
     } catch (_) {
       // The subscription normally persists from the lobby; the listener below
       // still works if it is already in place.
