@@ -615,11 +615,15 @@ class _ReportScreenState extends State<ReportScreen> {
           const SizedBox(height: XActSpace.s3),
           Row(
             children: [
-              Text(
-                '${vote.approveCount}/${vote.approvalsNeeded} to kick',
-                style: XActText.bodySm.copyWith(color: XActColors.text2),
+              Expanded(
+                child: Text(
+                  '${vote.approveCount}/${vote.approvalsNeeded} to kick',
+                  style: XActText.bodySm.copyWith(color: XActColors.text2),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: XActSpace.s2),
               Text(
                 '${vote.rejectCount} against',
                 style: XActText.caption.copyWith(fontSize: 12),
@@ -802,15 +806,21 @@ class _ReportScreenState extends State<ReportScreen> {
               children: [
                 Row(
                   children: [
-                    Flexible(
+                    Expanded(
                       child: Text(
                         row.name,
                         style: XActText.bodySm,
                         overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
-                    if (row.isSelf) _tag('You', XActColors.secondary),
-                    if (row.isHost) _tag('Host', XActColors.warning),
+                    // The viewer's own row reads "You"; everyone else sees the
+                    // host's row marked "Host". Showing at most one tag keeps the
+                    // line from overflowing on narrow layouts.
+                    if (row.isSelf)
+                      _tag('You', XActColors.secondary)
+                    else if (row.isHost)
+                      _tag('Host', XActColors.warning),
                   ],
                 ),
                 if (offense != null) ...[
@@ -820,11 +830,15 @@ class _ReportScreenState extends State<ReportScreen> {
                       const Icon(Icons.warning_amber_rounded,
                           color: XActColors.primary, size: 13),
                       const SizedBox(width: 4),
-                      Text(
-                        offenseTypeLabel(offense.type),
-                        style: XActText.caption.copyWith(
-                          color: XActColors.primary,
-                          fontSize: 11,
+                      Expanded(
+                        child: Text(
+                          offenseTypeLabel(offense.type),
+                          style: XActText.caption.copyWith(
+                            color: XActColors.primary,
+                            fontSize: 11,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                     ],
