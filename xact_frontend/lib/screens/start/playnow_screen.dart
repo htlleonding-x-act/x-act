@@ -34,8 +34,8 @@ class PlayNowScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     XActBranding.buildActionCard(
-                      icon: Icons.arrow_forward_rounded,
-                      title: "Join a Friend's Game",
+                      icon: Icons.login_rounded,
+                      title: 'Join an existing Game',
                       subtitle: 'Enter a code or scan a QR',
                       onTap: () => Navigator.push(
                         context,
