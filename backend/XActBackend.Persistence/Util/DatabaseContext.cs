@@ -206,9 +206,7 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .WithMany()
             .HasForeignKey(e => e.SessionId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        // Target and initiator references survive the member leaving: a resolved vote stays as
-        // history even after its target was kicked, so the member link is cleared, not cascaded.
+        
         kickVote
             .HasOne(e => e.TargetMember)
             .WithMany()
@@ -241,8 +239,6 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .OnDelete(DeleteBehavior.SetNull)
             .IsRequired(false);
 
-        // A member may cast at most one ballot per vote. Postgres treats nulls as distinct, so
-        // cleared voter references (after a member leaves) do not collide in this unique index.
         ballot.HasIndex(e => new { e.KickVoteId, e.VoterMemberId }).IsUnique();
     }
 
@@ -254,7 +250,6 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .HasForeignKey(e => e.SessionId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // An offense belongs to a present member; when the member is removed the offense goes with them.
         offense
             .HasOne(e => e.Member)
             .WithMany()
