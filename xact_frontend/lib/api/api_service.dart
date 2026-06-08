@@ -15,6 +15,7 @@ part 'api_service_data.dart';
 part 'api_service_session.dart';
 part 'api_service_http.dart';
 part 'api_service_chat.dart';
+part 'api_service_report.dart';
 
 final class ApiService {
   ApiService._({required String baseUrl})

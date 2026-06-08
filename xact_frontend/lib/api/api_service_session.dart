@@ -427,6 +427,27 @@ extension ApiServiceSessionMethods on ApiService {
     _session.clearMembership();
   }
 
+  /// Leave the current session locally without ending it for everyone else.
+  /// Used when this player was kicked: the server already removed the member, so
+  /// we only drop realtime presence and clear local session state.
+  Future<void> leaveCurrentSessionLocally() async {
+    final sessionId = _session.currentSessionId;
+    if (sessionId == null) {
+      return;
+    }
+
+    try {
+      await _realtime.unregisterMemberPresence();
+    } catch (_) {}
+    try {
+      await _realtime.unsubscribeSession(sessionId);
+    } catch (_) {}
+
+    _session.currentSessionId = null;
+    _session.currentJoinCode = null;
+    _session.clearMembership();
+  }
+
   Future<void> _closeOpenSessionsForHost(int hostUserId) async {
     final sessions = await _listGameSessions();
 

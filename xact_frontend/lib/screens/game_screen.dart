@@ -88,6 +88,8 @@ class _GameScreenState extends State<GameScreen> {
           _onGameSessionEnded(GameSessionEndedPayload.fromJson(event.payload));
         } else if (event.type == RealtimeEvents.rematchCreated) {
           _onRematchCreated(RematchCreatedPayload.fromJson(event.payload));
+        } else if (event.type == RealtimeEvents.memberKicked) {
+          _onMemberKicked(MemberKickedPayload.fromJson(event.payload));
         }
       });
     } catch (_) {
@@ -355,6 +357,60 @@ class _GameScreenState extends State<GameScreen> {
       joinCode: payload.newJoinCode,
       sessionName: payload.sessionName,
       hostUserId: payload.hostUserId,
+    );
+  }
+
+  /// This client's member was kicked (by vote or host). Leave the game without
+  /// ending the session for everyone else, and return to the start screen.
+  void _onMemberKicked(MemberKickedPayload payload) {
+    if (!mounted ||
+        _endMatchNavigationStarted ||
+        _rematchNavigationStarted ||
+        payload.memberId != AppSession.instance.currentMemberId) {
+      return;
+    }
+
+    unawaited(_leaveAfterKick(payload));
+  }
+
+  Future<void> _leaveAfterKick(MemberKickedPayload payload) async {
+    // Block the finished-session poll/navigation and tear down game timers.
+    _endMatchNavigationStarted = true;
+    _trackingInitCancelled = true;
+    _trackingRetryTimer?.cancel();
+    _sessionStatusPollTimer?.cancel();
+    _realtimeEventSub?.cancel();
+    LocationService.instance.stopTracking();
+
+    try {
+      await ApiService.instance.leaveCurrentSessionLocally();
+    } catch (_) {
+      // Best-effort cleanup; navigate away regardless.
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final how = payload.byHost ? 'the host' : 'a vote';
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('You were removed from the game by $how.'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+
+    setState(() => _allowDirectPop = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const StartScreen()),
+      (route) => false,
     );
   }
 

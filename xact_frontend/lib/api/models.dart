@@ -80,6 +80,12 @@ enum TransportMode { foot, bus, tram, train }
 
 enum PowerUpType { blackTicket, doubleMove }
 
+enum KickVoteStatus { open, passed, rejected, cancelled, expired }
+
+enum OffenseType { outOfBounds }
+
+enum OffenseStatus { active, cleared }
+
 SessionStatus? tryParseSessionStatus(String value) {
   return switch (value) {
     'Waiting' => SessionStatus.waiting,
@@ -150,6 +156,39 @@ PowerUpType? tryParsePowerUpType(String value) {
     'DoubleMove' => PowerUpType.doubleMove,
     'BLACK_TICKET' => PowerUpType.blackTicket,
     'DOUBLE_MOVE' => PowerUpType.doubleMove,
+    _ => null,
+  };
+}
+
+KickVoteStatus? tryParseKickVoteStatus(String value) {
+  return switch (value) {
+    'Open' || 'OPEN' => KickVoteStatus.open,
+    'Passed' || 'PASSED' => KickVoteStatus.passed,
+    'Rejected' || 'REJECTED' => KickVoteStatus.rejected,
+    'Cancelled' || 'CANCELLED' => KickVoteStatus.cancelled,
+    'Expired' || 'EXPIRED' => KickVoteStatus.expired,
+    _ => null,
+  };
+}
+
+OffenseType? tryParseOffenseType(String value) {
+  return switch (value) {
+    'OutOfBounds' || 'OUT_OF_BOUNDS' => OffenseType.outOfBounds,
+    _ => null,
+  };
+}
+
+String offenseTypeLabel(OffenseType? type) {
+  return switch (type) {
+    OffenseType.outOfBounds => 'Out of bounds',
+    null => 'Flagged',
+  };
+}
+
+OffenseStatus? tryParseOffenseStatus(String value) {
+  return switch (value) {
+    'Active' || 'ACTIVE' => OffenseStatus.active,
+    'Cleared' || 'CLEARED' => OffenseStatus.cleared,
     _ => null,
   };
 }
@@ -621,6 +660,12 @@ final class RealtimeEvents {
   static const String mrXCaught = 'mr_x_caught';
   static const String chatMessagePosted = 'chat_message_posted';
   static const String rematchCreated = 'rematch_created';
+  static const String kickVoteStarted = 'kick_vote_started';
+  static const String kickVoteUpdated = 'kick_vote_updated';
+  static const String kickVoteResolved = 'kick_vote_resolved';
+  static const String memberKicked = 'member_kicked';
+  static const String memberOffenseRaised = 'member_offense_raised';
+  static const String memberOffenseCleared = 'member_offense_cleared';
 }
 
 final class RealtimeEventEnvelope {
@@ -1216,6 +1261,150 @@ final class LocationLogRecordedPayload {
         _ => null,
       },
       isRevealedPosition: (json['isRevealedPosition'] as bool?) ?? false,
+    );
+  }
+}
+
+/// A kick vote and its current tally. Parses the REST payload and the realtime
+/// `kick_vote_started` / `kick_vote_updated` / `kick_vote_resolved` payloads.
+final class KickVote {
+  final int voteId;
+  final int sessionId;
+  final int? targetMemberId;
+  final String targetName;
+  final int? initiatorMemberId;
+  final String initiatorName;
+  final String? reason;
+  final KickVoteStatus? status;
+  final int approveCount;
+  final int rejectCount;
+  final int eligibleVoterCount;
+  final DateTime? createdAt;
+  final DateTime? expiresAt;
+  final DateTime? resolvedAt;
+
+  const KickVote({
+    required this.voteId,
+    required this.sessionId,
+    required this.targetMemberId,
+    required this.targetName,
+    required this.initiatorMemberId,
+    required this.initiatorName,
+    required this.reason,
+    required this.status,
+    required this.approveCount,
+    required this.rejectCount,
+    required this.eligibleVoterCount,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.resolvedAt,
+  });
+
+  bool get isOpen => status == KickVoteStatus.open;
+
+  /// Approvals still needed for a strict majority of eligible voters.
+  int get approvalsNeeded => (eligibleVoterCount ~/ 2) + 1;
+
+  factory KickVote.fromJson(Map<String, dynamic> json) {
+    return KickVote(
+      voteId: _readInt(json, ['voteId', 'id']),
+      sessionId: _readInt(json, ['sessionId']),
+      targetMemberId: _readNullableInt(json, ['targetMemberId']),
+      targetName: (json['targetName'] as String?) ?? 'Unknown',
+      initiatorMemberId: _readNullableInt(json, ['initiatorMemberId']),
+      initiatorName: (json['initiatorName'] as String?) ?? 'Unknown',
+      reason: json['reason'] as String?,
+      status: switch (json['status']) {
+        final String s => tryParseKickVoteStatus(s),
+        _ => null,
+      },
+      approveCount: _readInt(json, ['approveCount']),
+      rejectCount: _readInt(json, ['rejectCount']),
+      eligibleVoterCount: _readInt(json, ['eligibleVoterCount']),
+      createdAt: tryParseIsoDateTime(json['createdAt']),
+      expiresAt: tryParseIsoDateTime(json['expiresAt']),
+      resolvedAt: tryParseIsoDateTime(json['resolvedAt']),
+    );
+  }
+}
+
+/// An automatically detected offense. Parses the REST payload and the realtime
+/// `member_offense_raised` / `member_offense_cleared` payloads.
+final class MemberOffense {
+  final int offenseId;
+  final int sessionId;
+  final int memberId;
+  final OffenseType? type;
+  final OffenseStatus? status;
+  final DateTime? detectedAt;
+  final DateTime? clearedAt;
+
+  const MemberOffense({
+    required this.offenseId,
+    required this.sessionId,
+    required this.memberId,
+    required this.type,
+    required this.status,
+    required this.detectedAt,
+    required this.clearedAt,
+  });
+
+  factory MemberOffense.fromJson(Map<String, dynamic> json) {
+    return MemberOffense(
+      offenseId: _readInt(json, ['offenseId', 'id']),
+      sessionId: _readInt(json, ['sessionId']),
+      memberId: _readInt(json, ['memberId']),
+      type: switch (json['type']) {
+        final String s => tryParseOffenseType(s),
+        _ => null,
+      },
+      status: switch (json['status']) {
+        final String s => tryParseOffenseStatus(s),
+        _ => null,
+      },
+      detectedAt: tryParseIsoDateTime(json['detectedAt']),
+      clearedAt: tryParseIsoDateTime(json['clearedAt']),
+    );
+  }
+}
+
+/// Realtime `member_kicked` payload. [kickType] is `vote` or `host`.
+final class MemberKickedPayload {
+  final int sessionId;
+  final int teamId;
+  final int memberId;
+  final int? userId;
+  final String? guestName;
+  final String memberName;
+  final String kickType;
+  final String? reason;
+  final DateTime? kickedAt;
+
+  const MemberKickedPayload({
+    required this.sessionId,
+    required this.teamId,
+    required this.memberId,
+    required this.userId,
+    required this.guestName,
+    required this.memberName,
+    required this.kickType,
+    required this.reason,
+    required this.kickedAt,
+  });
+
+  bool get byHost => kickType == 'host';
+
+  factory MemberKickedPayload.fromJson(Map<String, dynamic> json) {
+    return MemberKickedPayload(
+      sessionId: _readInt(json, ['sessionId']),
+      teamId: _readInt(json, ['teamId']),
+      memberId: _readInt(json, ['memberId']),
+      userId: _readNullableInt(json, ['userId']),
+      guestName: json['guestName'] as String?,
+      memberName: (json['memberName'] as String?) ?? 'A player',
+      kickType: (json['kickType'] as String?) ?? 'vote',
+      reason: json['reason'] as String?,
+      kickedAt: tryParseIsoDateTime(json['kickedAt']),
     );
   }
 }
