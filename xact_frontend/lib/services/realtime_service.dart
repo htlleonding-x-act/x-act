@@ -333,6 +333,15 @@ final class RealtimeService {
         );
         break;
 
+      case RealtimeEvents.gameSessionEnded:
+        final payload = GameSessionEndedPayload.fromJson(envelope.payload);
+        _latestSnapshot = snapshot.copyWith(
+          status: payload.status,
+          startTime: payload.startTime,
+          endTime: payload.endTime,
+        );
+        break;
+
       case RealtimeEvents.locationLogRecorded:
         final payload = LocationLogRecordedPayload.fromJson(envelope.payload);
 

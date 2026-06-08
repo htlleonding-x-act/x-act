@@ -283,6 +283,12 @@ public sealed class GameSessionController(
             return await result.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetGameSessionByIdAsync(sessionId, tracking: false);
+                await sessionResult.Match(
+                    gameSession => realtimePublisher.PublishGameSessionEndedAsync(gameSession),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Ended game session {SessionId}", sessionId);
 
                 return NoContent();

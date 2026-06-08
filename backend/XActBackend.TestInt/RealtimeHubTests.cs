@@ -94,6 +94,28 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
     }
 
     [Fact]
+    public async ValueTask EndGameSession_PublishesEndedEvent()
+    {
+        await ActivateSeedSessionAsync();
+
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        HttpResponseMessage response = await ApiClient.PostAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/end",
+            content: null,
+            cancellationToken: TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+
+        realtimeEvent.Should().NotBeNull();
+        realtimeEvent!.Type.Should().Be(RealtimeEvents.GameSessionEnded);
+        ((JsonElement)realtimeEvent.Payload).GetProperty("sessionId").GetInt32().Should().Be(SeedData.SessionId);
+    }
+
+    [Fact]
     public async ValueTask AddLocationLog_PublishesLocationEvent()
     {
         await ActivateSeedSessionAsync();

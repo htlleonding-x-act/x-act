@@ -78,6 +78,8 @@ class _GameScreenState extends State<GameScreen> {
       _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
         if (event.type == RealtimeEvents.mrXCaught) {
           _onMrXCaught(MrXCaughtPayload.fromJson(event.payload));
+        } else if (event.type == RealtimeEvents.gameSessionEnded) {
+          _onGameSessionEnded(GameSessionEndedPayload.fromJson(event.payload));
         } else if (event.type == RealtimeEvents.rematchCreated) {
           _onRematchCreated(RematchCreatedPayload.fromJson(event.payload));
         }
@@ -308,6 +310,16 @@ class _GameScreenState extends State<GameScreen> {
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => EndMatchScreen(sessionId: sessionId)),
     );
+  }
+
+  /// The match ended (host pressed end). Open the end-match screen at once
+  /// instead of waiting for the next status poll to notice.
+  void _onGameSessionEnded(GameSessionEndedPayload payload) {
+    if (payload.sessionId != AppSession.instance.currentSessionId) {
+      return;
+    }
+
+    unawaited(_openEndMatchScreen());
   }
 
   /// The host started a rematch while this client was still in-game. Jump

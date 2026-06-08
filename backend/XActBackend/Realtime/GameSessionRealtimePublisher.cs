@@ -87,6 +87,16 @@ internal sealed class GameSessionRealtimePublisher(
                 gameSession.StartTime,
                 gameSession.EndTime));
 
+    public ValueTask PublishGameSessionEndedAsync(GameSession gameSession) =>
+        PublishToSessionAsync(
+            gameSession.Id,
+            RealtimeEvents.GameSessionEnded,
+            new GameSessionEndedPayload(
+                gameSession.Id,
+                gameSession.Status,
+                gameSession.StartTime,
+                gameSession.EndTime));
+
     public ValueTask PublishLocationLogRecordedAsync(int sessionId, int teamId, LocationLog log) =>
         PublishToSessionAsync(
             sessionId,
