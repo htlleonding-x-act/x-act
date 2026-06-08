@@ -309,10 +309,18 @@ class _ReportScreenState extends State<ReportScreen> {
       return;
     }
 
+    // If the player is currently flagged and the initiator typed nothing, record
+    // the out-of-bounds offense as the reason so it persists even if they return.
+    final effectiveReason = reason.isNotEmpty
+        ? reason
+        : (_offensesByMember.containsKey(row.memberId)
+              ? 'Outside the game area'
+              : null);
+
     await _run(() async {
       final vote = await ApiService.instance.startKickVote(
         targetMemberId: row.memberId,
-        reason: reason.isEmpty ? null : reason,
+        reason: effectiveReason,
       );
       if (!mounted) {
         return;
@@ -603,11 +611,7 @@ class _ReportScreenState extends State<ReportScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            'Started by ${vote.initiatorName}'
-            '${vote.reason != null ? ' · ${vote.reason}' : ''}',
-            style: XActText.caption.copyWith(fontSize: 12),
-          ),
+          _buildVoteWhy(vote),
           const SizedBox(height: XActSpace.s3),
           Row(
             children: [
@@ -633,61 +637,133 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
+  /// Explains why the vote is running: who started it, an out-of-bounds flag on
+  /// the target (if any), and the typed reason (if any).
+  Widget _buildVoteWhy(KickVote vote) {
+    final targetOffense = vote.targetMemberId != null
+        ? _offensesByMember[vote.targetMemberId]
+        : null;
+    final offenseLabel =
+        targetOffense != null ? _offenseReasonLabel(targetOffense.type) : null;
+    final reason = vote.reason?.trim();
+    // Show the typed reason unless it just repeats the live offense chip above it.
+    final showReason =
+        reason != null && reason.isNotEmpty && reason != offenseLabel;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Started by ${vote.initiatorName}',
+          style: XActText.caption.copyWith(fontSize: 12),
+        ),
+        if (offenseLabel != null) ...[
+          const SizedBox(height: 5),
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  color: XActColors.primary, size: 14),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  offenseLabel,
+                  style: XActText.bodySm
+                      .copyWith(color: XActColors.primary, fontSize: 12.5),
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (showReason) ...[
+          const SizedBox(height: 5),
+          Text(
+            '“$reason”',
+            style: XActText.bodySm
+                .copyWith(color: XActColors.text2, fontSize: 12.5),
+          ),
+        ],
+        if (offenseLabel == null && !showReason) ...[
+          const SizedBox(height: 5),
+          Text(
+            'No reason given.',
+            style: XActText.caption.copyWith(fontSize: 12, color: XActColors.text4),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _offenseReasonLabel(OffenseType? type) => type == OffenseType.outOfBounds
+      ? 'Outside the game area'
+      : offenseTypeLabel(type);
+
   Widget _buildVoteActions({
     required bool isTarget,
     required bool isInitiator,
     required bool alreadyVoted,
   }) {
     if (isTarget) {
-      return Text(
-        'You are being voted out. Get back in the game!',
-        style: XActText.caption.copyWith(color: XActColors.primary, fontSize: 12),
-      );
-    }
-
-    final children = <Widget>[];
-
-    if (!isInitiator) {
-      children.add(
-        Expanded(
-          child: _miniButton(
-            label: alreadyVoted ? 'Voted' : 'Approve',
-            icon: Icons.check_rounded,
-            color: XActColors.success,
-            onTap: (alreadyVoted || _busy) ? null : () => _castBallot(true),
-          ),
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: XActColors.primary.withValues(alpha: .12),
+          borderRadius: XActRadius.sm,
         ),
-      );
-      children.add(const SizedBox(width: XActSpace.s2));
-      children.add(
-        Expanded(
-          child: _miniButton(
-            label: 'Keep',
-            icon: Icons.close_rounded,
-            color: XActColors.surface3,
-            onTap: (alreadyVoted || _busy) ? null : () => _castBallot(false),
-          ),
+        child: Text(
+          'You are being voted out — get back in the game!',
+          style: XActText.bodySm.copyWith(color: XActColors.primary, fontSize: 12.5),
         ),
       );
     }
 
-    if (isInitiator || _isHost) {
-      if (children.isNotEmpty) {
-        children.add(const SizedBox(width: XActSpace.s2));
-      }
-      children.add(
-        Expanded(
-          child: _miniButton(
-            label: 'Cancel',
+    // The initiator already approved by starting the vote, so they only see the
+    // host/initiator "Cancel vote" control, not a ballot.
+    final showBallot = !isInitiator;
+    final canCancel = isInitiator || _isHost;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showBallot)
+          Row(
+            children: [
+              Expanded(
+                child: _miniButton(
+                  label: alreadyVoted ? 'Voted' : 'Approve',
+                  icon: Icons.check_rounded,
+                  color: XActColors.success,
+                  onTap: (alreadyVoted || _busy) ? null : () => _castBallot(true),
+                ),
+              ),
+              const SizedBox(width: XActSpace.s2),
+              Expanded(
+                child: _miniButton(
+                  label: 'Keep',
+                  icon: Icons.shield_outlined,
+                  color: XActColors.text2,
+                  onTap: (alreadyVoted || _busy) ? null : () => _castBallot(false),
+                ),
+              ),
+            ],
+          ),
+        if (isInitiator)
+          Text(
+            'You started this vote.',
+            style: XActText.caption.copyWith(fontSize: 12, color: XActColors.text3),
+          ),
+        if (canCancel) ...[
+          if (showBallot || isInitiator) const SizedBox(height: XActSpace.s2),
+          XActBranding.buildGhostButton(
+            text: 'Cancel vote',
             icon: Icons.stop_rounded,
-            color: XActColors.surface3,
-            onTap: _busy ? null : _cancelVote,
+            height: 44,
+            foreground: XActColors.text1,
+            onPressed: _busy ? null : _cancelVote,
           ),
-        ),
-      );
-    }
-
-    return Row(children: children);
+        ],
+      ],
+    );
   }
 
   Widget _buildPlayerTile(_PlayerRow row, {required bool flagged}) {
