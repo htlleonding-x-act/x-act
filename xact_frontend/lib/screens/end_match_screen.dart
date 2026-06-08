@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
-import 'package:xact_frontend/screens/team/team_lobby.dart';
-import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class EndMatchScreen extends StatefulWidget {
@@ -152,17 +150,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
         .length;
   }
 
-  List<TeamDetails> get _playableTeams {
-    final snapshot = _snapshot;
-    if (snapshot == null) {
-      return const [];
-    }
-
-    return snapshot.teams
-        .where((team) => team.role != TeamRole.spectator)
-        .toList(growable: false);
-  }
-
   String _formatDuration(Duration duration) {
     final totalMinutes = duration.inMinutes;
     final hours = totalMinutes ~/ 60;
@@ -195,52 +182,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     final hour = local.hour.toString().padLeft(2, '0');
     final minute = local.minute.toString().padLeft(2, '0');
     return '$day.$month.$year $hour:$minute';
-  }
-
-  String _roleLabel(TeamRole? role) => switch (role) {
-    TeamRole.mrX => 'Mister X',
-    TeamRole.detective => 'Detective',
-    TeamRole.spectator => 'Spectator',
-    null => 'Team',
-  };
-
-  Color _roleColor(TeamRole? role) => XActColors.roleColor(role);
-
-  Future<void> _backToLobby() async {
-    setState(() => _working = true);
-    try {
-      final details =
-          _sessionDetails ??
-          await ApiService.instance.getGameSession(widget.sessionId);
-      if (!mounted) {
-        return;
-      }
-
-      final currentUserId = AppSession.instance.currentUserId;
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => GameLobbyScreen(
-            sessionId: widget.sessionId,
-            gameCode: details.joinCode,
-            gameName: details.sessionName,
-            isLeader:
-                currentUserId != null && currentUserId == details.hostUserId,
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not reopen lobby: $error')));
-    } finally {
-      if (mounted) {
-        setState(() => _working = false);
-      }
-    }
   }
 
   Future<void> _leaveLobby() async {
@@ -323,7 +264,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
       _buildResultHero(),
       _buildStatGrid(),
       _buildMatchDetailsSection(),
-      _buildTeamsSection(),
       _buildSessionSection(),
     ];
 
@@ -463,80 +403,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     );
   }
 
-  Widget _buildTeamsSection() {
-    final teams = _playableTeams;
-    if (teams.isEmpty) {
-      return _SectionCard(
-        title: 'Teams',
-        subtitle: 'Final standings for every playable team.',
-        child: Text(
-          'No team data available',
-          style: XActText.bodySm.copyWith(color: XActColors.text3),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        for (var index = 0; index < teams.length; index++) ...[
-          if (index > 0) const SizedBox(height: _sectionGap),
-          _buildTeamCard(teams[index]),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildTeamCard(TeamDetails team) {
-    final members = _snapshot!.membersByTeamId[team.teamId] ?? const [];
-
-    return _SectionCard(
-      title: team.teamName,
-      subtitle: _roleLabel(team.role),
-      leadingColor: _roleColor(team.role),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: _bubbleGridGap,
-            runSpacing: _bubbleGridGap,
-            children: [
-              _TagChip(
-                text: team.isCaught ? 'Caught' : 'Active',
-                color: team.isCaught ? XActColors.primary : XActColors.success,
-              ),
-              _TagChip(
-                text: '${members.length} players',
-                color: XActColors.secondary,
-              ),
-            ],
-          ),
-          if (members.isNotEmpty) ...[
-            const SizedBox(height: XActSpace.s3),
-            Wrap(
-              spacing: XActSpace.s2,
-              runSpacing: XActSpace.s2,
-              children: [
-                for (final member in members)
-                  _TagChip(
-                    text: _memberLabel(member),
-                    color: member.isTeamLeader
-                        ? XActColors.warning
-                        : XActColors.text4,
-                  ),
-              ],
-            ),
-          ] else ...[
-            const SizedBox(height: XActSpace.s3),
-            Text(
-              'No players assigned to this team.',
-              style: XActText.caption.copyWith(color: XActColors.text4),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   Widget _buildSessionSection() {
     final details = _sessionDetails;
 
@@ -623,13 +489,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
                   ),
                 ),
               ],
-              XActBranding.buildSecondaryButton(
-                text: 'Back to Lobby',
-                icon: Icons.meeting_room_rounded,
-                onPressed: _working ? null : _backToLobby,
-                height: 54,
-              ),
-              const SizedBox(height: XActSpace.s3),
               XActBranding.buildGhostButton(
                 text: 'Leave Lobby',
                 icon: Icons.logout_rounded,
@@ -643,17 +502,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     );
   }
 
-  String _memberLabel(TeamMemberDetails member) {
-    if (member.guestName != null && member.guestName!.trim().isNotEmpty) {
-      return member.guestName!.trim();
-    }
-
-    if (member.userId != null) {
-      return 'User ${member.userId}';
-    }
-
-    return 'Player ${member.memberId}';
-  }
 }
 
 class _DetailRow extends StatelessWidget {
@@ -738,13 +586,11 @@ class _SectionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
-  final Color? leadingColor;
 
   const _SectionCard({
     required this.title,
     required this.subtitle,
     required this.child,
-    this.leadingColor,
   });
 
   @override
@@ -767,9 +613,9 @@ class _SectionCard extends StatelessWidget {
                 width: 10,
                 height: 10,
                 margin: const EdgeInsets.only(top: 6, right: XActSpace.s2),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: leadingColor ?? XActColors.secondary,
+                  color: XActColors.secondary,
                 ),
               ),
               Expanded(
@@ -790,35 +636,6 @@ class _SectionCard extends StatelessWidget {
           const SizedBox(height: 16),
           child,
         ],
-      ),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  final String text;
-  final Color color;
-
-  const _TagChip({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: XActSpace.s3,
-        vertical: XActSpace.s2,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .14),
-        borderRadius: XActRadius.pill,
-        border: Border.all(color: color.withValues(alpha: .35)),
-      ),
-      child: Text(
-        text,
-        style: XActText.caption.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }
