@@ -55,32 +55,40 @@ class LobbyTeamCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: roleColor,
-                      boxShadow: [
-                        BoxShadow(
-                          color: roleColor.withValues(alpha: .7),
-                          blurRadius: 12,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: roleColor,
+                            boxShadow: [
+                              BoxShadow(
+                                color: roleColor.withValues(alpha: .7),
+                                blurRadius: 12,
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            team.name.trim().isEmpty
+                                ? 'Team'
+                                : team.name.trim(),
+                            style: XActText.subheading.copyWith(fontSize: 15),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        XActBranding.buildRolePill(role: team.role),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      team.name.trim().isEmpty ? 'Team' : team.name.trim(),
-                      style: XActText.subheading.copyWith(fontSize: 15),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
                   const SizedBox(width: 8),
-                  XActBranding.buildRolePill(role: team.role),
-                  const Spacer(),
                   Text(
                     '${team.players.length}/${team.maxPlayers}',
                     style: XActText.bodySm.copyWith(
