@@ -135,21 +135,12 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     }
     _migrating = true;
 
-    final currentUserId = AppSession.instance.currentUserId;
-    // Point the session state at the new lobby and drop the finished session's
-    // membership; the lobby re-resolves the player's new membership on load.
-    AppSession.instance.setSession(sessionId: sessionId, joinCode: joinCode);
-    AppSession.instance.clearMembership();
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => GameLobbyScreen(
-          sessionId: sessionId,
-          gameCode: joinCode,
-          gameName: sessionName,
-          isLeader: currentUserId != null && currentUserId == hostUserId,
-        ),
-      ),
+    openRematchLobby(
+      context,
+      sessionId: sessionId,
+      joinCode: joinCode,
+      sessionName: sessionName,
+      hostUserId: hostUserId,
     );
   }
 

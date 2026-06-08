@@ -3,6 +3,7 @@ import 'dart:async';
 import '../api/api_service.dart';
 import '../api/models.dart';
 import 'end_match_screen.dart';
+import 'team/team_lobby.dart';
 import 'start/start_screen.dart';
 import 'team_screen.dart';
 import 'all_chat_screen.dart';
@@ -26,6 +27,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _trackingInitCancelled = false;
   bool _allowDirectPop = false;
   bool _endMatchNavigationStarted = false;
+  bool _rematchNavigationStarted = false;
   bool _endingGame = false;
   Timer? _trackingRetryTimer;
   Timer? _sessionStatusPollTimer;
@@ -76,6 +78,8 @@ class _GameScreenState extends State<GameScreen> {
       _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
         if (event.type == RealtimeEvents.mrXCaught) {
           _onMrXCaught(MrXCaughtPayload.fromJson(event.payload));
+        } else if (event.type == RealtimeEvents.rematchCreated) {
+          _onRematchCreated(RematchCreatedPayload.fromJson(event.payload));
         }
       });
     } catch (_) {
@@ -303,6 +307,35 @@ class _GameScreenState extends State<GameScreen> {
 
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => EndMatchScreen(sessionId: sessionId)),
+    );
+  }
+
+  /// The host started a rematch while this client was still in-game. Jump
+  /// straight into the new lobby instead of waiting for the status poll to
+  /// route through the end-match screen.
+  void _onRematchCreated(RematchCreatedPayload payload) {
+    if (_rematchNavigationStarted ||
+        _endMatchNavigationStarted ||
+        !mounted ||
+        payload.finishedSessionId != AppSession.instance.currentSessionId) {
+      return;
+    }
+
+    // Block the finished-session poll/navigation and tear down game timers.
+    _rematchNavigationStarted = true;
+    _endMatchNavigationStarted = true;
+    _trackingInitCancelled = true;
+    _trackingRetryTimer?.cancel();
+    _sessionStatusPollTimer?.cancel();
+    _realtimeEventSub?.cancel();
+    LocationService.instance.stopTracking();
+
+    openRematchLobby(
+      context,
+      sessionId: payload.newSessionId,
+      joinCode: payload.newJoinCode,
+      sessionName: payload.sessionName,
+      hostUserId: payload.hostUserId,
     );
   }
 
