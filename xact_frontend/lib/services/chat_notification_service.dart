@@ -42,6 +42,17 @@ final class ChatNotificationService {
 
   /// Initialise the notification plugin and start listening to chat events.
   Future<void> init() async {
+    // Always listen for realtime events so in-app unread indicators work on all
+    // platforms, even where system notifications are unavailable.
+    await _eventSubscription?.cancel();
+    _eventSubscription =
+        ApiService.instance.realtimeEvents.listen(_onRealtimeEvent);
+
+    // System notifications are currently only implemented for Android.
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
@@ -51,10 +62,6 @@ final class ChatNotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.requestNotificationsPermission();
-
-    _eventSubscription?.cancel();
-    _eventSubscription =
-        ApiService.instance.realtimeEvents.listen(_onRealtimeEvent);
   }
 
   /// Stop listening and cancel all outstanding notifications.
