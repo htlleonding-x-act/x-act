@@ -123,20 +123,24 @@ final class ChatNotificationService {
   void _setUnreadAll(ChatMessage message) {
     _hasUnreadAll = true;
     _changeController.add(null);
-    _showNotification(
-      id: _NotificationIds.allChat,
-      title: 'All Chat',
-      body: '${message.senderName}: ${message.content}',
+    unawaited(
+      _showNotification(
+        id: _NotificationIds.allChat,
+        title: 'All Chat',
+        body: '${message.senderName}: ${message.content}',
+      ),
     );
   }
 
   void _setUnreadTeam(ChatMessage message) {
     _hasUnreadTeam = true;
     _changeController.add(null);
-    _showNotification(
-      id: _NotificationIds.teamChat,
-      title: 'Team Chat',
-      body: '${message.senderName}: ${message.content}',
+    unawaited(
+      _showNotification(
+        id: _NotificationIds.teamChat,
+        title: 'Team Chat',
+        body: '${message.senderName}: ${message.content}',
+      ),
     );
   }
 
