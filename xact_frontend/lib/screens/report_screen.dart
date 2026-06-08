@@ -221,9 +221,10 @@ class _ReportScreenState extends State<ReportScreen> {
           return;
         }
         setState(() => _offensesByMember.remove(payload.memberId));
-        if (payload.memberId != _currentMemberId) {
-          final how = payload.byHost ? 'by the host' : 'by vote';
-          _toast('${payload.memberName} was kicked $how.');
+        // Vote kicks are already announced via kick_vote_resolved; only the host
+        // sudo kick needs its own notice here to avoid a duplicate toast.
+        if (payload.byHost && payload.memberId != _currentMemberId) {
+          _toast('${payload.memberName} was kicked by the host.');
         }
         _queueRosterReload();
         break;
