@@ -14,6 +14,7 @@ namespace XActBackend.Controllers;
 public sealed class LocationLogController(
     ITransactionProvider transaction,
     ILocationLogService locationLogService,
+    IOffenseService offenseService,
     IGameSessionRealtimePublisher realtimePublisher,
     ILogger<LocationLogController> logger) : BaseController
 {
@@ -91,6 +92,8 @@ public sealed class LocationLogController(
                 await realtimePublisher.PublishLocationLogRecordedAsync(sessionId, teamId, locationLog);
                 logger.LogInformation("Created location log {LogId} for member {MemberId}", locationLog.Id, memberId);
 
+                await EvaluateOffenseAsync(sessionId, memberId, addRequest.Latitude, addRequest.Longitude);
+
                 return CreatedAtAction(nameof(GetLocationLogById),
                     new { sessionId, teamId, memberId, logId = locationLog.Id },
                     LocationLogDetailsDto.FromLocationLog(locationLog));
@@ -114,6 +117,43 @@ public sealed class LocationLogController(
             await transaction.RollbackAsync();
 
             return Problem();
+        }
+    }
+
+    /// <summary>
+    ///     Best-effort out-of-bounds check for the position just recorded. Runs outside the location
+    ///     log transaction and never fails the request: a broken offense check must not break tracking.
+    /// </summary>
+    private async ValueTask EvaluateOffenseAsync(int sessionId, int memberId, double latitude, double longitude)
+    {
+        try
+        {
+            IOffenseService.OffenseEvaluation evaluation =
+                await offenseService.EvaluateMemberLocationAsync(sessionId, memberId, latitude, longitude);
+
+            if (evaluation.Offense is null)
+            {
+                return;
+            }
+
+            var payload = MemberOffensePayload.FromOffense(evaluation.Offense);
+
+            switch (evaluation.Change)
+            {
+                case IOffenseService.OffenseChange.Raised:
+                    await realtimePublisher.PublishMemberOffenseRaisedAsync(payload);
+                    break;
+                case IOffenseService.OffenseChange.Cleared:
+                    await realtimePublisher.PublishMemberOffenseClearedAsync(payload);
+                    break;
+                case IOffenseService.OffenseChange.None:
+                default:
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Offense evaluation failed for member {MemberId} in session {SessionId}", memberId, sessionId);
         }
     }
 
