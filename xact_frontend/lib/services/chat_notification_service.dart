@@ -66,11 +66,16 @@ final class ChatNotificationService {
 
   /// Stop listening and cancel all outstanding notifications.
   void dispose() {
-    _eventSubscription?.cancel();
+    unawaited(_eventSubscription?.cancel());
     _eventSubscription = null;
-    _notifications.cancelAll();
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      unawaited(_notifications.cancelAll());
+    }
+
     _hasUnreadAll = false;
     _hasUnreadTeam = false;
+    _changeController.add(null);
   }
 
   /// Mark the global "All" chat as read — hides the in-app dot AND the
@@ -78,7 +83,9 @@ final class ChatNotificationService {
   void markAllChatRead() {
     if (!_hasUnreadAll) return;
     _hasUnreadAll = false;
-    _notifications.cancel(_NotificationIds.allChat);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      unawaited(_notifications.cancel(_NotificationIds.allChat));
+    }
     _changeController.add(null);
   }
 
@@ -87,7 +94,9 @@ final class ChatNotificationService {
   void markTeamChatRead() {
     if (!_hasUnreadTeam) return;
     _hasUnreadTeam = false;
-    _notifications.cancel(_NotificationIds.teamChat);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      unawaited(_notifications.cancel(_NotificationIds.teamChat));
+    }
     _changeController.add(null);
   }
 
