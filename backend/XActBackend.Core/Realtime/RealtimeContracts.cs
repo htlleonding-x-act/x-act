@@ -17,9 +17,11 @@ public static class RealtimeEvents
     public const string TeamMemberUpdated = "team_member_updated";
     public const string TeamMemberLeft = "team_member_left";
     public const string GameSessionStarted = "game_session_started";
+    public const string GameSessionEnded = "game_session_ended";
     public const string LocationLogRecorded = "location_log_recorded";
     public const string MrXCaught = "mr_x_caught";
     public const string ChatMessagePosted = "chat_message_posted";
+    public const string RematchCreated = "rematch_created";
 }
 
 public static class RealtimeGroups
@@ -145,6 +147,13 @@ public sealed record GameSessionStartedPayload(
     Instant? EndTime
 );
 
+public sealed record GameSessionEndedPayload(
+    int SessionId,
+    SessionStatus Status,
+    Instant? StartTime,
+    Instant? EndTime
+);
+
 public sealed record MrXCaughtPayload(
     int SessionId,
     int NewMrXTeamId,
@@ -175,4 +184,12 @@ public sealed record ChatMessagePostedPayload(
     string SenderName,
     string Content,
     Instant SentAt
+);
+
+public sealed record RematchCreatedPayload(
+    int FinishedSessionId,
+    int NewSessionId,
+    string NewJoinCode,
+    string SessionName,
+    int HostUserId
 );

@@ -68,6 +68,17 @@ public sealed class GameSessionHub(
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    ///     The team-member ids that currently have a live realtime connection registered for the
+    ///     given session. A rematch uses this to keep players who have already left the finished
+    ///     session out of the new lobby (a still-connected client is exactly one that can migrate).
+    /// </summary>
+    public static IReadOnlySet<int> GetConnectedMemberIds(int sessionId) =>
+        presenceByConnection.Values
+            .Where(registration => registration.SessionId == sessionId)
+            .Select(registration => registration.MemberId)
+            .ToHashSet();
+
     public async Task<GameSessionSnapshot> SubscribeSession(int sessionId)
     {
         if (sessionId <= 0)

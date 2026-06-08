@@ -23,6 +23,7 @@ public abstract class BaseController : ControllerBase
             DomainErrorCodes.InvalidSessionTransition => StatusCodes.Status409Conflict,
             DomainErrorCodes.SessionNotJoinable => StatusCodes.Status409Conflict,
             DomainErrorCodes.SessionNotActive => StatusCodes.Status409Conflict,
+            DomainErrorCodes.SessionNotFinished => StatusCodes.Status409Conflict,
             DomainErrorCodes.MrXTeamAlreadyExists => StatusCodes.Status409Conflict,
             DomainErrorCodes.CatchingTeamNotEligible => StatusCodes.Status409Conflict,
             DomainErrorCodes.TeamHasMembers => StatusCodes.Status409Conflict,

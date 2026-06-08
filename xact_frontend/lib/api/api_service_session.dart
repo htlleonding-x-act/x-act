@@ -42,6 +42,24 @@ extension ApiServiceSessionMethods on ApiService {
     throw Exception('Failed to create lobby after retries.');
   }
 
+  /// Create a fresh lobby that copies the teams, players, area and settings of a
+  /// finished session. The backend broadcasts a `rematch_created` event on the
+  /// finished session's channel so every connected client migrates over.
+  Future<GameSessionDetails> createRematch(int finishedSessionId) async {
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final response = await _postJsonObject(
+        '/api/gamesessions/$finishedSessionId/rematch',
+        {'joinCode': _generateJoinCode()},
+      );
+
+      if (response != null) {
+        return GameSessionDetails.fromJson(response);
+      }
+    }
+
+    throw Exception('Failed to create rematch after retries.');
+  }
+
   Future<int> ensureMvpUser({
     required String preferredName,
     bool reuseByName = false,
@@ -396,6 +414,12 @@ extension ApiServiceSessionMethods on ApiService {
       await _finishSession(details);
     }
 
+    // Drop the realtime presence registration before leaving so a rematch started
+    // after this point (e.g. on the end-match screen) does not copy this player,
+    // who has left, into the new lobby as a ghost.
+    try {
+      await _realtime.unregisterMemberPresence();
+    } catch (_) {}
     await _realtime.unsubscribeSession(sessionId);
 
     _session.currentSessionId = null;

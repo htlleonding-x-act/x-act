@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
@@ -15,30 +17,30 @@ class EndMatchScreen extends StatefulWidget {
   State<EndMatchScreen> createState() => _EndMatchScreenState();
 }
 
-class _EndMatchScreenState extends State<EndMatchScreen>
-    with SingleTickerProviderStateMixin {
-  static const double _tabContentPaddingTop = XActSpace.s4;
-  static const double _tabContentPaddingBottom = XActSpace.s6;
-  static const double _tabSectionGap = XActSpace.s4;
+class _EndMatchScreenState extends State<EndMatchScreen> {
+  static const double _pagePaddingTop = XActSpace.s2;
+  static const double _pagePaddingBottom = XActSpace.s6;
+  static const double _sectionGap = XActSpace.s4;
   static const double _bubbleGridGap = XActSpace.s3;
   static const double _bubbleGridWideBreakpoint = 720;
 
   bool _loading = true;
   bool _working = false;
+  bool _migrating = false;
   GameSessionDetails? _sessionDetails;
   LobbySnapshot? _snapshot;
-  late final TabController _tabController;
+  StreamSubscription<RealtimeEventEnvelope>? _rematchSub;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _loadSummary();
+    _initRematchListener();
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _rematchSub?.cancel();
     super.dispose();
   }
 
@@ -63,6 +65,87 @@ class _EndMatchScreenState extends State<EndMatchScreen>
         setState(() => _loading = false);
       }
     }
+  }
+
+  bool get _isHost {
+    final hostUserId = _sessionDetails?.hostUserId;
+    final currentUserId = AppSession.instance.currentUserId;
+    return hostUserId != null && currentUserId == hostUserId;
+  }
+
+  /// Keep listening on the finished session's channel so that when the host
+  /// starts a rematch, every client (host included) migrates into the new lobby.
+  Future<void> _initRematchListener() async {
+    try {
+      await ApiService.instance.ensureRealtimeSessionSubscription(
+        widget.sessionId,
+      );
+      // Mark this player as present on the finished session. The host's rematch
+      // only copies still-connected members, so a player who leaves this screen
+      // (and unregisters) is not carried over into the new lobby as a ghost.
+      await ApiService.instance.registerCurrentMemberPresence();
+    } catch (_) {
+      // The subscription normally persists from the lobby; the listener below
+      // still works if it is already in place.
+    }
+
+    _rematchSub = ApiService.instance.realtimeEvents.listen((event) {
+      if (event.type == RealtimeEvents.rematchCreated) {
+        final payload = RematchCreatedPayload.fromJson(event.payload);
+        if (payload.finishedSessionId == widget.sessionId) {
+          _navigateToRematch(
+            sessionId: payload.newSessionId,
+            joinCode: payload.newJoinCode,
+            sessionName: payload.sessionName,
+            hostUserId: payload.hostUserId,
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _startRematch() async {
+    setState(() => _working = true);
+    try {
+      final rematch = await ApiService.instance.createRematch(widget.sessionId);
+      // Navigate straight from the response; other clients follow via the
+      // broadcast. The guard in _navigateToRematch prevents a double push when
+      // the host receives its own broadcast.
+      _navigateToRematch(
+        sessionId: rematch.sessionId,
+        joinCode: rematch.joinCode,
+        sessionName: rematch.sessionName,
+        hostUserId: rematch.hostUserId,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _working = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not start a new lobby: $error')),
+      );
+    }
+  }
+
+  void _navigateToRematch({
+    required int sessionId,
+    required String joinCode,
+    required String sessionName,
+    required int hostUserId,
+  }) {
+    if (_migrating || !mounted) {
+      return;
+    }
+    _migrating = true;
+
+    openRematchLobby(
+      context,
+      sessionId: sessionId,
+      joinCode: joinCode,
+      sessionName: sessionName,
+      hostUserId: hostUserId,
+    );
   }
 
   String? get _winnerTeamName {
@@ -161,17 +244,6 @@ class _EndMatchScreenState extends State<EndMatchScreen>
         .length;
   }
 
-  List<TeamDetails> get _playableTeams {
-    final snapshot = _snapshot;
-    if (snapshot == null) {
-      return const [];
-    }
-
-    return snapshot.teams
-        .where((team) => team.role != TeamRole.spectator)
-        .toList(growable: false);
-  }
-
   String _formatDuration(Duration duration) {
     final totalMinutes = duration.inMinutes;
     final hours = totalMinutes ~/ 60;
@@ -204,52 +276,6 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     final hour = local.hour.toString().padLeft(2, '0');
     final minute = local.minute.toString().padLeft(2, '0');
     return '$day.$month.$year $hour:$minute';
-  }
-
-  String _roleLabel(TeamRole? role) => switch (role) {
-    TeamRole.mrX => 'Mister X',
-    TeamRole.detective => 'Detective',
-    TeamRole.spectator => 'Spectator',
-    null => 'Team',
-  };
-
-  Color _roleColor(TeamRole? role) => XActColors.roleColor(role);
-
-  Future<void> _backToLobby() async {
-    setState(() => _working = true);
-    try {
-      final details =
-          _sessionDetails ??
-          await ApiService.instance.getGameSession(widget.sessionId);
-      if (!mounted) {
-        return;
-      }
-
-      final currentUserId = AppSession.instance.currentUserId;
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => GameLobbyScreen(
-            sessionId: widget.sessionId,
-            gameCode: details.joinCode,
-            gameName: details.sessionName,
-            isLeader:
-                currentUserId != null && currentUserId == details.hostUserId,
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not reopen lobby: $error')));
-    } finally {
-      if (mounted) {
-        setState(() => _working = false);
-      }
-    }
   }
 
   Future<void> _leaveLobby() async {
@@ -307,31 +333,12 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                             showBack: false,
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            XActSpace.s4,
-                            XActSpace.s2,
-                            XActSpace.s4,
-                            XActSpace.s4,
-                          ),
-                          child: _buildHeaderCard(),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: XActSpace.s4,
-                          ),
-                          child: _buildTabBar(),
-                        ),
-                        const SizedBox(height: XActSpace.s3),
                         Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _buildOverviewTab(),
-                              _buildTeamsTab(),
-                              _buildSessionTab(),
-                            ],
-                          ),
+                          child: _loading
+                              ? const Center(
+                                  child: CircularProgressIndicator(),
+                                )
+                              : _buildSummaryBody(),
                         ),
                         _buildActionArea(),
                       ],
@@ -346,352 +353,176 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     );
   }
 
-  Widget _buildHeaderCard() {
-    return XActBranding.buildFormCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: XActColors.primarySoft,
-                  borderRadius: XActRadius.md,
-                  border: Border.all(color: XActColors.hairlineSoft),
-                ),
-                child: const Icon(
-                  Icons.flag_rounded,
-                  color: XActColors.primary,
-                  size: 30,
-                ),
-              ),
-              const SizedBox(width: XActSpace.s4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Match beendet',
-                      style: XActText.displaySm.copyWith(fontSize: 30),
-                    ),
-                    const SizedBox(height: XActSpace.s1),
-                    Text(
-                      _summaryText,
-                      style: XActText.body.copyWith(color: XActColors.text2),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: XActSpace.s4),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: XActSpace.s4),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Winner',
-                    value: _winnerTeamName ?? 'Not available',
-                    accent: _roleColor(TeamRole.mrX),
-                  ),
-                ),
-                const SizedBox(width: XActSpace.s3),
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Duration',
-                    value: _matchDurationText ?? 'Not available',
-                    accent: XActColors.secondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: XActSpace.s3),
-            Row(
-              children: [
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Teams',
-                    value: '$_teamCount',
-                    accent: XActColors.success,
-                  ),
-                ),
-                const SizedBox(width: XActSpace.s3),
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Players',
-                    value: '$_playerCount',
-                    accent: XActColors.warning,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: XActSpace.s3),
-            _DetailRow(
-              label: 'Status',
-              value: _sessionDetails?.status == SessionStatus.finished
-                  ? 'Finished'
-                  : 'Summary loaded',
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabBar() {
-    return Container(
-      padding: const EdgeInsets.all(XActSpace.s1),
-      decoration: BoxDecoration(
-        color: XActColors.surface,
-        borderRadius: XActRadius.lg,
-        border: Border.all(color: XActColors.hairlineSoft),
-        boxShadow: XActElevation.e1,
-      ),
-      child: TabBar(
-        controller: _tabController,
-        isScrollable: false,
-        indicatorSize: TabBarIndicatorSize.tab,
-        labelPadding: const EdgeInsets.symmetric(
-          horizontal: XActSpace.s3,
-          vertical: XActSpace.s2,
-        ),
-        indicatorPadding: const EdgeInsets.all(2),
-        labelColor: Colors.white,
-        unselectedLabelColor: XActColors.text3,
-        indicator: BoxDecoration(
-          borderRadius: XActRadius.md,
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [XActColors.secondaryLight, XActColors.secondaryDark],
-          ),
-        ),
-        dividerColor: Colors.transparent,
-        labelStyle: XActText.bodySm.copyWith(fontWeight: FontWeight.w700),
-        unselectedLabelStyle: XActText.bodySm.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-        tabs: const [
-          Tab(text: 'Overview'),
-          Tab(text: 'Teams'),
-          Tab(text: 'Session'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverviewTab() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final snapshot = _snapshot;
-    final details = _sessionDetails;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        XActSpace.s4,
-        _tabContentPaddingTop,
-        XActSpace.s4,
-        _tabContentPaddingBottom,
-      ),
-      children: [
-        _SectionCard(
-          title: 'Result snapshot',
-          subtitle: 'A compact recap using the current session data.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Winning Team',
-                value: _winnerTeamName ?? 'Not available',
-              ),
-              _DetailRow(
-                label: 'Match Duration',
-                value: _matchDurationText ?? 'Not available',
-              ),
-              _DetailRow(
-                label: 'Planned Duration',
-                value: '${details?.plannedDurationMinutes ?? 0} min',
-              ),
-              _DetailRow(
-                label: 'Reveal Interval',
-                value: '${details?.mrXRevealInterval ?? 0} min',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: _tabSectionGap),
-        _SectionCard(
-          title: 'Status summary',
-          subtitle: 'Useful end-of-match signals from the backend.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Session Status',
-                value: _sessionDetails?.status?.name ?? 'Unknown',
-              ),
-              _DetailRow(label: 'Players in Session', value: '$_playerCount'),
-              _DetailRow(
-                label: 'Latest Location Points',
-                value: '${snapshot?.latestLocations.length ?? 0}',
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTeamsTab() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final teams = _playableTeams;
-    if (teams.isEmpty) {
-      return Center(
-        child: Text(
-          'No team data available',
-          style: XActText.bodySm.copyWith(color: XActColors.text3),
-        ),
-      );
-    }
+  Widget _buildSummaryBody() {
+    final sections = <Widget>[
+      _buildResultHero(),
+      _buildStatGrid(),
+      _buildMatchDetailsSection(),
+      _buildSessionSection(),
+    ];
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
         XActSpace.s4,
-        _tabContentPaddingTop,
+        _pagePaddingTop,
         XActSpace.s4,
-        _tabContentPaddingBottom,
+        _pagePaddingBottom,
       ),
-      itemCount: teams.length,
+      itemCount: sections.length,
       separatorBuilder: (context, index) =>
-          const SizedBox(height: _tabSectionGap),
-      itemBuilder: (context, index) {
-        final team = teams[index];
-        final members = _snapshot!.membersByTeamId[team.teamId] ?? const [];
+          const SizedBox(height: _sectionGap),
+      itemBuilder: (context, index) => sections[index],
+    );
+  }
 
-        return _SectionCard(
-          title: team.teamName,
-          subtitle: _roleLabel(team.role),
-          leadingColor: _roleColor(team.role),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: _bubbleGridGap,
-                runSpacing: _bubbleGridGap,
-                children: [
-                  _TagChip(
-                    text: team.isCaught ? 'Caught' : 'Active',
-                    color: team.isCaught
-                        ? XActColors.primary
-                        : XActColors.success,
-                  ),
-                  _TagChip(
-                    text: '${members.length} players',
-                    color: XActColors.secondary,
-                  ),
-                ],
-              ),
-              if (members.isNotEmpty) ...[
-                const SizedBox(height: XActSpace.s3),
-                Wrap(
-                  spacing: XActSpace.s2,
-                  runSpacing: XActSpace.s2,
-                  children: [
-                    for (final member in members)
-                      _TagChip(
-                        text: _memberLabel(member),
-                        color: member.isTeamLeader
-                            ? XActColors.warning
-                            : XActColors.text4,
-                      ),
-                  ],
-                ),
-              ] else ...[
-                const SizedBox(height: XActSpace.s3),
+  Widget _buildResultHero() {
+    final winner = _winnerTeamName;
+    final hasWinner = winner != null;
+    final accent = hasWinner ? XActColors.success : XActColors.secondary;
+
+    return XActBranding.buildFormCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: .16),
+              borderRadius: XActRadius.lg,
+              border: Border.all(color: accent.withValues(alpha: .45)),
+            ),
+            child: Icon(
+              hasWinner ? Icons.emoji_events_rounded : Icons.flag_rounded,
+              color: accent,
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: XActSpace.s4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                XActBranding.buildEyebrow(hasWinner ? 'Winner' : 'Result'),
+                const SizedBox(height: XActSpace.s1),
                 Text(
-                  'No players assigned to this team.',
-                  style: XActText.caption.copyWith(color: XActColors.text4),
+                  winner ?? 'No winner recorded',
+                  style: XActText.displaySm.copyWith(fontSize: 28),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: XActSpace.s2),
+                Text(
+                  _summaryText,
+                  style: XActText.body.copyWith(color: XActColors.text2),
                 ),
               ],
-            ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatGrid() {
+    final stats = <Widget>[
+      _MiniStatCard(
+        label: 'Duration',
+        value: _matchDurationText ?? 'Not available',
+        accent: XActColors.secondary,
+      ),
+      _MiniStatCard(
+        label: 'Teams',
+        value: '$_teamCount',
+        accent: XActColors.success,
+      ),
+      _MiniStatCard(
+        label: 'Players',
+        value: '$_playerCount',
+        accent: XActColors.warning,
+      ),
+      _MiniStatCard(
+        label: 'Caught',
+        value: '$_caughtTeamCount',
+        accent: XActColors.primary,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns =
+            constraints.maxWidth >= _bubbleGridWideBreakpoint ? 4 : 2;
+        final itemWidth =
+            (constraints.maxWidth - _bubbleGridGap * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: _bubbleGridGap,
+          runSpacing: _bubbleGridGap,
+          children: [
+            for (final stat in stats)
+              SizedBox(width: itemWidth, child: stat),
+          ],
         );
       },
     );
   }
 
-  Widget _buildSessionTab() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
+  Widget _buildMatchDetailsSection() {
+    final snapshot = _snapshot;
     final details = _sessionDetails;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        XActSpace.s4,
-        _tabContentPaddingTop,
-        XActSpace.s4,
-        _tabContentPaddingBottom,
+
+    return _SectionCard(
+      title: 'Match details',
+      subtitle: 'Configuration and end-of-match signals from the backend.',
+      child: _buildDetailBubbleGrid(
+        children: [
+          _DetailRow(
+            label: 'Session Status',
+            value: details?.status?.name ?? 'Unknown',
+          ),
+          _DetailRow(
+            label: 'Planned Duration',
+            value: '${details?.plannedDurationMinutes ?? 0} min',
+          ),
+          _DetailRow(
+            label: 'Reveal Interval',
+            value: '${details?.mrXRevealInterval ?? 0} min',
+          ),
+          _DetailRow(
+            label: 'Latest Location Points',
+            value: '${snapshot?.latestLocations.length ?? 0}',
+          ),
+        ],
       ),
-      children: [
-        _SectionCard(
-          title: 'Match timing',
-          subtitle:
-              'The backend only provides the session timing fields below.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Session Name',
-                value: details?.sessionName ?? 'Not available',
-              ),
-              _DetailRow(
-                label: 'Session ID',
-                value: '${details?.sessionId ?? widget.sessionId}',
-              ),
-              _DetailRow(
-                label: 'Start Time',
-                value: _formatDateTime(details?.startTime),
-              ),
-              _DetailRow(
-                label: 'End Time',
-                value: _formatDateTime(details?.endTime),
-              ),
-              _DetailRow(
-                label: 'Match Duration',
-                value: _matchDurationText ?? 'Not available',
-              ),
-            ],
+    );
+  }
+
+  Widget _buildSessionSection() {
+    final details = _sessionDetails;
+
+    return _SectionCard(
+      title: 'Session',
+      subtitle: 'Identifiers and timing recorded for this match.',
+      child: _buildDetailBubbleGrid(
+        children: [
+          _DetailRow(
+            label: 'Session Name',
+            value: details?.sessionName ?? 'Not available',
           ),
-        ),
-        const SizedBox(height: _tabSectionGap),
-        _SectionCard(
-          title: 'Match configuration',
-          subtitle: 'Useful settings already known at end of play.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Planned Duration',
-                value: '${details?.plannedDurationMinutes ?? 0} min',
-              ),
-              _DetailRow(
-                label: 'Reveal Interval',
-                value: '${details?.mrXRevealInterval ?? 0} min',
-              ),
-              _DetailRow(label: 'Caught Teams', value: '$_caughtTeamCount'),
-            ],
+          _DetailRow(
+            label: 'Session ID',
+            value: '${details?.sessionId ?? widget.sessionId}',
           ),
-        ),
-      ],
+          _DetailRow(
+            label: 'Start Time',
+            value: _formatDateTime(details?.startTime),
+          ),
+          _DetailRow(
+            label: 'End Time',
+            value: _formatDateTime(details?.endTime),
+          ),
+        ],
+      ),
     );
   }
 
@@ -752,22 +583,28 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                   ),
                 ),
               ],
-              Text(
-                'Session actions',
-                style: XActText.caption.copyWith(color: XActColors.text4),
-              ),
-              const SizedBox(height: XActSpace.s2),
-              XActBranding.buildSecondaryButton(
-                text: 'Back to Lobby',
-                icon: Icons.meeting_room_rounded,
-                onPressed: _working ? null : _backToLobby,
-                height: 54,
-              ),
-              const SizedBox(height: XActSpace.s3),
+              if (_isHost) ...[
+                XActBranding.buildSecondaryButton(
+                  text: 'Back to the Lobby',
+                  icon: Icons.meeting_room_rounded,
+                  onPressed: (_working || _migrating) ? null : _startRematch,
+                  height: 54,
+                ),
+                const SizedBox(height: XActSpace.s3),
+              ] else if (!_loading) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: XActSpace.s3),
+                  child: Text(
+                    'Waiting for the host to start a new lobby…',
+                    textAlign: TextAlign.center,
+                    style: XActText.caption.copyWith(color: XActColors.text4),
+                  ),
+                ),
+              ],
               XActBranding.buildGhostButton(
                 text: 'Leave Lobby',
                 icon: Icons.logout_rounded,
-                onPressed: _working ? null : _leaveLobby,
+                onPressed: (_working || _migrating) ? null : _leaveLobby,
                 height: 54,
               ),
             ],
@@ -777,17 +614,6 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     );
   }
 
-  String _memberLabel(TeamMemberDetails member) {
-    if (member.guestName != null && member.guestName!.trim().isNotEmpty) {
-      return member.guestName!.trim();
-    }
-
-    if (member.userId != null) {
-      return 'User ${member.userId}';
-    }
-
-    return 'Player ${member.memberId}';
-  }
 }
 
 class _DetailRow extends StatelessWidget {
@@ -872,13 +698,11 @@ class _SectionCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Widget child;
-  final Color? leadingColor;
 
   const _SectionCard({
     required this.title,
     required this.subtitle,
     required this.child,
-    this.leadingColor,
   });
 
   @override
@@ -901,9 +725,9 @@ class _SectionCard extends StatelessWidget {
                 width: 10,
                 height: 10,
                 margin: const EdgeInsets.only(top: 6, right: XActSpace.s2),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: leadingColor ?? XActColors.secondary,
+                  color: XActColors.secondary,
                 ),
               ),
               Expanded(
@@ -924,35 +748,6 @@ class _SectionCard extends StatelessWidget {
           const SizedBox(height: 16),
           child,
         ],
-      ),
-    );
-  }
-}
-
-class _TagChip extends StatelessWidget {
-  final String text;
-  final Color color;
-
-  const _TagChip({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: XActSpace.s3,
-        vertical: XActSpace.s2,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .14),
-        borderRadius: XActRadius.pill,
-        border: Border.all(color: color.withValues(alpha: .35)),
-      ),
-      child: Text(
-        text,
-        style: XActText.caption.copyWith(
-          color: color,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

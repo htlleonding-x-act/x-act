@@ -87,6 +87,16 @@ internal sealed class GameSessionRealtimePublisher(
                 gameSession.StartTime,
                 gameSession.EndTime));
 
+    public ValueTask PublishGameSessionEndedAsync(GameSession gameSession) =>
+        PublishToSessionAsync(
+            gameSession.Id,
+            RealtimeEvents.GameSessionEnded,
+            new GameSessionEndedPayload(
+                gameSession.Id,
+                gameSession.Status,
+                gameSession.StartTime,
+                gameSession.EndTime));
+
     public ValueTask PublishLocationLogRecordedAsync(int sessionId, int teamId, LocationLog log) =>
         PublishToSessionAsync(
             sessionId,
@@ -134,6 +144,19 @@ internal sealed class GameSessionRealtimePublisher(
 
         return PublishToGroupAsync(group, message.SessionId, RealtimeEvents.ChatMessagePosted, payload);
     }
+
+    public ValueTask PublishRematchCreatedAsync(int finishedSessionId, GameSession newSession) =>
+        // Announce on the *finished* session's group so every client still subscribed to the
+        // ended match (host + players on the end-match screen) learns the new session to join.
+        PublishToSessionAsync(
+            finishedSessionId,
+            RealtimeEvents.RematchCreated,
+            new RematchCreatedPayload(
+                finishedSessionId,
+                newSession.Id,
+                newSession.JoinCode,
+                newSession.SessionName,
+                newSession.HostUserId));
 
     private ValueTask PublishToSessionAsync(int sessionId, string eventType, object payload) =>
         PublishToGroupAsync(RealtimeGroups.Session(sessionId), sessionId, eventType, payload);

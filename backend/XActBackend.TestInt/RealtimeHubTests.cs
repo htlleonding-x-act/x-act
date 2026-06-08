@@ -94,6 +94,28 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
     }
 
     [Fact]
+    public async ValueTask EndGameSession_PublishesEndedEvent()
+    {
+        await ActivateSeedSessionAsync();
+
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        HttpResponseMessage response = await ApiClient.PostAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/end",
+            content: null,
+            cancellationToken: TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+
+        realtimeEvent.Should().NotBeNull();
+        realtimeEvent!.Type.Should().Be(RealtimeEvents.GameSessionEnded);
+        ((JsonElement)realtimeEvent.Payload).GetProperty("sessionId").GetInt32().Should().Be(SeedData.SessionId);
+    }
+
+    [Fact]
     public async ValueTask AddLocationLog_PublishesLocationEvent()
     {
         await ActivateSeedSessionAsync();
@@ -261,5 +283,39 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
         }
 
         memberStillExists.Should().BeFalse();
+    }
+
+    [Fact]
+    public async ValueTask RematchGameSession_PublishesRematchCreatedEvent()
+    {
+        await ModifyDatabaseContentAsync(context =>
+        {
+            GameSession session = context.GameSessions.Single(session => session.Id == SeedData.SessionId);
+            session.Status = SessionStatus.Finished;
+            session.EndTime = SeedData.BaseInstant.Plus(Duration.FromHours(2));
+
+            return new ValueTask(context.SaveChangesAsync(TestCancellationToken));
+        });
+
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        HttpResponseMessage response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/rematch",
+            new GameSessionRematchRequest("REMAT2"),
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+
+        realtimeEvent.Should().NotBeNull();
+        realtimeEvent!.Type.Should().Be(RealtimeEvents.RematchCreated);
+
+        JsonElement payload = (JsonElement)realtimeEvent.Payload;
+        payload.GetProperty("finishedSessionId").GetInt32().Should().Be(SeedData.SessionId);
+        payload.GetProperty("newSessionId").GetInt32().Should().BeGreaterThan(0);
+        payload.GetProperty("newJoinCode").GetString().Should().Be("REMAT2");
     }
 }

@@ -24,6 +24,34 @@ import 'package:xact_frontend/widgets/team/team_data.dart';
 import 'package:xact_frontend/widgets/team/team_overview_card.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
+/// Switches session state to the freshly created rematch lobby and opens it,
+/// replacing the current screen. Shared by the game and end-match screens so
+/// every client migrates the same way the instant the host starts a rematch.
+void openRematchLobby(
+  BuildContext context, {
+  required int sessionId,
+  required String joinCode,
+  required String sessionName,
+  required int hostUserId,
+}) {
+  final currentUserId = AppSession.instance.currentUserId;
+  // Point session state at the new lobby and drop the finished session's
+  // membership; the lobby re-resolves the player's new membership on load.
+  AppSession.instance.setSession(sessionId: sessionId, joinCode: joinCode);
+  AppSession.instance.clearMembership();
+
+  Navigator.of(context).pushReplacement(
+    MaterialPageRoute(
+      builder: (_) => GameLobbyScreen(
+        sessionId: sessionId,
+        gameCode: joinCode,
+        gameName: sessionName,
+        isLeader: currentUserId != null && currentUserId == hostUserId,
+      ),
+    ),
+  );
+}
+
 class GameLobbyScreen extends StatefulWidget {
   final int sessionId;
   final String gameCode;

@@ -616,9 +616,11 @@ final class RealtimeEvents {
   static const String teamMemberUpdated = 'team_member_updated';
   static const String teamMemberLeft = 'team_member_left';
   static const String gameSessionStarted = 'game_session_started';
+  static const String gameSessionEnded = 'game_session_ended';
   static const String locationLogRecorded = 'location_log_recorded';
   static const String mrXCaught = 'mr_x_caught';
   static const String chatMessagePosted = 'chat_message_posted';
+  static const String rematchCreated = 'rematch_created';
 }
 
 final class RealtimeEventEnvelope {
@@ -1120,6 +1122,61 @@ final class GameSessionStartedPayload {
       },
       startTime: tryParseIsoDateTime(json['startTime']),
       endTime: tryParseIsoDateTime(json['endTime']),
+    );
+  }
+}
+
+final class GameSessionEndedPayload {
+  final int sessionId;
+  final SessionStatus? status;
+  final DateTime? startTime;
+  final DateTime? endTime;
+
+  const GameSessionEndedPayload({
+    required this.sessionId,
+    required this.status,
+    required this.startTime,
+    required this.endTime,
+  });
+
+  factory GameSessionEndedPayload.fromJson(Map<String, dynamic> json) {
+    return GameSessionEndedPayload(
+      sessionId: _readInt(json, ['sessionId']),
+      status: switch (json['status']) {
+        final String s => tryParseSessionStatus(s),
+        _ => null,
+      },
+      startTime: tryParseIsoDateTime(json['startTime']),
+      endTime: tryParseIsoDateTime(json['endTime']),
+    );
+  }
+}
+
+/// Realtime `rematch_created` payload. Broadcast on the finished session's
+/// channel so every still-connected client can migrate into the fresh lobby
+/// identified by [newSessionId] / [newJoinCode].
+final class RematchCreatedPayload {
+  final int finishedSessionId;
+  final int newSessionId;
+  final String newJoinCode;
+  final String sessionName;
+  final int hostUserId;
+
+  const RematchCreatedPayload({
+    required this.finishedSessionId,
+    required this.newSessionId,
+    required this.newJoinCode,
+    required this.sessionName,
+    required this.hostUserId,
+  });
+
+  factory RematchCreatedPayload.fromJson(Map<String, dynamic> json) {
+    return RematchCreatedPayload(
+      finishedSessionId: _readInt(json, ['finishedSessionId']),
+      newSessionId: _readInt(json, ['newSessionId']),
+      newJoinCode: (json['newJoinCode'] as String?) ?? '',
+      sessionName: (json['sessionName'] as String?) ?? 'Session',
+      hostUserId: _readInt(json, ['hostUserId']),
     );
   }
 }
