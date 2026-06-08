@@ -18,6 +18,9 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
     public DbSet<LocationLog> LocationLogs { get; set; }
     public DbSet<PowerUpUsage> PowerUpUsages { get; set; }
     public DbSet<ChatMessage> ChatMessages { get; set; }
+    public DbSet<KickVote> KickVotes { get; set; }
+    public DbSet<KickVoteBallot> KickVoteBallots { get; set; }
+    public DbSet<Offense> Offenses { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +37,9 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         modelBuilder.Entity<LocationLog>(ConfigureLocationLog);
         modelBuilder.Entity<PowerUpUsage>(ConfigurePowerUpUsage);
         modelBuilder.Entity<ChatMessage>(ConfigureChatMessage);
+        modelBuilder.Entity<KickVote>(ConfigureKickVote);
+        modelBuilder.Entity<KickVoteBallot>(ConfigureKickVoteBallot);
+        modelBuilder.Entity<Offense>(ConfigureOffense);
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -47,6 +53,9 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         configurationBuilder.Properties<TeamRole>().HaveConversion<string>();
         configurationBuilder.Properties<TransportMode>().HaveConversion<string>();
         configurationBuilder.Properties<PowerUpType>().HaveConversion<string>();
+        configurationBuilder.Properties<KickVoteStatus>().HaveConversion<string>();
+        configurationBuilder.Properties<OffenseType>().HaveConversion<string>();
+        configurationBuilder.Properties<OffenseStatus>().HaveConversion<string>();
     }
 
     private static void ConfigureUser(EntityTypeBuilder<User> user)
@@ -186,5 +195,68 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         chatMessage
             .HasIndex(e => new { e.SessionId, e.TeamId, e.SentAt, e.Id })
             .IsDescending(false, false, true, true);
+    }
+
+    private static void ConfigureKickVote(EntityTypeBuilder<KickVote> kickVote)
+    {
+        kickVote.Property(e => e.Reason).HasMaxLength(KickVote.MaxReasonLength);
+
+        kickVote
+            .HasOne(e => e.Session)
+            .WithMany()
+            .HasForeignKey(e => e.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
+        kickVote
+            .HasOne(e => e.TargetMember)
+            .WithMany()
+            .HasForeignKey(e => e.TargetMemberId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        kickVote
+            .HasOne(e => e.InitiatorMember)
+            .WithMany()
+            .HasForeignKey(e => e.InitiatorMemberId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        kickVote.HasIndex(e => new { e.SessionId, e.Status });
+    }
+
+    private static void ConfigureKickVoteBallot(EntityTypeBuilder<KickVoteBallot> ballot)
+    {
+        ballot
+            .HasOne(e => e.KickVote)
+            .WithMany(v => v.Ballots)
+            .HasForeignKey(e => e.KickVoteId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        ballot
+            .HasOne(e => e.Voter)
+            .WithMany()
+            .HasForeignKey(e => e.VoterMemberId)
+            .OnDelete(DeleteBehavior.SetNull)
+            .IsRequired(false);
+
+        ballot.HasIndex(e => new { e.KickVoteId, e.VoterMemberId }).IsUnique();
+    }
+
+    private static void ConfigureOffense(EntityTypeBuilder<Offense> offense)
+    {
+        offense
+            .HasOne(e => e.Session)
+            .WithMany()
+            .HasForeignKey(e => e.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        offense
+            .HasOne(e => e.Member)
+            .WithMany()
+            .HasForeignKey(e => e.MemberId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        offense.HasIndex(e => new { e.SessionId, e.Status });
+        offense.HasIndex(e => new { e.MemberId, e.Type, e.Status });
     }
 }

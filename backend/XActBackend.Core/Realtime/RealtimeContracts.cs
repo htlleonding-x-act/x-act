@@ -1,4 +1,5 @@
-﻿using XActBackend.Persistence.Model;
+﻿using XActBackend.Core.Services;
+using XActBackend.Persistence.Model;
 
 namespace XActBackend.Core.Realtime;
 
@@ -22,6 +23,21 @@ public static class RealtimeEvents
     public const string MrXCaught = "mr_x_caught";
     public const string ChatMessagePosted = "chat_message_posted";
     public const string RematchCreated = "rematch_created";
+    public const string KickVoteStarted = "kick_vote_started";
+    public const string KickVoteUpdated = "kick_vote_updated";
+    public const string KickVoteResolved = "kick_vote_resolved";
+    public const string MemberKicked = "member_kicked";
+    public const string MemberOffenseRaised = "member_offense_raised";
+    public const string MemberOffenseCleared = "member_offense_cleared";
+}
+
+public static class KickReasons
+{
+    /// <summary>The member was removed because a kick vote passed.</summary>
+    public const string Vote = "vote";
+
+    /// <summary>The member was removed by the host using sudo powers.</summary>
+    public const string Host = "host";
 }
 
 public static class RealtimeGroups
@@ -44,7 +60,9 @@ public sealed record GameSessionSnapshot(
     int MrXRevealInterval,
     IReadOnlyList<SnapshotTeamDto> Teams,
     IReadOnlyList<SnapshotTeamMemberDto> Members,
-    IReadOnlyList<SnapshotLatestLocationDto> LatestLocations
+    IReadOnlyList<SnapshotLatestLocationDto> LatestLocations,
+    KickVotePayload? OpenKickVote,
+    IReadOnlyList<MemberOffensePayload> ActiveOffenses
 );
 
 public sealed record SnapshotTeamDto(
@@ -193,3 +211,79 @@ public sealed record RematchCreatedPayload(
     string SessionName,
     int HostUserId
 );
+
+/// <summary>
+///     A kick vote and its current tally. Doubles as the REST payload (open vote and action
+///     responses) and the realtime payload for the started/updated/resolved events.
+/// </summary>
+public sealed record KickVotePayload(
+    int VoteId,
+    int SessionId,
+    int? TargetMemberId,
+    string TargetName,
+    int? InitiatorMemberId,
+    string InitiatorName,
+    string? Reason,
+    KickVoteStatus Status,
+    int ApproveCount,
+    int RejectCount,
+    int EligibleVoterCount,
+    Instant CreatedAt,
+    Instant ExpiresAt,
+    Instant? ResolvedAt
+)
+{
+    public static KickVotePayload FromView(IReportService.KickVoteView view) =>
+        new(
+            view.VoteId,
+            view.SessionId,
+            view.TargetMemberId,
+            view.TargetName,
+            view.InitiatorMemberId,
+            view.InitiatorName,
+            view.Reason,
+            view.Status,
+            view.ApproveCount,
+            view.RejectCount,
+            view.EligibleVoterCount,
+            view.CreatedAt,
+            view.ExpiresAt,
+            view.ResolvedAt);
+}
+
+public sealed record MemberKickedPayload(
+    int SessionId,
+    int TeamId,
+    int MemberId,
+    int? UserId,
+    string? GuestName,
+    string MemberName,
+    string KickType,
+    string? Reason,
+    Instant KickedAt
+);
+
+/// <summary>
+///     An automatically detected offense. Doubles as the REST payload (active offense list) and the
+///     realtime payload for the raised/cleared events.
+/// </summary>
+public sealed record MemberOffensePayload(
+    int OffenseId,
+    int SessionId,
+    int MemberId,
+    OffenseType Type,
+    OffenseStatus Status,
+    Instant DetectedAt,
+    Instant? ClearedAt
+)
+{
+    public static MemberOffensePayload FromOffense(Offense offense) =>
+        new(
+            offense.Id,
+            offense.SessionId,
+            offense.MemberId,
+            offense.Type,
+            offense.Status,
+            offense.DetectedAt,
+            offense.ClearedAt);
+}

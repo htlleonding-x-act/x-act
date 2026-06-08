@@ -22,13 +22,21 @@ public interface IGameSessionRealtimePublisher
     public ValueTask PublishMrXCaughtAsync(Team newMrXTeam, Team formerMrXTeam);
     public ValueTask PublishChatMessageAsync(ChatMessage message);
     public ValueTask PublishRematchCreatedAsync(int finishedSessionId, GameSession newSession);
+    public ValueTask PublishKickVoteStartedAsync(KickVotePayload payload);
+    public ValueTask PublishKickVoteUpdatedAsync(KickVotePayload payload);
+    public ValueTask PublishKickVoteResolvedAsync(KickVotePayload payload);
+    public ValueTask PublishMemberKickedAsync(MemberKickedPayload payload);
+    public ValueTask PublishMemberOffenseRaisedAsync(MemberOffensePayload payload);
+    public ValueTask PublishMemberOffenseClearedAsync(MemberOffensePayload payload);
 }
 
 internal sealed class GameSessionSnapshotService(
     IGameSessionService gameSessionService,
     ITeamService teamService,
     ITeamMemberService teamMemberService,
-    ILocationLogService locationLogService) : IGameSessionSnapshotService
+    ILocationLogService locationLogService,
+    IReportService reportService,
+    IOffenseService offenseService) : IGameSessionSnapshotService
 {
     public async ValueTask<GameSessionSnapshot?> BuildSnapshotAsync(int sessionId)
     {
@@ -54,6 +62,11 @@ internal sealed class GameSessionSnapshotService(
         }
 
         IReadOnlyCollection<LocationLog> locationLogs = await locationLogService.GetLogsBySessionIdAsync(sessionId, tracking: false);
+
+        IReportService.KickVoteView? openVoteView = await reportService.GetOpenVoteAsync(sessionId);
+        KickVotePayload? openKickVote = openVoteView is null ? null : KickVotePayload.FromView(openVoteView);
+
+        IReadOnlyCollection<Offense> activeOffenses = await offenseService.GetActiveOffensesBySessionAsync(sessionId, tracking: false);
 
         var teamRoleByTeamId = teams.ToDictionary(team => team.Id, team => team.Role);
         var isMisterXMemberById = members.ToDictionary(
@@ -89,6 +102,9 @@ internal sealed class GameSessionSnapshotService(
                     log.IsRevealedPosition))
         ];
 
+        IReadOnlyList<MemberOffensePayload> activeOffensePayloads =
+            [.. activeOffenses.Select(MemberOffensePayload.FromOffense)];
+
         return new GameSessionSnapshot(
             gameSession.Id,
             gameSession.SessionName,
@@ -116,6 +132,8 @@ internal sealed class GameSessionSnapshotService(
                 member.CurrentLongitude,
                 member.LastUpdated,
                 member.JoinedAt))],
-            [.. latestLocations]);
+            [.. latestLocations],
+            openKickVote,
+            activeOffensePayloads);
     }
 }

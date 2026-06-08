@@ -22,6 +22,13 @@ public static class DomainErrorCodes
     public const string PowerUpNotAllowedForTeamRole = "power_up_not_allowed_for_team_role";
     public const string GeofencePointLimitReached = "geofence_point_limit_reached";
     public const string ChatNotTeamMember = "chat_not_team_member";
+    public const string ReportTargetIsHost = "report_target_is_host";
+    public const string ReportTargetIsSelf = "report_target_is_self";
+    public const string ReportVoteAlreadyActive = "report_vote_already_active";
+    public const string ReportAlreadyVoted = "report_already_voted";
+    public const string ReportVoteNotOpen = "report_vote_not_open";
+    public const string ReportNotHost = "report_not_host";
+    public const string ReportCancelNotAllowed = "report_cancel_not_allowed";
 }
 
 public sealed record DomainError(string Code, string Message)
@@ -88,4 +95,26 @@ public sealed record DomainError(string Code, string Message)
     public static DomainError ChatNotTeamMember(int memberId, int teamId) =>
         new(DomainErrorCodes.ChatNotTeamMember,
             $"Member {memberId} is not part of team {teamId} and cannot post to its chat channel.");
+
+    public static DomainError ReportTargetIsHost(int memberId) =>
+        new(DomainErrorCodes.ReportTargetIsHost, $"Member {memberId} is the host and cannot be kicked.");
+
+    public static DomainError ReportTargetIsSelf(int memberId) =>
+        new(DomainErrorCodes.ReportTargetIsSelf, $"Member {memberId} cannot start a kick vote against themselves.");
+
+    public static DomainError ReportVoteAlreadyActive(int sessionId) =>
+        new(DomainErrorCodes.ReportVoteAlreadyActive, $"Session {sessionId} already has an open kick vote.");
+
+    public static DomainError ReportAlreadyVoted(int memberId, int voteId) =>
+        new(DomainErrorCodes.ReportAlreadyVoted, $"Member {memberId} has already voted in kick vote {voteId}.");
+
+    public static DomainError ReportVoteNotOpen(int voteId) =>
+        new(DomainErrorCodes.ReportVoteNotOpen, $"Kick vote {voteId} is no longer open.");
+
+    public static DomainError ReportNotHost(int memberId) =>
+        new(DomainErrorCodes.ReportNotHost, $"Member {memberId} is not the host and cannot use host powers.");
+
+    public static DomainError ReportCancelNotAllowed(int memberId, int voteId) =>
+        new(DomainErrorCodes.ReportCancelNotAllowed,
+            $"Member {memberId} may not cancel kick vote {voteId}; only the initiator or the host can.");
 }

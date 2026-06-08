@@ -33,6 +33,13 @@ public abstract class BaseController : ControllerBase
             DomainErrorCodes.PowerUpNotAllowedForTeamRole => StatusCodes.Status409Conflict,
             DomainErrorCodes.GeofencePointLimitReached => StatusCodes.Status422UnprocessableEntity,
             DomainErrorCodes.ChatNotTeamMember => StatusCodes.Status403Forbidden,
+            DomainErrorCodes.ReportTargetIsHost => StatusCodes.Status403Forbidden,
+            DomainErrorCodes.ReportTargetIsSelf => StatusCodes.Status400BadRequest,
+            DomainErrorCodes.ReportVoteAlreadyActive => StatusCodes.Status409Conflict,
+            DomainErrorCodes.ReportAlreadyVoted => StatusCodes.Status409Conflict,
+            DomainErrorCodes.ReportVoteNotOpen => StatusCodes.Status409Conflict,
+            DomainErrorCodes.ReportNotHost => StatusCodes.Status403Forbidden,
+            DomainErrorCodes.ReportCancelNotAllowed => StatusCodes.Status403Forbidden,
             _ => StatusCodes.Status400BadRequest,
         };
 

@@ -158,6 +158,24 @@ internal sealed class GameSessionRealtimePublisher(
                 newSession.SessionName,
                 newSession.HostUserId));
 
+    public ValueTask PublishKickVoteStartedAsync(KickVotePayload payload) =>
+        PublishToSessionAsync(payload.SessionId, RealtimeEvents.KickVoteStarted, payload);
+
+    public ValueTask PublishKickVoteUpdatedAsync(KickVotePayload payload) =>
+        PublishToSessionAsync(payload.SessionId, RealtimeEvents.KickVoteUpdated, payload);
+
+    public ValueTask PublishKickVoteResolvedAsync(KickVotePayload payload) =>
+        PublishToSessionAsync(payload.SessionId, RealtimeEvents.KickVoteResolved, payload);
+
+    public ValueTask PublishMemberKickedAsync(MemberKickedPayload payload) =>
+        PublishToSessionAsync(payload.SessionId, RealtimeEvents.MemberKicked, payload);
+
+    public ValueTask PublishMemberOffenseRaisedAsync(MemberOffensePayload payload) =>
+        PublishToSessionAsync(payload.SessionId, RealtimeEvents.MemberOffenseRaised, payload);
+
+    public ValueTask PublishMemberOffenseClearedAsync(MemberOffensePayload payload) =>
+        PublishToSessionAsync(payload.SessionId, RealtimeEvents.MemberOffenseCleared, payload);
+
     private ValueTask PublishToSessionAsync(int sessionId, string eventType, object payload) =>
         PublishToGroupAsync(RealtimeGroups.Session(sessionId), sessionId, eventType, payload);
 
