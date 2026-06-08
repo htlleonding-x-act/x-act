@@ -7,7 +7,7 @@ import '../api/api_service.dart';
 import '../api/models.dart';
 import 'app_session.dart';
 
-/// Notification channel identifiers for Android system notifications.
+/// Notification identifiers for per-chat Android system notifications.
 class _NotificationIds {
   static const int allChat = 90001;
   static const int teamChat = 90002;
