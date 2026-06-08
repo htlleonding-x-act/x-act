@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
+import 'package:xact_frontend/screens/team/team_lobby.dart';
+import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class EndMatchScreen extends StatefulWidget {
@@ -22,13 +26,22 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
 
   bool _loading = true;
   bool _working = false;
+  bool _migrating = false;
   GameSessionDetails? _sessionDetails;
   LobbySnapshot? _snapshot;
+  StreamSubscription<RealtimeEventEnvelope>? _rematchSub;
 
   @override
   void initState() {
     super.initState();
     _loadSummary();
+    _initRematchListener();
+  }
+
+  @override
+  void dispose() {
+    _rematchSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadSummary() async {
@@ -52,6 +65,92 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  bool get _isHost {
+    final hostUserId = _sessionDetails?.hostUserId;
+    final currentUserId = AppSession.instance.currentUserId;
+    return hostUserId != null && currentUserId == hostUserId;
+  }
+
+  /// Keep listening on the finished session's channel so that when the host
+  /// starts a rematch, every client (host included) migrates into the new lobby.
+  Future<void> _initRematchListener() async {
+    try {
+      await ApiService.instance.ensureRealtimeSessionSubscription(
+        widget.sessionId,
+      );
+    } catch (_) {
+      // The subscription normally persists from the lobby; the listener below
+      // still works if it is already in place.
+    }
+
+    _rematchSub = ApiService.instance.realtimeEvents.listen((event) {
+      if (event.type == RealtimeEvents.rematchCreated) {
+        final payload = RematchCreatedPayload.fromJson(event.payload);
+        if (payload.finishedSessionId == widget.sessionId) {
+          _navigateToRematch(
+            sessionId: payload.newSessionId,
+            joinCode: payload.newJoinCode,
+            sessionName: payload.sessionName,
+            hostUserId: payload.hostUserId,
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _startRematch() async {
+    setState(() => _working = true);
+    try {
+      final rematch = await ApiService.instance.createRematch(widget.sessionId);
+      // Navigate straight from the response; other clients follow via the
+      // broadcast. The guard in _navigateToRematch prevents a double push when
+      // the host receives its own broadcast.
+      _navigateToRematch(
+        sessionId: rematch.sessionId,
+        joinCode: rematch.joinCode,
+        sessionName: rematch.sessionName,
+        hostUserId: rematch.hostUserId,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _working = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not start a new lobby: $error')),
+      );
+    }
+  }
+
+  void _navigateToRematch({
+    required int sessionId,
+    required String joinCode,
+    required String sessionName,
+    required int hostUserId,
+  }) {
+    if (_migrating || !mounted) {
+      return;
+    }
+    _migrating = true;
+
+    final currentUserId = AppSession.instance.currentUserId;
+    // Point the session state at the new lobby and drop the finished session's
+    // membership; the lobby re-resolves the player's new membership on load.
+    AppSession.instance.setSession(sessionId: sessionId, joinCode: joinCode);
+    AppSession.instance.clearMembership();
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => GameLobbyScreen(
+          sessionId: sessionId,
+          gameCode: joinCode,
+          gameName: sessionName,
+          isLeader: currentUserId != null && currentUserId == hostUserId,
+        ),
+      ),
+    );
   }
 
   String? get _winnerTeamName {
@@ -489,10 +588,28 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
                   ),
                 ),
               ],
+              if (_isHost) ...[
+                XActBranding.buildSecondaryButton(
+                  text: 'Back to the Lobby',
+                  icon: Icons.meeting_room_rounded,
+                  onPressed: (_working || _migrating) ? null : _startRematch,
+                  height: 54,
+                ),
+                const SizedBox(height: XActSpace.s3),
+              ] else if (!_loading) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: XActSpace.s3),
+                  child: Text(
+                    'Waiting for the host to start a new lobby…',
+                    textAlign: TextAlign.center,
+                    style: XActText.caption.copyWith(color: XActColors.text4),
+                  ),
+                ),
+              ],
               XActBranding.buildGhostButton(
                 text: 'Leave Lobby',
                 icon: Icons.logout_rounded,
-                onPressed: _working ? null : _leaveLobby,
+                onPressed: (_working || _migrating) ? null : _leaveLobby,
                 height: 54,
               ),
             ],
