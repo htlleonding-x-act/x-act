@@ -15,11 +15,10 @@ class EndMatchScreen extends StatefulWidget {
   State<EndMatchScreen> createState() => _EndMatchScreenState();
 }
 
-class _EndMatchScreenState extends State<EndMatchScreen>
-    with SingleTickerProviderStateMixin {
-  static const double _tabContentPaddingTop = XActSpace.s4;
-  static const double _tabContentPaddingBottom = XActSpace.s6;
-  static const double _tabSectionGap = XActSpace.s4;
+class _EndMatchScreenState extends State<EndMatchScreen> {
+  static const double _pagePaddingTop = XActSpace.s2;
+  static const double _pagePaddingBottom = XActSpace.s6;
+  static const double _sectionGap = XActSpace.s4;
   static const double _bubbleGridGap = XActSpace.s3;
   static const double _bubbleGridWideBreakpoint = 720;
 
@@ -27,19 +26,11 @@ class _EndMatchScreenState extends State<EndMatchScreen>
   bool _working = false;
   GameSessionDetails? _sessionDetails;
   LobbySnapshot? _snapshot;
-  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _loadSummary();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadSummary() async {
@@ -307,31 +298,12 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                             showBack: false,
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            XActSpace.s4,
-                            XActSpace.s2,
-                            XActSpace.s4,
-                            XActSpace.s4,
-                          ),
-                          child: _buildHeaderCard(),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: XActSpace.s4,
-                          ),
-                          child: _buildTabBar(),
-                        ),
-                        const SizedBox(height: XActSpace.s3),
                         Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _buildOverviewTab(),
-                              _buildTeamsTab(),
-                              _buildSessionTab(),
-                            ],
-                          ),
+                          child: _loading
+                              ? const Center(
+                                  child: CircularProgressIndicator(),
+                                )
+                              : _buildSummaryBody(),
                         ),
                         _buildActionArea(),
                       ],
@@ -343,6 +315,28 @@ class _EndMatchScreenState extends State<EndMatchScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSummaryBody() {
+    final sections = <Widget>[
+      _buildHeaderCard(),
+      ..._buildOverviewSections(),
+      _buildTeamsSection(),
+      ..._buildSessionSections(),
+    ];
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        XActSpace.s4,
+        _pagePaddingTop,
+        XActSpace.s4,
+        _pagePaddingBottom,
+      ),
+      itemCount: sections.length,
+      separatorBuilder: (context, index) =>
+          const SizedBox(height: _sectionGap),
+      itemBuilder: (context, index) => sections[index],
     );
   }
 
@@ -387,176 +381,112 @@ class _EndMatchScreenState extends State<EndMatchScreen>
             ],
           ),
           const SizedBox(height: XActSpace.s4),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: XActSpace.s4),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Winner',
-                    value: _winnerTeamName ?? 'Not available',
-                    accent: _roleColor(TeamRole.mrX),
-                  ),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniStatCard(
+                  label: 'Winner',
+                  value: _winnerTeamName ?? 'Not available',
+                  accent: _roleColor(TeamRole.mrX),
                 ),
-                const SizedBox(width: XActSpace.s3),
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Duration',
-                    value: _matchDurationText ?? 'Not available',
-                    accent: XActColors.secondary,
-                  ),
+              ),
+              const SizedBox(width: XActSpace.s3),
+              Expanded(
+                child: _MiniStatCard(
+                  label: 'Duration',
+                  value: _matchDurationText ?? 'Not available',
+                  accent: XActColors.secondary,
                 ),
-              ],
-            ),
-            const SizedBox(height: XActSpace.s3),
-            Row(
-              children: [
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Teams',
-                    value: '$_teamCount',
-                    accent: XActColors.success,
-                  ),
-                ),
-                const SizedBox(width: XActSpace.s3),
-                Expanded(
-                  child: _MiniStatCard(
-                    label: 'Players',
-                    value: '$_playerCount',
-                    accent: XActColors.warning,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: XActSpace.s3),
-            _DetailRow(
-              label: 'Status',
-              value: _sessionDetails?.status == SessionStatus.finished
-                  ? 'Finished'
-                  : 'Summary loaded',
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabBar() {
-    return Container(
-      padding: const EdgeInsets.all(XActSpace.s1),
-      decoration: BoxDecoration(
-        color: XActColors.surface,
-        borderRadius: XActRadius.lg,
-        border: Border.all(color: XActColors.hairlineSoft),
-        boxShadow: XActElevation.e1,
-      ),
-      child: TabBar(
-        controller: _tabController,
-        isScrollable: false,
-        indicatorSize: TabBarIndicatorSize.tab,
-        labelPadding: const EdgeInsets.symmetric(
-          horizontal: XActSpace.s3,
-          vertical: XActSpace.s2,
-        ),
-        indicatorPadding: const EdgeInsets.all(2),
-        labelColor: Colors.white,
-        unselectedLabelColor: XActColors.text3,
-        indicator: BoxDecoration(
-          borderRadius: XActRadius.md,
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [XActColors.secondaryLight, XActColors.secondaryDark],
+              ),
+            ],
           ),
-        ),
-        dividerColor: Colors.transparent,
-        labelStyle: XActText.bodySm.copyWith(fontWeight: FontWeight.w700),
-        unselectedLabelStyle: XActText.bodySm.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-        tabs: const [
-          Tab(text: 'Overview'),
-          Tab(text: 'Teams'),
-          Tab(text: 'Session'),
+          const SizedBox(height: XActSpace.s3),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniStatCard(
+                  label: 'Teams',
+                  value: '$_teamCount',
+                  accent: XActColors.success,
+                ),
+              ),
+              const SizedBox(width: XActSpace.s3),
+              Expanded(
+                child: _MiniStatCard(
+                  label: 'Players',
+                  value: '$_playerCount',
+                  accent: XActColors.warning,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: XActSpace.s3),
+          _DetailRow(
+            label: 'Status',
+            value: _sessionDetails?.status == SessionStatus.finished
+                ? 'Finished'
+                : 'Summary loaded',
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildOverviewTab() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
+  List<Widget> _buildOverviewSections() {
     final snapshot = _snapshot;
     final details = _sessionDetails;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        XActSpace.s4,
-        _tabContentPaddingTop,
-        XActSpace.s4,
-        _tabContentPaddingBottom,
+    return [
+      _SectionCard(
+        title: 'Result snapshot',
+        subtitle: 'A compact recap using the current session data.',
+        child: _buildDetailBubbleGrid(
+          children: [
+            _DetailRow(
+              label: 'Winning Team',
+              value: _winnerTeamName ?? 'Not available',
+            ),
+            _DetailRow(
+              label: 'Match Duration',
+              value: _matchDurationText ?? 'Not available',
+            ),
+            _DetailRow(
+              label: 'Planned Duration',
+              value: '${details?.plannedDurationMinutes ?? 0} min',
+            ),
+            _DetailRow(
+              label: 'Reveal Interval',
+              value: '${details?.mrXRevealInterval ?? 0} min',
+            ),
+          ],
+        ),
       ),
-      children: [
-        _SectionCard(
-          title: 'Result snapshot',
-          subtitle: 'A compact recap using the current session data.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Winning Team',
-                value: _winnerTeamName ?? 'Not available',
-              ),
-              _DetailRow(
-                label: 'Match Duration',
-                value: _matchDurationText ?? 'Not available',
-              ),
-              _DetailRow(
-                label: 'Planned Duration',
-                value: '${details?.plannedDurationMinutes ?? 0} min',
-              ),
-              _DetailRow(
-                label: 'Reveal Interval',
-                value: '${details?.mrXRevealInterval ?? 0} min',
-              ),
-            ],
-          ),
+      _SectionCard(
+        title: 'Status summary',
+        subtitle: 'Useful end-of-match signals from the backend.',
+        child: _buildDetailBubbleGrid(
+          children: [
+            _DetailRow(
+              label: 'Session Status',
+              value: _sessionDetails?.status?.name ?? 'Unknown',
+            ),
+            _DetailRow(label: 'Players in Session', value: '$_playerCount'),
+            _DetailRow(
+              label: 'Latest Location Points',
+              value: '${snapshot?.latestLocations.length ?? 0}',
+            ),
+          ],
         ),
-        const SizedBox(height: _tabSectionGap),
-        _SectionCard(
-          title: 'Status summary',
-          subtitle: 'Useful end-of-match signals from the backend.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Session Status',
-                value: _sessionDetails?.status?.name ?? 'Unknown',
-              ),
-              _DetailRow(label: 'Players in Session', value: '$_playerCount'),
-              _DetailRow(
-                label: 'Latest Location Points',
-                value: '${snapshot?.latestLocations.length ?? 0}',
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+      ),
+    ];
   }
 
-  Widget _buildTeamsTab() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
+  Widget _buildTeamsSection() {
     final teams = _playableTeams;
     if (teams.isEmpty) {
-      return Center(
+      return _SectionCard(
+        title: 'Teams',
+        subtitle: 'Final standings for every playable team.',
         child: Text(
           'No team data available',
           style: XActText.bodySm.copyWith(color: XActColors.text3),
@@ -564,135 +494,116 @@ class _EndMatchScreenState extends State<EndMatchScreen>
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        XActSpace.s4,
-        _tabContentPaddingTop,
-        XActSpace.s4,
-        _tabContentPaddingBottom,
-      ),
-      itemCount: teams.length,
-      separatorBuilder: (context, index) =>
-          const SizedBox(height: _tabSectionGap),
-      itemBuilder: (context, index) {
-        final team = teams[index];
-        final members = _snapshot!.membersByTeamId[team.teamId] ?? const [];
-
-        return _SectionCard(
-          title: team.teamName,
-          subtitle: _roleLabel(team.role),
-          leadingColor: _roleColor(team.role),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: _bubbleGridGap,
-                runSpacing: _bubbleGridGap,
-                children: [
-                  _TagChip(
-                    text: team.isCaught ? 'Caught' : 'Active',
-                    color: team.isCaught
-                        ? XActColors.primary
-                        : XActColors.success,
-                  ),
-                  _TagChip(
-                    text: '${members.length} players',
-                    color: XActColors.secondary,
-                  ),
-                ],
-              ),
-              if (members.isNotEmpty) ...[
-                const SizedBox(height: XActSpace.s3),
-                Wrap(
-                  spacing: XActSpace.s2,
-                  runSpacing: XActSpace.s2,
-                  children: [
-                    for (final member in members)
-                      _TagChip(
-                        text: _memberLabel(member),
-                        color: member.isTeamLeader
-                            ? XActColors.warning
-                            : XActColors.text4,
-                      ),
-                  ],
-                ),
-              ] else ...[
-                const SizedBox(height: XActSpace.s3),
-                Text(
-                  'No players assigned to this team.',
-                  style: XActText.caption.copyWith(color: XActColors.text4),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+    return Column(
+      children: [
+        for (var index = 0; index < teams.length; index++) ...[
+          if (index > 0) const SizedBox(height: _sectionGap),
+          _buildTeamCard(teams[index]),
+        ],
+      ],
     );
   }
 
-  Widget _buildSessionTab() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Widget _buildTeamCard(TeamDetails team) {
+    final members = _snapshot!.membersByTeamId[team.teamId] ?? const [];
 
-    final details = _sessionDetails;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        XActSpace.s4,
-        _tabContentPaddingTop,
-        XActSpace.s4,
-        _tabContentPaddingBottom,
+    return _SectionCard(
+      title: team.teamName,
+      subtitle: _roleLabel(team.role),
+      leadingColor: _roleColor(team.role),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: _bubbleGridGap,
+            runSpacing: _bubbleGridGap,
+            children: [
+              _TagChip(
+                text: team.isCaught ? 'Caught' : 'Active',
+                color: team.isCaught ? XActColors.primary : XActColors.success,
+              ),
+              _TagChip(
+                text: '${members.length} players',
+                color: XActColors.secondary,
+              ),
+            ],
+          ),
+          if (members.isNotEmpty) ...[
+            const SizedBox(height: XActSpace.s3),
+            Wrap(
+              spacing: XActSpace.s2,
+              runSpacing: XActSpace.s2,
+              children: [
+                for (final member in members)
+                  _TagChip(
+                    text: _memberLabel(member),
+                    color: member.isTeamLeader
+                        ? XActColors.warning
+                        : XActColors.text4,
+                  ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: XActSpace.s3),
+            Text(
+              'No players assigned to this team.',
+              style: XActText.caption.copyWith(color: XActColors.text4),
+            ),
+          ],
+        ],
       ),
-      children: [
-        _SectionCard(
-          title: 'Match timing',
-          subtitle:
-              'The backend only provides the session timing fields below.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Session Name',
-                value: details?.sessionName ?? 'Not available',
-              ),
-              _DetailRow(
-                label: 'Session ID',
-                value: '${details?.sessionId ?? widget.sessionId}',
-              ),
-              _DetailRow(
-                label: 'Start Time',
-                value: _formatDateTime(details?.startTime),
-              ),
-              _DetailRow(
-                label: 'End Time',
-                value: _formatDateTime(details?.endTime),
-              ),
-              _DetailRow(
-                label: 'Match Duration',
-                value: _matchDurationText ?? 'Not available',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: _tabSectionGap),
-        _SectionCard(
-          title: 'Match configuration',
-          subtitle: 'Useful settings already known at end of play.',
-          child: _buildDetailBubbleGrid(
-            children: [
-              _DetailRow(
-                label: 'Planned Duration',
-                value: '${details?.plannedDurationMinutes ?? 0} min',
-              ),
-              _DetailRow(
-                label: 'Reveal Interval',
-                value: '${details?.mrXRevealInterval ?? 0} min',
-              ),
-              _DetailRow(label: 'Caught Teams', value: '$_caughtTeamCount'),
-            ],
-          ),
-        ),
-      ],
     );
+  }
+
+  List<Widget> _buildSessionSections() {
+    final details = _sessionDetails;
+    return [
+      _SectionCard(
+        title: 'Match timing',
+        subtitle: 'The backend only provides the session timing fields below.',
+        child: _buildDetailBubbleGrid(
+          children: [
+            _DetailRow(
+              label: 'Session Name',
+              value: details?.sessionName ?? 'Not available',
+            ),
+            _DetailRow(
+              label: 'Session ID',
+              value: '${details?.sessionId ?? widget.sessionId}',
+            ),
+            _DetailRow(
+              label: 'Start Time',
+              value: _formatDateTime(details?.startTime),
+            ),
+            _DetailRow(
+              label: 'End Time',
+              value: _formatDateTime(details?.endTime),
+            ),
+            _DetailRow(
+              label: 'Match Duration',
+              value: _matchDurationText ?? 'Not available',
+            ),
+          ],
+        ),
+      ),
+      _SectionCard(
+        title: 'Match configuration',
+        subtitle: 'Useful settings already known at end of play.',
+        child: _buildDetailBubbleGrid(
+          children: [
+            _DetailRow(
+              label: 'Planned Duration',
+              value: '${details?.plannedDurationMinutes ?? 0} min',
+            ),
+            _DetailRow(
+              label: 'Reveal Interval',
+              value: '${details?.mrXRevealInterval ?? 0} min',
+            ),
+            _DetailRow(label: 'Caught Teams', value: '$_caughtTeamCount'),
+          ],
+        ),
+      ),
+    ];
   }
 
   Widget _buildDetailBubbleGrid({required List<Widget> children}) {
