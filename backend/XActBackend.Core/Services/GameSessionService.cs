@@ -81,6 +81,15 @@ public interface IGameSessionService
     public ValueTask<OneOf<MrXCaughtResult, NotFound, DomainError>> CatchMrXAsync(int sessionId, int catchingTeamId);
 
     /// <summary>
+    ///     Create a fresh waiting session that copies the teams, members, geofence area and
+    ///     settings of a finished session. The finished session is left untouched as history.
+    /// </summary>
+    /// <param name="finishedSessionId">The id of the finished session to base the rematch on</param>
+    /// <param name="newJoinCode">The unique join code to assign to the new session</param>
+    /// <returns>The newly created waiting session, or an error if the rematch could not be created</returns>
+    public ValueTask<OneOf<GameSession, NotFound, DomainError>> CreateRematchSessionAsync(int finishedSessionId, string newJoinCode);
+
+    /// <summary>
     ///     Data used to create or update a game session.
     /// </summary>
     /// <param name="HostUserId">The id of the host user</param>
@@ -406,6 +415,131 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             mrXTeam.Id);
 
         return new IGameSessionService.MrXCaughtResult(catchingTeam, mrXTeam);
+    }
+
+    public async ValueTask<OneOf<GameSession, NotFound, DomainError>> CreateRematchSessionAsync(int finishedSessionId, string newJoinCode)
+    {
+        try
+        {
+            var finishedSession = await uow.GameSessionRepository.GetSessionByIdAsync(finishedSessionId, tracking: false);
+            if (finishedSession is null)
+            {
+                return new NotFound();
+            }
+
+            if (finishedSession.Status != SessionStatus.Finished)
+            {
+                logger.LogWarning(
+                    "Rejected rematch for session {SessionId} because current status {Status} is not finished",
+                    finishedSessionId,
+                    finishedSession.Status);
+                return DomainError.SessionNotFinished(finishedSessionId, finishedSession.Status);
+            }
+
+            var existingActiveSession = await uow.GameSessionRepository.GetActiveSessionByHostUserIdAsync(finishedSession.HostUserId, tracking: false);
+            if (existingActiveSession is not null)
+            {
+                logger.LogWarning(
+                    "Rejected rematch for host user {HostUserId} because session {ExistingSessionId} is still open",
+                    finishedSession.HostUserId,
+                    existingActiveSession.Id);
+                return DomainError.HostUserAlreadyHasActiveSession(finishedSession.HostUserId);
+            }
+
+            var sessionWithJoinCode = await uow.GameSessionRepository.GetSessionByJoinCodeAsync(newJoinCode, tracking: false);
+            if (sessionWithJoinCode is not null)
+            {
+                logger.LogWarning("Rejected rematch because join code {JoinCode} is already in use", newJoinCode);
+                return DomainError.JoinCodeInUse(newJoinCode);
+            }
+
+            var sourceTeams = await uow.TeamRepository.GetTeamsBySessionIdAsync(finishedSessionId, tracking: false);
+            var sourceMembers = await uow.TeamMemberRepository.GetMembersBySessionIdAsync(finishedSessionId, tracking: false);
+            var sourceGeofencePoints = await uow.GeofencePointRepository.GetPointsBySessionIdAsync(finishedSessionId, tracking: false);
+
+            var rematchSession = uow.GameSessionRepository.AddGameSession(
+                finishedSession.HostUserId,
+                finishedSession.SessionName,
+                newJoinCode,
+                finishedSession.PlannedDurationMinutes,
+                finishedSession.MrXRevealInterval
+            );
+
+            await uow.SaveChangesAsync();
+
+            logger.LogInformation(
+                "Created rematch session {RematchSessionId} from finished session {FinishedSessionId}",
+                rematchSession.Id,
+                finishedSessionId);
+
+            // Recreate the teams; their ids change, so map old->new to reattach members. Team.IsCaught
+            // defaults to false on creation, so the finished match's caught state is intentionally dropped.
+            var newTeamIdByOldTeamId = new Dictionary<int, int>();
+            var copiedTeams = new List<(int OldTeamId, Team NewTeam)>();
+            foreach (var sourceTeam in sourceTeams)
+            {
+                var newTeam = uow.TeamRepository.AddTeam(
+                    rematchSession.Id,
+                    sourceTeam.TeamName,
+                    sourceTeam.Role,
+                    sourceTeam.ColorCode,
+                    sourceTeam.MaxPlayerCount
+                );
+
+                copiedTeams.Add((sourceTeam.Id, newTeam));
+            }
+
+            await uow.SaveChangesAsync();
+
+            foreach (var (oldTeamId, newTeam) in copiedTeams)
+            {
+                newTeamIdByOldTeamId[oldTeamId] = newTeam.Id;
+            }
+
+            // Re-add every member into the matching new team. Live-position fields (CurrentLatitude,
+            // CurrentLongitude, LastUpdated) reset to null because AddTeamMember does not copy them.
+            foreach (var sourceMember in sourceMembers)
+            {
+                if (!newTeamIdByOldTeamId.TryGetValue(sourceMember.TeamId, out var newTeamId))
+                {
+                    continue;
+                }
+
+                uow.TeamMemberRepository.AddTeamMember(
+                    rematchSession.Id,
+                    newTeamId,
+                    sourceMember.UserId,
+                    sourceMember.GuestName,
+                    sourceMember.IsTeamLeader
+                );
+            }
+
+            foreach (var sourcePoint in sourceGeofencePoints)
+            {
+                uow.GeofencePointRepository.AddGeofencePoint(
+                    rematchSession.Id,
+                    sourcePoint.Latitude,
+                    sourcePoint.Longitude,
+                    sourcePoint.SequenceOrder
+                );
+            }
+
+            await uow.SaveChangesAsync();
+
+            logger.LogInformation(
+                "Copied {TeamCount} teams, {MemberCount} members and {GeofenceCount} geofence points into rematch session {RematchSessionId}",
+                sourceTeams.Count,
+                sourceMembers.Count,
+                sourceGeofencePoints.Count,
+                rematchSession.Id);
+
+            return rematchSession;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create rematch session from finished session {FinishedSessionId}", finishedSessionId);
+            throw;
+        }
     }
 
     private static bool IsValidStatusTransition(SessionStatus currentStatus, SessionStatus requestedStatus) =>

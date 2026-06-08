@@ -24,6 +24,7 @@ public sealed class GameSessionServiceTests
     private readonly IUserRepository _userRepository;
     private readonly ITeamRepository _teamRepository;
     private readonly ITeamMemberRepository _teamMemberRepository;
+    private readonly IGeofencePointRepository _geofencePointRepository;
     private readonly GameSessionService _sut;
     private readonly IUnitOfWork _uow;
     private readonly IClock _clock;
@@ -43,6 +44,9 @@ public sealed class GameSessionServiceTests
 
         _teamMemberRepository = Substitute.For<ITeamMemberRepository>();
         _uow.TeamMemberRepository.Returns(_teamMemberRepository);
+
+        _geofencePointRepository = Substitute.For<IGeofencePointRepository>();
+        _uow.GeofencePointRepository.Returns(_geofencePointRepository);
 
         _clock = Substitute.For<IClock>();
         var logger = Substitute.For<ILogger<GameSessionService>>();
@@ -86,6 +90,56 @@ public sealed class GameSessionServiceTests
             TeamName = name,
             Role = role,
             ColorCode = colorCode,
+        };
+
+    private static Team CreateTeamWithMaxPlayers(
+        int id,
+        string name,
+        TeamRole role,
+        string colorCode,
+        int maxPlayerCount,
+        bool isCaught = false
+    ) =>
+        new()
+        {
+            Id = id,
+            TeamName = name,
+            Role = role,
+            ColorCode = colorCode,
+            MaxPlayerCount = maxPlayerCount,
+            IsCaught = isCaught,
+        };
+
+    private static TeamMember CreateMember(
+        int id,
+        int teamId,
+        int? userId,
+        string? guestName,
+        bool isTeamLeader
+    ) =>
+        new()
+        {
+            Id = id,
+            TeamId = teamId,
+            UserId = userId,
+            GuestName = guestName,
+            IsTeamLeader = isTeamLeader,
+        };
+
+    private static GeofencePoint CreateGeofencePoint(
+        int id,
+        int sessionId,
+        double latitude,
+        double longitude,
+        int sequenceOrder
+    ) =>
+        new()
+        {
+            Id = id,
+            SessionId = sessionId,
+            Latitude = latitude,
+            Longitude = longitude,
+            SequenceOrder = sequenceOrder,
         };
 
     [Fact]
@@ -214,6 +268,157 @@ public sealed class GameSessionServiceTests
             _ => Assert.Fail("Expected DomainError but got NotFound"),
             domainError => domainError.Code.Should().Be(DomainErrorCodes.JoinCodeInUse)
         );
+    }
+
+    [Fact]
+    public async ValueTask CreateRematchSessionAsync_ReturnsNotFound_WhenSessionMissing()
+    {
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?) null);
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.CreateRematchSessionAsync(DefaultSessionId, "REM123");
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got GameSession"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError")
+        );
+    }
+
+    [Fact]
+    public async ValueTask CreateRematchSessionAsync_ReturnsDomainError_WhenSessionNotFinished()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Active;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.CreateRematchSessionAsync(DefaultSessionId, "REM123");
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got GameSession"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.SessionNotFinished)
+        );
+    }
+
+    [Fact]
+    public async ValueTask CreateRematchSessionAsync_ReturnsDomainError_WhenHostAlreadyHasActiveSession()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Finished;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(session.HostUserId, false)
+            .Returns(CreateSession(99, "Existing", "EXIST1"));
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.CreateRematchSessionAsync(DefaultSessionId, "REM123");
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got GameSession"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.HostUserAlreadyHasActiveSession)
+        );
+    }
+
+    [Fact]
+    public async ValueTask CreateRematchSessionAsync_ReturnsDomainError_WhenJoinCodeInUse()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Finished;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(session);
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(session.HostUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeAsync("REM123", false).Returns(CreateSession(2, "Other", "REM123"));
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.CreateRematchSessionAsync(DefaultSessionId, "REM123");
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got GameSession"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.JoinCodeInUse)
+        );
+    }
+
+    [Fact]
+    public async ValueTask CreateRematchSessionAsync_CopiesTeamsMembersAndGeofence_WhenValid()
+    {
+        const int finishedSessionId = 5;
+        const int rematchSessionId = 6;
+        const string newJoinCode = "REM123";
+        const int hostUserId = 7;
+
+        var finishedSession = new GameSession
+        {
+            Id = finishedSessionId,
+            HostUserId = hostUserId,
+            SessionName = "Chase Night",
+            JoinCode = DefaultJoinCode,
+            Status = SessionStatus.Finished,
+            PlannedDurationMinutes = 45,
+            MrXRevealInterval = 3,
+        };
+
+        // The MrX team is flagged caught at the end of the finished match; the copy must drop that.
+        var mrXTeam = CreateTeamWithMaxPlayers(20, "Team 1", TeamRole.MrX, "#000000", 6, isCaught: true);
+        var detectiveTeam = CreateTeamWithMaxPlayers(21, "Team 2", TeamRole.Detective, "#5B7CFA", 5);
+        var sourceTeams = new List<Team> { mrXTeam, detectiveTeam };
+
+        var mrXMember = CreateMember(30, mrXTeam.Id, hostUserId, null, isTeamLeader: true);
+        var detectiveMember = CreateMember(31, detectiveTeam.Id, 8, null, isTeamLeader: true);
+        var guestMember = CreateMember(32, detectiveTeam.Id, null, "Guest A", isTeamLeader: false);
+        var sourceMembers = new List<TeamMember> { mrXMember, detectiveMember, guestMember };
+
+        var geofencePoints = new List<GeofencePoint>
+        {
+            CreateGeofencePoint(40, finishedSessionId, 48.1, 14.3, 0),
+            CreateGeofencePoint(41, finishedSessionId, 48.2, 14.4, 1),
+        };
+
+        var rematchSession = new GameSession
+        {
+            Id = rematchSessionId,
+            HostUserId = hostUserId,
+            SessionName = finishedSession.SessionName,
+            JoinCode = newJoinCode,
+            Status = SessionStatus.Waiting,
+            PlannedDurationMinutes = finishedSession.PlannedDurationMinutes,
+            MrXRevealInterval = finishedSession.MrXRevealInterval,
+        };
+
+        var newMrXTeam = CreateTeamWithMaxPlayers(120, mrXTeam.TeamName, mrXTeam.Role, mrXTeam.ColorCode, mrXTeam.MaxPlayerCount);
+        var newDetectiveTeam = CreateTeamWithMaxPlayers(121, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount);
+
+        _gameSessionRepository.GetSessionByIdAsync(finishedSessionId, false).Returns(finishedSession);
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(hostUserId, false).Returns((GameSession?) null);
+        _gameSessionRepository.GetSessionByJoinCodeAsync(newJoinCode, false).Returns((GameSession?) null);
+        _teamRepository.GetTeamsBySessionIdAsync(finishedSessionId, false).Returns(sourceTeams);
+        _teamMemberRepository.GetMembersBySessionIdAsync(finishedSessionId, false).Returns(sourceMembers);
+        _geofencePointRepository.GetPointsBySessionIdAsync(finishedSessionId, false).Returns(geofencePoints);
+
+        _gameSessionRepository.AddGameSession(hostUserId, finishedSession.SessionName, newJoinCode, 45, 3).Returns(rematchSession);
+        _teamRepository.AddTeam(rematchSessionId, mrXTeam.TeamName, mrXTeam.Role, mrXTeam.ColorCode, mrXTeam.MaxPlayerCount).Returns(newMrXTeam);
+        _teamRepository.AddTeam(rematchSessionId, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount).Returns(newDetectiveTeam);
+
+        OneOf<GameSession, NotFound, DomainError> result = await _sut.CreateRematchSessionAsync(finishedSessionId, newJoinCode);
+
+        result.Switch(
+            added => added.Should().BeSameAs(rematchSession),
+            _ => Assert.Fail("Expected GameSession but got NotFound"),
+            _ => Assert.Fail("Expected GameSession but got DomainError")
+        );
+
+        // Teams copied into the new session (IsCaught reset is guaranteed by AddTeam, which always
+        // creates teams with IsCaught = false).
+        _teamRepository.Received(1).AddTeam(rematchSessionId, mrXTeam.TeamName, mrXTeam.Role, mrXTeam.ColorCode, mrXTeam.MaxPlayerCount);
+        _teamRepository.Received(1).AddTeam(rematchSessionId, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount);
+
+        // Members re-added into the matching new team (host on new MrX team, two on new detective team).
+        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newMrXTeam.Id, hostUserId, null, true);
+        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, 8, null, true);
+        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, null, "Guest A", false);
+
+        // Geofence area copied point-by-point.
+        _geofencePointRepository.Received(1).AddGeofencePoint(rematchSessionId, 48.1, 14.3, 0);
+        _geofencePointRepository.Received(1).AddGeofencePoint(rematchSessionId, 48.2, 14.4, 1);
+
+        await _uow.Received(3).SaveChangesAsync();
     }
 
     [Fact]

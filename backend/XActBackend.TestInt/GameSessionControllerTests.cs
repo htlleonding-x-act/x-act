@@ -223,6 +223,80 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
+    // --- RematchGameSession ---
+
+    private ValueTask FinishSeededSessionAsync() =>
+        ModifyDatabaseContentAsync(context =>
+        {
+            GameSession session = context.GameSessions.Single(s => s.Id == SeedData.SessionId);
+            session.Status = SessionStatus.Finished;
+            session.EndTime = SeedData.BaseInstant.Plus(Duration.FromHours(2));
+
+            return new ValueTask(context.SaveChangesAsync(TestCancellationToken));
+        });
+
+    [Fact]
+    public async ValueTask RematchGameSession_Created_WhenFinished()
+    {
+        await FinishSeededSessionAsync();
+
+        var response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/rematch",
+            new GameSessionRematchRequest("REMAT1"),
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var rematch = await response.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
+        rematch.Should().NotBeNull();
+        rematch.Id.Should().NotBe(SeedData.SessionId);
+        rematch.Status.Should().Be(SessionStatus.Waiting);
+        rematch.JoinCode.Should().Be("REMAT1");
+        rematch.SessionName.Should().Be("Alpha Session");
+        rematch.HostUserId.Should().Be(SeedData.HostUserId);
+        rematch.PlannedDurationMinutes.Should().Be(120);
+        rematch.MrXRevealInterval.Should().Be(5);
+        rematch.StartTime.Should().BeNull();
+        rematch.EndTime.Should().BeNull();
+
+        // The finished session is preserved as history.
+        var original = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionId}", TestCancellationToken);
+        var originalContent = await original.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
+        originalContent!.Status.Should().Be(SessionStatus.Finished);
+
+        // The rematch is an independent session reachable by its new join code.
+        var byCode = await ApiClient.GetAsync($"{BaseUrl}/join/REMAT1", TestCancellationToken);
+        byCode.StatusCode.Should().Be(HttpStatusCode.OK);
+        var byCodeContent = await byCode.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
+        byCodeContent!.Id.Should().Be(rematch.Id);
+    }
+
+    [Fact]
+    public async ValueTask RematchGameSession_NotFound()
+    {
+        var response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/9999/rematch",
+            new GameSessionRematchRequest("REMAT1"),
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async ValueTask RematchGameSession_Conflict_WhenNotFinished()
+    {
+        // The seeded session is still Waiting, so it cannot be used for a rematch.
+        var response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/rematch",
+            new GameSessionRematchRequest("REMAT1"),
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
     // --- CatchMrX ---
 
     private async ValueTask ActivateSeededSessionAsync()

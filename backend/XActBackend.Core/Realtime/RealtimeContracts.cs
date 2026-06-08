@@ -20,6 +20,7 @@ public static class RealtimeEvents
     public const string LocationLogRecorded = "location_log_recorded";
     public const string MrXCaught = "mr_x_caught";
     public const string ChatMessagePosted = "chat_message_posted";
+    public const string RematchCreated = "rematch_created";
 }
 
 public static class RealtimeGroups
@@ -175,4 +176,12 @@ public sealed record ChatMessagePostedPayload(
     string SenderName,
     string Content,
     Instant SentAt
+);
+
+public sealed record RematchCreatedPayload(
+    int FinishedSessionId,
+    int NewSessionId,
+    string NewJoinCode,
+    string SessionName,
+    int HostUserId
 );

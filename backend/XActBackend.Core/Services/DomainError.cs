@@ -10,6 +10,7 @@ public static class DomainErrorCodes
     public const string InvalidSessionTransition = "invalid_session_transition";
     public const string SessionNotJoinable = "session_not_joinable";
     public const string SessionNotActive = "session_not_active";
+    public const string SessionNotFinished = "session_not_finished";
     public const string MrXTeamAlreadyExists = "mr_x_team_already_exists";
     public const string CatchingTeamNotEligible = "catching_team_not_eligible";
     public const string TeamHasMembers = "team_has_members";
@@ -45,6 +46,10 @@ public sealed record DomainError(string Code, string Message)
     public static DomainError SessionNotActive(int sessionId, SessionStatus status) =>
         new(DomainErrorCodes.SessionNotActive,
             $"Session {sessionId} is in status {status} and does not accept gameplay events.");
+
+    public static DomainError SessionNotFinished(int sessionId, SessionStatus status) =>
+        new(DomainErrorCodes.SessionNotFinished,
+            $"Session {sessionId} is in status {status} and cannot be used for a rematch until it has finished.");
 
     public static DomainError MrXTeamAlreadyExists(int sessionId) =>
         new(DomainErrorCodes.MrXTeamAlreadyExists, $"Session {sessionId} already has an Mr.X team.");

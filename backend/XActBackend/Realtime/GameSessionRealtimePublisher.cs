@@ -135,6 +135,19 @@ internal sealed class GameSessionRealtimePublisher(
         return PublishToGroupAsync(group, message.SessionId, RealtimeEvents.ChatMessagePosted, payload);
     }
 
+    public ValueTask PublishRematchCreatedAsync(int finishedSessionId, GameSession newSession) =>
+        // Announce on the *finished* session's group so every client still subscribed to the
+        // ended match (host + players on the end-match screen) learns the new session to join.
+        PublishToSessionAsync(
+            finishedSessionId,
+            RealtimeEvents.RematchCreated,
+            new RematchCreatedPayload(
+                finishedSessionId,
+                newSession.Id,
+                newSession.JoinCode,
+                newSession.SessionName,
+                newSession.HostUserId));
+
     private ValueTask PublishToSessionAsync(int sessionId, string eventType, object payload) =>
         PublishToGroupAsync(RealtimeGroups.Session(sessionId), sessionId, eventType, payload);
 

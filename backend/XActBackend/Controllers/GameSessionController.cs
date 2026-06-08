@@ -365,6 +365,62 @@ public sealed class GameSessionController(
             return Problem();
         }
     }
+
+    [HttpPost]
+    [Route("{sessionId:int}/rematch")]
+    [ProducesResponseType<GameSessionDetailsDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async ValueTask<IActionResult> RematchGameSession([FromRoute] int sessionId, [FromBody] GameSessionRematchRequest request)
+    {
+        if (!ValidateRequest<GameSessionRematchRequest.Validator, GameSessionRematchRequest>(request))
+        {
+            logger.LogWarning("Rejected rematch for game session {SessionId} because validation failed", sessionId);
+            return BadRequest();
+        }
+
+        try
+        {
+            await transaction.BeginTransactionAsync();
+
+            OneOf<GameSession, NotFound, DomainError> result =
+                await gameSessionService.CreateRematchSessionAsync(sessionId, request.JoinCode);
+
+            return await result.Match<ValueTask<IActionResult>>(async rematchSession =>
+            {
+                await transaction.CommitAsync();
+
+                // Announce on the finished session's channel so every still-connected client
+                // (host + players on the end-match screen) migrates into the new lobby.
+                await realtimePublisher.PublishRematchCreatedAsync(sessionId, rematchSession);
+
+                logger.LogInformation("Created rematch session {RematchSessionId} from finished session {SessionId}", rematchSession.Id, sessionId);
+
+                return CreatedAtAction(nameof(GetGameSessionById), new { sessionId = rematchSession.Id },
+                    GameSessionDetailsDto.FromGameSession(rematchSession, clock.GetCurrentInstant()));
+            }, async notFound =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected rematch for game session {SessionId} because it was not found", sessionId);
+
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected rematch for game session {SessionId} with domain error {ErrorCode}: {ErrorMessage}", sessionId, domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to create rematch for game session {SessionId}", sessionId);
+            await transaction.RollbackAsync();
+
+            return Problem();
+        }
+    }
 }
 
 public sealed record CatchMrXRequest(int CatchingTeamId)
@@ -374,6 +430,17 @@ public sealed record CatchMrXRequest(int CatchingTeamId)
         public Validator()
         {
             RuleFor(x => x.CatchingTeamId).GreaterThan(0);
+        }
+    }
+}
+
+public sealed record GameSessionRematchRequest(string JoinCode)
+{
+    public sealed class Validator : AbstractValidator<GameSessionRematchRequest>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.JoinCode).NotEmpty().Length(6);
         }
     }
 }

@@ -20,6 +20,7 @@ public interface IGameSessionRealtimePublisher
     public ValueTask PublishLocationLogRecordedAsync(int sessionId, int teamId, LocationLog log);
     public ValueTask PublishMrXCaughtAsync(Team newMrXTeam, Team formerMrXTeam);
     public ValueTask PublishChatMessageAsync(ChatMessage message);
+    public ValueTask PublishRematchCreatedAsync(int finishedSessionId, GameSession newSession);
 }
 
 internal sealed class GameSessionSnapshotService(
