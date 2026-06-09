@@ -77,6 +77,10 @@ final class LocationService {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          lastKnownPosition = lastKnown;
+          _positionController.add(lastKnown);
+        }
         return lastKnown;
       }
 
@@ -93,6 +97,10 @@ final class LocationService {
       // Timeout or platform error – fall back to last known fix if we have one.
       try {
         final lastKnown = await Geolocator.getLastKnownPosition();
+        if (lastKnown != null) {
+          lastKnownPosition = lastKnown;
+          _positionController.add(lastKnown);
+        }
         return lastKnown;
       } catch (_) {
         return null;
@@ -111,6 +119,18 @@ final class LocationService {
     if (!granted) {
       return;
     }
+
+    // Immediately broadcast the last known location so the UI loads instantly.
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        lastKnownPosition = lastKnown;
+        _positionController.add(lastKnown);
+      }
+    } catch (_) {}
+
+    // Force an initial fix to prevent "Acquiring GPS" loops on some devices.
+    unawaited(getCurrentPosition(timeLimit: const Duration(seconds: 5)));
 
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
@@ -152,6 +172,18 @@ final class LocationService {
     if (!granted) {
       return;
     }
+
+    // Immediately broadcast the last known location so the UI loads instantly.
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        lastKnownPosition = lastKnown;
+        _positionController.add(lastKnown);
+      }
+    } catch (_) {}
+
+    // Force an initial fix to prevent "Acquiring GPS" loops on some devices.
+    unawaited(getCurrentPosition(timeLimit: const Duration(seconds: 5)));
 
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
