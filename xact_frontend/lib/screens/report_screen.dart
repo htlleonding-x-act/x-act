@@ -414,71 +414,22 @@ class _ReportScreenState extends State<ReportScreen> {
     required String subject,
     required String actionLabel,
     required bool destructive,
-  }) async {
-    final controller = TextEditingController();
-    try {
-      return await showDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            backgroundColor: XActColors.surface,
-            shape: const RoundedRectangleBorder(borderRadius: XActRadius.lg),
-            title: Text(title, style: XActText.heading),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  subject,
-                  style: XActText.subheading.copyWith(
-                    color: destructive ? XActColors.primary : XActColors.secondary,
-                  ),
-                ),
-                const SizedBox(height: XActSpace.s4),
-                TextField(
-                  controller: controller,
-                  maxLength: 200,
-                  style: XActText.bodySm,
-                  cursorColor: XActColors.secondary,
-                  decoration: InputDecoration(
-                    hintText: 'Reason (optional)',
-                    hintStyle: XActText.bodySm.copyWith(color: XActColors.text4),
-                    counterText: '',
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: .03),
-                    border: const OutlineInputBorder(
-                      borderRadius: XActRadius.md,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text(
-                  'Cancel',
-                  style: XActText.bodySm.copyWith(color: XActColors.text3),
-                ),
-              ),
-              TextButton(
-                onPressed: () =>
-                    Navigator.of(dialogContext).pop(controller.text.trim()),
-                child: Text(
-                  actionLabel,
-                  style: XActText.bodySm.copyWith(
-                    color: destructive ? XActColors.primary : XActColors.secondary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      controller.dispose();
-    }
+  }) {
+    // The dialog owns its TextEditingController via _ReasonDialog's State so the
+    // controller is disposed in dispose() — after the dialog's exit animation,
+    // in correct element-teardown order. Disposing it here (e.g. in a finally
+    // after `await showDialog`) would run while the TextField is still mounted,
+    // since showDialog's future completes before the pop animation, and trips
+    // the framework's `_dependents.isEmpty` assertion during teardown.
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => _ReasonDialog(
+        title: title,
+        subject: subject,
+        actionLabel: actionLabel,
+        destructive: destructive,
+      ),
+    );
   }
 
   @override
@@ -938,5 +889,94 @@ class _ReportScreenState extends State<ReportScreen> {
     }
     final diff = expiresAt.toUtc().difference(DateTime.now().toUtc()).inSeconds;
     return diff > 0 ? diff : 0;
+  }
+}
+
+/// Reason-prompt dialog used for starting a kick vote / host kick. Owns its own
+/// [TextEditingController] so it is disposed in [State.dispose] (after the exit
+/// animation), avoiding a premature dispose that corrupts the element tree.
+class _ReasonDialog extends StatefulWidget {
+  const _ReasonDialog({
+    required this.title,
+    required this.subject,
+    required this.actionLabel,
+    required this.destructive,
+  });
+
+  final String title;
+  final String subject;
+  final String actionLabel;
+  final bool destructive;
+
+  @override
+  State<_ReasonDialog> createState() => _ReasonDialogState();
+}
+
+class _ReasonDialogState extends State<_ReasonDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: XActColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: XActRadius.lg),
+      title: Text(widget.title, style: XActText.heading),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.subject,
+            style: XActText.subheading.copyWith(
+              color:
+                  widget.destructive ? XActColors.primary : XActColors.secondary,
+            ),
+          ),
+          const SizedBox(height: XActSpace.s4),
+          TextField(
+            controller: _controller,
+            maxLength: 200,
+            style: XActText.bodySm,
+            cursorColor: XActColors.secondary,
+            decoration: InputDecoration(
+              hintText: 'Reason (optional)',
+              hintStyle: XActText.bodySm.copyWith(color: XActColors.text4),
+              counterText: '',
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: .03),
+              border: const OutlineInputBorder(
+                borderRadius: XActRadius.md,
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            'Cancel',
+            style: XActText.bodySm.copyWith(color: XActColors.text3),
+          ),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+          child: Text(
+            widget.actionLabel,
+            style: XActText.bodySm.copyWith(
+              color:
+                  widget.destructive ? XActColors.primary : XActColors.secondary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
