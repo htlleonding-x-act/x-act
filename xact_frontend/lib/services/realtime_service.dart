@@ -11,6 +11,7 @@ final class RealtimeService {
 
   HubConnection? _connection;
   String? _hubUrl;
+  Future<void>? _connectInFlight;
   int? _subscribedSessionId;
 
   GameSessionSnapshot? _latestSnapshot;
@@ -35,6 +36,21 @@ final class RealtimeService {
       return;
     }
 
+    final inFlight = _connectInFlight;
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final attempt = _connect(hubUrl);
+    _connectInFlight = attempt;
+    try {
+      await attempt;
+    } finally {
+      _connectInFlight = null;
+    }
+  }
+
+  Future<void> _connect(String hubUrl) async {
     await disconnect();
 
     final connection = HubConnectionBuilder().withUrl(hubUrl).build();
