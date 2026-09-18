@@ -14,6 +14,7 @@ namespace XActBackend.Controllers;
 public sealed class LocationLogController(
     ITransactionProvider transaction,
     ILocationLogService locationLogService,
+    ITeamService teamService,
     IOffenseService offenseService,
     IGameSessionRealtimePublisher realtimePublisher,
     ILogger<LocationLogController> logger) : BaseController
@@ -89,7 +90,11 @@ public sealed class LocationLogController(
             return await addResult.Match<ValueTask<IActionResult>>(async locationLog =>
             {
                 await transaction.CommitAsync();
-                await realtimePublisher.PublishLocationLogRecordedAsync(sessionId, teamId, locationLog);
+
+                OneOf<Team, NotFound> teamResult = await teamService.GetTeamByIdAsync(sessionId, teamId, tracking: false);
+                await teamResult.Match(
+                    team => realtimePublisher.PublishLocationLogRecordedAsync(team, locationLog),
+                    _ => ValueTask.CompletedTask);
                 logger.LogInformation("Created location log {LogId} for member {MemberId}", locationLog.Id, memberId);
 
                 await EvaluateOffenseAsync(sessionId, memberId, addRequest.Latitude, addRequest.Longitude);

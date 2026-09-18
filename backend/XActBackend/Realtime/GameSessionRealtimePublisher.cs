@@ -97,21 +97,28 @@ internal sealed class GameSessionRealtimePublisher(
                 gameSession.StartTime,
                 gameSession.EndTime));
 
-    public ValueTask PublishLocationLogRecordedAsync(int sessionId, int teamId, LocationLog log) =>
-        PublishToSessionAsync(
-            sessionId,
-            RealtimeEvents.LocationLogRecorded,
-            new LocationLogRecordedPayload(
-                log.Id,
-                sessionId,
-                teamId,
-                log.MemberId,
-                log.Timestamp,
-                log.Latitude,
-                log.Longitude,
-                log.AccuracyMeters,
-                log.TransportMode,
-                log.IsRevealedPosition));
+    public ValueTask PublishLocationLogRecordedAsync(Team team, LocationLog log)
+    {
+        var payload = new LocationLogRecordedPayload(
+            log.Id,
+            team.SessionId,
+            team.Id,
+            log.MemberId,
+            log.Timestamp,
+            log.Latitude,
+            log.Longitude,
+            log.AccuracyMeters,
+            log.TransportMode,
+            log.IsRevealedPosition);
+
+        // Detectives receive session events too, so hidden Mr. X pings go only to Mr. X's team;
+        // otherwise anyone reading the traffic could track Mr. X. Snapshots filter them too.
+        string group = team.Role == TeamRole.MrX && !log.IsRevealedPosition
+            ? RealtimeGroups.Team(team.SessionId, team.Id)
+            : RealtimeGroups.Session(team.SessionId);
+
+        return PublishToGroupAsync(group, team.SessionId, RealtimeEvents.LocationLogRecorded, payload);
+    }
 
     public ValueTask PublishMrXCaughtAsync(Team newMrXTeam, Team formerMrXTeam) =>
         PublishToSessionAsync(
