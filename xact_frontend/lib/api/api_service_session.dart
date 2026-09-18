@@ -395,8 +395,22 @@ extension ApiServiceSessionMethods on ApiService {
         _session.currentUserId != null &&
         details.hostUserId == _session.currentUserId;
 
+    final teamId = _session.currentTeamId;
+    final memberId = _session.currentMemberId;
     if (isHost && details.status != SessionStatus.finished) {
       await _finishSession(details);
+    } else if (details.status == SessionStatus.active &&
+        teamId != null &&
+        memberId != null) {
+      // Delete the member as a kick does, or they stay on everyone's map and
+      // still count in kick votes. Ignore errors so leaving works offline.
+      try {
+        await removeMember(
+          sessionId: sessionId,
+          teamId: teamId,
+          memberId: memberId,
+        );
+      } catch (_) {}
     }
 
     // Drop the realtime presence registration before leaving so a rematch started
