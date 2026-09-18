@@ -358,6 +358,35 @@ public sealed class TeamMemberServiceTests
     }
 
     [Fact]
+    internal async ValueTask UpdateTeamMemberAsync_MovesMember_WhenTargetTeamDiffers()
+    {
+        const int targetTeamId = 2;
+        var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, null);
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, targetTeamId, null, "Guest");
+
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, true).Returns(member);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(targetTeamId, false).Returns(new Team
+        {
+            Id = targetTeamId,
+            SessionId = DefaultSessionId,
+            TeamName = "Mr. X",
+            Role = TeamRole.MrX,
+            ColorCode = "#000000",
+        });
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
+
+        result.Switch(
+            success => { /* expected */ },
+            notFound => Assert.Fail("Expected Success but got NotFound"),
+            domainError => Assert.Fail("Expected Success but got DomainError")
+        );
+        member.TeamId.Should().Be(targetTeamId);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
     internal async ValueTask UpdateTeamMemberAsync_ReturnsDomainError_WhenIdentityIsInvalid()
     {
         var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, null);
