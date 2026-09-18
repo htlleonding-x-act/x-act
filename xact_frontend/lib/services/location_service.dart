@@ -64,6 +64,14 @@ final class LocationService {
         permission == LocationPermission.always;
   }
 
+  /// Returns `true` if location permission is already granted (whileInUse or
+  /// always). Unlike [requestPermission], it never prompts or opens settings.
+  Future<bool> hasPermission() async {
+    final permission = await Geolocator.checkPermission();
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
+  }
+
   /// Returns a one-shot GPS fix, or `null` when permissions are denied,
   /// location services are off, or the lookup fails / times out.
   ///

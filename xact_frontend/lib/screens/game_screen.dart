@@ -68,9 +68,19 @@ class _GameScreenState extends State<GameScreen> {
       }
 
       if (!LocationService.instance.isTracking) {
-        unawaited(_startLocationTrackingSafely());
+        unawaited(_retryLocationTracking());
       }
     });
+  }
+
+  Future<void> _retryLocationTracking() async {
+    // Without this check, a player who denied location would get the prompt
+    // or the settings screen every 2 seconds. initState asks once.
+    if (!await LocationService.instance.hasPermission()) {
+      return;
+    }
+
+    await _startLocationTrackingSafely();
   }
 
   Future<void> _initRealtimeAnnouncements() async {
