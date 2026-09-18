@@ -275,27 +275,6 @@ extension ApiServiceSessionMethods on ApiService {
     await _deleteNoContent('/api/gamesessions/$sessionId/teams/$teamId');
   }
 
-  Future<TeamMemberDetails> addGuestMember({
-    required int sessionId,
-    required int teamId,
-    required String guestName,
-    bool isTeamLeader = false,
-  }) async {
-    final json = await _postJsonObjectOrThrow(
-      '/api/gamesessions/$sessionId/teams/$teamId/members',
-      {
-        'userId': null,
-        'guestName': guestName,
-        'isTeamLeader': isTeamLeader,
-        'currentLatitude': null,
-        'currentLongitude': null,
-        'lastUpdated': null,
-      },
-    );
-
-    return TeamMemberDetails.fromJson(json);
-  }
-
   Future<TeamMemberDetails> addUserMember({
     required int sessionId,
     required int teamId,
@@ -327,36 +306,27 @@ extension ApiServiceSessionMethods on ApiService {
     );
   }
 
-  Future<TeamMemberDetails> moveMemberToTeam({
+  Future<void> moveMemberToTeam({
     required int sessionId,
     required TeamMemberDetails member,
     required int sourceTeamId,
     required int targetTeamId,
   }) async {
     if (sourceTeamId == targetTeamId) {
-      return member;
+      return;
     }
 
-    await removeMember(
-      sessionId: sessionId,
-      teamId: sourceTeamId,
-      memberId: member.memberId,
-    );
-
-    if (member.userId != null) {
-      return addUserMember(
-        sessionId: sessionId,
-        teamId: targetTeamId,
-        userId: member.userId!,
-        isTeamLeader: member.isTeamLeader,
-      );
-    }
-
-    return addGuestMember(
-      sessionId: sessionId,
-      teamId: targetTeamId,
-      guestName: member.guestName ?? 'Guest',
-      isTeamLeader: member.isTeamLeader,
+    await _putJsonNoContent(
+      '/api/gamesessions/$sessionId/teams/$sourceTeamId/members/${member.memberId}',
+      {
+        'userId': member.userId,
+        'guestName': member.userId == null ? (member.guestName ?? 'Guest') : null,
+        'isTeamLeader': member.isTeamLeader,
+        'currentLatitude': null,
+        'currentLongitude': null,
+        'lastUpdated': null,
+        'teamId': targetTeamId,
+      },
     );
   }
 

@@ -547,6 +547,19 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       return;
     }
 
+    final detectiveSlots = detectiveTeams.fold<int>(
+      0,
+      (sum, team) => sum + team.maxPlayers,
+    );
+    if (players.length - 1 > detectiveSlots) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not enough team slots to randomize all players.'),
+        ),
+      );
+      return;
+    }
+
     players.shuffle();
 
     final moves = <_PlannedMove>[];
@@ -556,11 +569,19 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       _PlannedMove(player: mrXPlayer, targetTeamId: misterXTeam.teamId),
     );
 
-    for (var i = 0; i < players.length; i++) {
-      final targetTeam = detectiveTeams[i % detectiveTeams.length];
-      moves.add(
-        _PlannedMove(player: players[i], targetTeamId: targetTeam.teamId),
-      );
+    final openSlots = {
+      for (final team in detectiveTeams) team.teamId: team.maxPlayers,
+    };
+    var teamIndex = 0;
+    for (final player in players) {
+      var targetTeam = detectiveTeams[teamIndex % detectiveTeams.length];
+      while (openSlots[targetTeam.teamId]! <= 0) {
+        teamIndex++;
+        targetTeam = detectiveTeams[teamIndex % detectiveTeams.length];
+      }
+      openSlots[targetTeam.teamId] = openSlots[targetTeam.teamId]! - 1;
+      teamIndex++;
+      moves.add(_PlannedMove(player: player, targetTeamId: targetTeam.teamId));
     }
 
     _randomizeTeamsAsync(moves);
