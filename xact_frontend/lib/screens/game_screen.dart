@@ -48,6 +48,7 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
     unawaited(_startLocationTrackingSafely());
     unawaited(_initRealtimeAnnouncements());
+    unawaited(_joinTeamChannel());
     unawaited(_loadSessionDetails());
     unawaited(_checkForFinishedSession());
     _chatNotificationSub =
@@ -105,6 +106,24 @@ class _GameScreenState extends State<GameScreen> {
     } catch (_) {
       // Announcements are best-effort; the game keeps working without them.
     }
+  }
+
+  /// The backend sends team chat only to the team's SignalR group. Joining
+  /// it here lets ChatNotificationService flag new messages even if the
+  /// player never opens the Team Chat tab.
+  Future<void> _joinTeamChannel() async {
+    final sessionId = AppSession.instance.currentSessionId;
+    final teamId = AppSession.instance.currentTeamId;
+    if (sessionId == null || teamId == null) {
+      return;
+    }
+
+    try {
+      await ApiService.instance.ensureTeamChannelSubscription(
+        sessionId: sessionId,
+        teamId: teamId,
+      );
+    } catch (_) {}
   }
 
   Future<void> _loadSessionDetails() async {
