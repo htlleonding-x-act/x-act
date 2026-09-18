@@ -50,7 +50,7 @@ class _MapAreaState extends State<MapArea> {
   bool _showControls = false;
 
   StreamSubscription<Position>? _positionSub;
-  StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
+  StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
 
   // ── Geofence ──────────────────────────────────────────────────────────────
   // Polygon boundary loaded from the backend for the active session.
@@ -115,7 +115,7 @@ class _MapAreaState extends State<MapArea> {
   @override
   void dispose() {
     _positionSub?.cancel();
-    _realtimeEventSub?.cancel();
+    _realtimeSnapshotSub?.cancel();
     super.dispose();
   }
 
@@ -128,17 +128,13 @@ class _MapAreaState extends State<MapArea> {
     try {
       await ApiService.instance.ensureRealtimeSessionSubscription(sessionId);
 
-      _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
-        if (event.type == RealtimeEvents.teamMemberJoined ||
-            event.type == RealtimeEvents.teamMemberUpdated ||
-            event.type == RealtimeEvents.teamMemberLeft ||
-            event.type == RealtimeEvents.locationLogRecorded ||
-            // A Mr. X catch swaps two teams' roles (team_updated), which changes
-            // who is visible on the map and the legend, so re-filter on these too.
-            event.type == RealtimeEvents.teamAdded ||
-            event.type == RealtimeEvents.teamUpdated ||
-            event.type == RealtimeEvents.teamDeleted) {
-          _refreshPlayers();
+      // RealtimeService patches these snapshots locally on each event, since a
+      // server snapshot reads all location history and is too costly per ping.
+      _realtimeSnapshotSub =ApiService.instance.realtimeSnapshots.listen((
+        snapshot,
+      ) {
+        if (snapshot.sessionId == sessionId) {
+          _refreshPlayers(snapshot);
         }
       });
     } catch (_) {
@@ -188,14 +184,23 @@ class _MapAreaState extends State<MapArea> {
     }
   }
 
-  Future<void> _refreshPlayers() async {
+  Future<void> _refreshPlayers([GameSessionSnapshot? realtimeSnapshot]) async {
     final sessionId = AppSession.instance.currentSessionId;
     final myMemberId = AppSession.instance.currentMemberId;
     if (sessionId == null) return;
 
     try {
-      final players = await ApiService.instance.loadPlayerPositions(sessionId);
-      final legendTeams = await ApiService.instance.loadMapLegendTeams(sessionId);
+      final snapshot = realtimeSnapshot != null
+          ? await ApiService.instance.toLobbySnapshot(realtimeSnapshot)
+          : await ApiService.instance.loadLobbySnapshot(sessionId);
+      final players = await ApiService.instance.loadPlayerPositions(
+        sessionId,
+        from: snapshot,
+      );
+      final legendTeams = await ApiService.instance.loadMapLegendTeams(
+        sessionId,
+        from: snapshot,
+      );
 
       if (!mounted) return;
 

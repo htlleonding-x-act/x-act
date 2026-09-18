@@ -494,6 +494,9 @@ extension ApiServiceSessionMethods on ApiService {
     return null;
   }
 
+  Future<LobbySnapshot> toLobbySnapshot(GameSessionSnapshot snapshot) =>
+      _toLobbySnapshot(snapshot);
+
   Future<LobbySnapshot> _toLobbySnapshot(GameSessionSnapshot snapshot) async {
     final teams = snapshot.teams
         .map(
@@ -532,17 +535,26 @@ extension ApiServiceSessionMethods on ApiService {
       membersByTeamId[member.teamId]!.add(details);
     }
 
-    Map<int, UserInfo> usersById = <int, UserInfo>{};
-    try {
-      final users = await _listUsers();
-      usersById = {for (final user in users) user.userId: user};
-    } catch (_) {
+    // Usernames stay fixed during a session and this runs on every location
+    // ping, so only refetch the user list when an unknown user id shows up.
+    final hasUnknownUser = snapshot.members.any(
+      (member) =>
+          member.userId != null && !_usersById.containsKey(member.userId),
+    );
+    if (hasUnknownUser) {
+      try {
+        final users = await _listUsers();
+        _usersById
+          ..clear()
+          ..addAll({for (final user in users) user.userId: user});
+      } catch (_) {
+      }
     }
 
     return LobbySnapshot(
       teams: teams,
       membersByTeamId: membersByTeamId,
-      usersById: usersById,
+      usersById: Map.of(_usersById),
       latestLocations: snapshot.latestLocations,
     );
   }

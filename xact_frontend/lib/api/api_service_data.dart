@@ -77,8 +77,11 @@ extension ApiServiceDataMethods on ApiService {
     );
   }
 
-  Future<List<MapLegendTeamData>> loadMapLegendTeams(int sessionId) async {
-    final snapshot = await loadLobbySnapshot(sessionId);
+  Future<List<MapLegendTeamData>> loadMapLegendTeams(
+    int sessionId, {
+    LobbySnapshot? from,
+  }) async {
+    final snapshot = from ?? await loadLobbySnapshot(sessionId);
 
     final currentTeamId = _session.currentTeamId;
     final currentTeamRole = currentTeamId == null
@@ -126,8 +129,11 @@ extension ApiServiceDataMethods on ApiService {
   //   - When the current viewer is Mr. X, every other player is hidden — Mr.
   //     X must not learn detective positions from the map. The "You" marker
   //     still comes from local GPS in the map widget.
-  Future<List<PlayerPositionData>> loadPlayerPositions(int sessionId) async {
-    final snapshot = await loadLobbySnapshot(sessionId);
+  Future<List<PlayerPositionData>> loadPlayerPositions(
+    int sessionId, {
+    LobbySnapshot? from,
+  }) async {
+    final snapshot = from ?? await loadLobbySnapshot(sessionId);
     final out = <PlayerPositionData>[];
 
     final currentTeamId = _session.currentTeamId;
