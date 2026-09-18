@@ -7,7 +7,6 @@ extension ApiServiceSessionMethods on ApiService {
   Future<GameSessionDetails> createLobby({required String lobbyName}) async {
     final hostUserId = await ensureMvpUser(
       preferredName: _session.currentUsername ?? 'Host',
-      reuseByName: true,
     );
     await _closeOpenSessionsForHost(hostUserId);
 
@@ -60,26 +59,12 @@ extension ApiServiceSessionMethods on ApiService {
     throw Exception('Failed to create rematch after retries.');
   }
 
-  Future<int> ensureMvpUser({
-    required String preferredName,
-    bool reuseByName = false,
-  }) async {
+  Future<int> ensureMvpUser({required String preferredName}) async {
     final users = await _listUsers();
 
     if (_session.currentUserId != null &&
         users.any((u) => u.userId == _session.currentUserId)) {
       return _session.currentUserId!;
-    }
-
-    if (reuseByName) {
-      final preferredByName = users.where(
-        (u) => u.username.toLowerCase() == preferredName.toLowerCase(),
-      );
-      if (preferredByName.isNotEmpty) {
-        final user = preferredByName.first;
-        _session.setIdentity(userId: user.userId, username: user.username);
-        return user.userId;
-      }
     }
 
     final desired = preferredName.trim().isEmpty
