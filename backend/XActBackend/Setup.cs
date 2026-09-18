@@ -96,6 +96,7 @@ public static class Setup
                     .AddJsonProtocol(o => JsonConfig.ConfigureJsonSerialization(o.PayloadSerializerOptions, isDev));
 
             services.AddScoped<IGameSessionRealtimePublisher, GameSessionRealtimePublisher>();
+            services.AddSingleton<ILobbyDisconnectCleanup, LobbyDisconnectCleanup>();
         }
     }
 }

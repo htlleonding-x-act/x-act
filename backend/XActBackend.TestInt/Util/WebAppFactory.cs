@@ -18,6 +18,8 @@ internal sealed class WebAppFactory(string connectionString) : WebApplicationFac
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("General:LobbyDisconnectGracePeriod", "00:00:01");
+
         builder.ConfigureTestServices(services =>
         {
             SetTestDbContext(services);

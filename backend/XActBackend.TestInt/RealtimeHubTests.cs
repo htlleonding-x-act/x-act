@@ -267,7 +267,7 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
         }
 
         var memberStillExists = true;
-        for (var i = 0; i < 12; i++)
+        for (var i = 0; i < 50; i++)
         {
             HttpResponseMessage checkResponse = await ApiClient.GetAsync(
                 $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.GuestMemberId}",
@@ -284,6 +284,39 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
 
         memberStillExists.Should().BeFalse();
     }
+
+    [Fact]
+    public async ValueTask ReconnectWithinGracePeriod_KeepsRegisteredMember()
+    {
+        await using (var droppedClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken))
+        {
+            await droppedClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+            await RegisterGuestPresenceAsync(droppedClient);
+        }
+
+        await using var reconnectedClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await reconnectedClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+        await RegisterGuestPresenceAsync(reconnectedClient);
+
+        await Task.Delay(TimeSpan.FromSeconds(2), TestCancellationToken);
+
+        HttpResponseMessage checkResponse = await ApiClient.GetAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.GuestMemberId}",
+            TestCancellationToken);
+
+        checkResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await reconnectedClient.UnregisterMemberPresenceAsync(TestCancellationToken);
+    }
+
+    private ValueTask RegisterGuestPresenceAsync(SignalRTestClient realtimeClient) =>
+        realtimeClient.RegisterMemberPresenceAsync(
+            SeedData.SessionId,
+            SeedData.DetectiveTeamId,
+            SeedData.GuestMemberId,
+            userId: null,
+            guestName: "guest_player",
+            TestCancellationToken);
 
     [Fact]
     public async ValueTask RematchGameSession_PublishesRematchCreatedEvent()
