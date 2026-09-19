@@ -1,6 +1,6 @@
 ﻿namespace XActBackend.Persistence.Model;
 
-public class TeamMember
+public sealed class TeamMember
 {
     public int Id { get; set; }
 

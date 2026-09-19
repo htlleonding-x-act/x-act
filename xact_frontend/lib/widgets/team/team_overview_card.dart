@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../xact_branding.dart';
 import 'team_data.dart';
 
-/// Compact overview row showing player counts per team / unassigned.
 class TeamOverviewCard extends StatelessWidget {
   final int spectatorCount;
   final List<TeamData> teams;

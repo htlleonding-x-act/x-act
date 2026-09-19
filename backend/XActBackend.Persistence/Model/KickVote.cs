@@ -1,10 +1,10 @@
 namespace XActBackend.Persistence.Model;
 
-public class KickVote
+public sealed class KickVote
 {
     public const int MaxReasonLength = 200;
 
-    /// <summary>How long a vote stays open before it can be lazily expired.</summary>
+    /// <summary>how long a vote stays open. after that it gets marked expired on the next start or ballot</summary>
     public const int VoteDurationSeconds = 60;
 
     public int Id { get; set; }
@@ -12,15 +12,12 @@ public class KickVote
     public int SessionId { get; set; }
 
     /// <summary>
-    ///     The member the vote wants to kick. Nullable so the vote survives as history once the
-    ///     target has been removed from the session (the reference is set to null on member deletion).
+    ///     nullable so the vote stays as history after the target is removed, the reference is set to null
+    ///     when the member is deleted
     /// </summary>
     public int? TargetMemberId { get; set; }
 
-    /// <summary>
-    ///     The member that started the vote. Nullable for the same history-preserving reason as
-    ///     <see cref="TargetMemberId"/>.
-    /// </summary>
+    /// <summary>nullable for the same reason as <see cref="TargetMemberId"/></summary>
     public int? InitiatorMemberId { get; set; }
 
     public string? Reason { get; set; }

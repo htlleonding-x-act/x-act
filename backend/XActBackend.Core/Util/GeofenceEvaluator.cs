@@ -1,20 +1,11 @@
 namespace XActBackend.Core.Util;
 
-/// <summary>
-///     Geometry helper for deciding whether a coordinate lies inside a session's geofence polygon.
-/// </summary>
 public static class GeofenceEvaluator
 {
     /// <summary>
-    ///     Tests whether the point (<paramref name="latitude"/>, <paramref name="longitude"/>) lies
-    ///     inside the polygon described by <paramref name="polygon"/> (in sequence order) using the
-    ///     ray-casting algorithm. A polygon with fewer than three vertices is treated as "no fence",
-    ///     so every point counts as inside and no out-of-bounds offense is raised.
+    ///     ray casting test over the polygon in sequence order. with fewer than three points there is no fence,
+    ///     so every point counts as inside
     /// </summary>
-    /// <param name="latitude">Latitude of the point to test, in decimal degrees</param>
-    /// <param name="longitude">Longitude of the point to test, in decimal degrees</param>
-    /// <param name="polygon">The polygon vertices (latitude, longitude) in sequence order</param>
-    /// <returns><c>true</c> if the point is inside the polygon or no usable fence exists</returns>
     public static bool IsInsidePolygon(
         double latitude,
         double longitude,

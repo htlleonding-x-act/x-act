@@ -8,80 +8,24 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
-/// <summary>
-///     Provides methods to manage location logs for team members.
-/// </summary>
 public interface ILocationLogService
 {
-    /// <summary>
-    ///     Get all location logs for a member of a team in a session by member id.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="teamId">The id of the team</param>
-    /// <param name="memberId">The id of the member</param>
-    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
-    /// <returns>All location logs for the member</returns>
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsByMemberIdAsync(int sessionId, int teamId, int memberId, bool tracking);
 
-    /// <summary>
-    ///     Get all location logs for a session by session id.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
-    /// <returns>All location logs for the session</returns>
     public ValueTask<IReadOnlyCollection<LocationLog>> GetLogsBySessionIdAsync(int sessionId, bool tracking);
 
-    /// <summary>
-    ///     Get a location log by the log id for a member of a team in a session.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="teamId">The id of the team</param>
-    /// <param name="memberId">The id of the member</param>
-    /// <param name="logId">The id of the location log</param>
-    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
-    /// <returns>The location log, if found</returns>
     public ValueTask<OneOf<LocationLog, NotFound>> GetLocationLogByIdAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
 
     /// <summary>
-    ///     Add a new location log.
+    ///     the server picks the stored timestamp and whether the ping is a reveal, so <c>Timestamp</c> and
+    ///     <c>IsRevealedPosition</c> from the client are ignored here
     /// </summary>
-    /// <param name="newLocationLog">The location log data to create</param>
-    /// <returns>The created location log, not found or a domain error if validation fails</returns>
     public ValueTask<OneOf<LocationLog, NotFound, DomainError>> AddLocationLogAsync(LocationLogData newLocationLog);
 
-    /// <summary>
-    ///     Update an existing location log.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="teamId">The id of the team</param>
-    /// <param name="memberId">The id of the member</param>
-    /// <param name="logId">The id of the location log to update</param>
-    /// <param name="locationLogData">The new location log data</param>
-    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
-    /// <returns>Result indicating if the update was successful</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateLocationLogAsync(int sessionId, int teamId, int memberId, int logId, LocationLogData locationLogData, bool tracking);
 
-    /// <summary>
-    ///     Delete a location log.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="teamId">The id of the team</param>
-    /// <param name="memberId">The id of the member</param>
-    /// <param name="logId">The id of the location log to delete</param>
-    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
-    /// <returns>Result indicating if the location log was deleted</returns>
     public ValueTask<OneOf<Success, NotFound>> DeleteLocationLogAsync(int sessionId, int teamId, int memberId, int logId, bool tracking);
 
-    /// <summary>
-    ///     Data used to create or update a location log.
-    /// </summary>
-    /// <param name="MemberId">The id of the team member</param>
-    /// <param name="Timestamp">Timestamp of the recorded position</param>
-    /// <param name="Latitude">Latitude in decimal degrees</param>
-    /// <param name="Longitude">Longitude in decimal degrees</param>
-    /// <param name="AccuracyMeters">Accuracy in meters</param>
-    /// <param name="TransportMode">The transport mode used</param>
-    /// <param name="IsRevealedPosition">Flag indicating if this position is a revealed position</param>
     public sealed record LocationLogData(
         int MemberId,
         Instant Timestamp,
@@ -93,7 +37,7 @@ public interface ILocationLogService
     );
 }
 
-internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogService> logger) : ILocationLogService
+internal sealed class LocationLogService(IUnitOfWork uow, IClock clock, ILogger<LocationLogService> logger) : ILocationLogService
 {
     private static readonly ConcurrentDictionary<int, SemaphoreSlim> member_Locks = new();
 
@@ -137,17 +81,18 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
             return await validationResult.Match<ValueTask<OneOf<LocationLog, NotFound, DomainError>>>(
                 async _ =>
                 {
-                    // Serialize add+reveal decision per member to reduce duplicate reveal pings under concurrent requests.
+                    // one lock per member so two pings arriving together can't both become the reveal ping.
+                    // the locks are static, so this only holds within a single server process
                     SemaphoreSlim memberLock = member_Locks.GetOrAdd(newLocationLog.MemberId, _ => new SemaphoreSlim(1, 1));
                     await memberLock.WaitAsync();
                     try
                     {
-                        // Reveal timing is derived from server time so clients cannot force reveal windows via payload timestamps.
-                        Instant serverNow = SystemClock.Instance.GetCurrentInstant();
+                        // server time drives both the reveal check and the stored timestamp. a client timestamp
+                        // could force a reveal window, and phone clock skew or network delay could put a ping
+                        // into the wrong window and reveal mr.x twice
+                        Instant serverNow = clock.GetCurrentInstant();
                         bool isRevealed = await DetermineIfRevealedPositionAsync(newLocationLog.MemberId, serverNow);
 
-                        // Store server time, not the client timestamp: the reveal check compares stored timestamps to a server-time window.
-                        // Phone clock skew or network delay could otherwise push a reveal ping into the wrong window and reveal Mr. X twice.
                         var log = uow.LocationLogRepository.AddLocationLog(
                             newLocationLog.MemberId,
                             serverNow,
@@ -310,8 +255,7 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
                 return false;
             }
 
-            // Tie reveal directly to the ping cycle: first Mr. X log in each interval is the reveal ping.
-
+            // the first mr.x ping in each interval is the reveal ping
             IEnumerable<LocationLog> memberLogs = await uow.LocationLogRepository.GetLogsByMemberIdAsync(memberId, tracking: false);
             var alreadyRevealedInInterval = memberLogs.Any(log =>
                 log.IsRevealedPosition &&

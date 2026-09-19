@@ -6,51 +6,20 @@ using XActBackend.Persistence.Util;
 namespace XActBackend.Core.Services;
 
 /// <summary>
-///     Provides methods to read and post chat messages for a game session.
-///     Channels are implicit: <c>null</c> team id is the global "All" channel of the session,
-///     a non-null team id is that team's private channel.
+///     there are no channel rows: a null team id means the all chat of the session, any other team id is that
+///     team's private chat
 /// </summary>
 public interface IChatService
 {
-    /// <summary>
-    ///     The default maximum number of messages returned when loading a channel's history.
-    /// </summary>
+    /// <summary>also the upper bound, a bigger limit gets clamped to it</summary>
     public const int DefaultHistoryLimit = 100;
 
-    /// <summary>
-    ///     Get the recent messages of the global "All" channel of a session, oldest first.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="limit">Maximum number of messages to return</param>
-    /// <returns>The recent global messages, or not found if the session does not exist</returns>
     public ValueTask<OneOf<IReadOnlyCollection<ChatMessage>, NotFound>> GetSessionMessagesAsync(int sessionId, int limit);
 
-    /// <summary>
-    ///     Get the recent messages of a team channel, oldest first.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="teamId">The id of the team channel</param>
-    /// <param name="limit">Maximum number of messages to return</param>
-    /// <returns>The recent team messages, or not found if the team does not belong to the session</returns>
     public ValueTask<OneOf<IReadOnlyCollection<ChatMessage>, NotFound>> GetTeamMessagesAsync(int sessionId, int teamId, int limit);
 
-    /// <summary>
-    ///     Post a message to the global "All" channel of a session.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="senderMemberId">The id of the sending member</param>
-    /// <param name="content">The message content</param>
-    /// <returns>The created message, not found or a domain error if validation fails</returns>
     public ValueTask<OneOf<ChatMessage, NotFound, DomainError>> PostSessionMessageAsync(int sessionId, int senderMemberId, string content);
 
-    /// <summary>
-    ///     Post a message to a team's private channel.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="teamId">The id of the team channel</param>
-    /// <param name="senderMemberId">The id of the sending member</param>
-    /// <param name="content">The message content</param>
-    /// <returns>The created message, not found or a domain error if validation fails</returns>
     public ValueTask<OneOf<ChatMessage, NotFound, DomainError>> PostTeamMessageAsync(int sessionId, int teamId, int senderMemberId, string content);
 }
 
@@ -83,12 +52,10 @@ internal sealed class ChatService(IUnitOfWork uow, IClock clock, ILogger<ChatSer
     public async ValueTask<OneOf<ChatMessage, NotFound, DomainError>> PostSessionMessageAsync(int sessionId, int senderMemberId, string content)
     {
         OneOf<TeamMember, NotFound> senderResult = await ResolveSenderAsync(sessionId, senderMemberId);
-        if (senderResult.TryPickT1(out NotFound notFound, out TeamMember sender))
-        {
-            return notFound;
-        }
 
-        return await CreateMessageAsync(sessionId, teamId: null, sender, content);
+        return await senderResult.Match<ValueTask<OneOf<ChatMessage, NotFound, DomainError>>>(
+            async sender => await CreateMessageAsync(sessionId, teamId: null, sender, content),
+            notFound => ValueTask.FromResult<OneOf<ChatMessage, NotFound, DomainError>>(notFound));
     }
 
     public async ValueTask<OneOf<ChatMessage, NotFound, DomainError>> PostTeamMessageAsync(int sessionId, int teamId, int senderMemberId, string content)
@@ -101,19 +68,19 @@ internal sealed class ChatService(IUnitOfWork uow, IClock clock, ILogger<ChatSer
         }
 
         OneOf<TeamMember, NotFound> senderResult = await ResolveSenderAsync(sessionId, senderMemberId);
-        if (senderResult.TryPickT1(out NotFound notFound, out TeamMember sender))
-        {
-            return notFound;
-        }
 
-        // Access control: a member can only post to the channel of the team they belong to.
-        if (sender.TeamId != teamId)
-        {
-            logger.LogWarning("Rejected team chat message because member {MemberId} is not part of team {TeamId}", senderMemberId, teamId);
-            return DomainError.ChatNotTeamMember(senderMemberId, teamId);
-        }
+        return await senderResult.Match<ValueTask<OneOf<ChatMessage, NotFound, DomainError>>>(
+            async sender =>
+            {
+                if (sender.TeamId != teamId)
+                {
+                    logger.LogWarning("Rejected team chat message because member {MemberId} is not part of team {TeamId}", senderMemberId, teamId);
+                    return DomainError.ChatNotTeamMember(senderMemberId, teamId);
+                }
 
-        return await CreateMessageAsync(sessionId, teamId, sender, content);
+                return await CreateMessageAsync(sessionId, teamId, sender, content);
+            },
+            notFound => ValueTask.FromResult<OneOf<ChatMessage, NotFound, DomainError>>(notFound));
     }
 
     private async ValueTask<OneOf<TeamMember, NotFound>> ResolveSenderAsync(int sessionId, int senderMemberId)

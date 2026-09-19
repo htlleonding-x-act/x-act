@@ -5,106 +5,38 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
-/// <summary>
-///     Provides methods to manage game sessions and their lifecycle.
-/// </summary>
 public interface IGameSessionService
 {
-    /// <summary>
-    ///     Get all game sessions.
-    /// </summary>
-    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
-    /// <returns>All game sessions</returns>
     public ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking);
 
-    /// <summary>
-    ///     Get a game session by its id.
-    /// </summary>
-    /// <param name="sessionId">The id of the game session to find</param>
-    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
-    /// <returns>The game session, if found</returns>
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByIdAsync(int sessionId, bool tracking);
 
-    /// <summary>
-    ///     Add a new game session.
-    /// </summary>
-    /// <param name="newGameSession">The game session data to create</param>
-    /// <returns>The created game session, or an error if the request is invalid</returns>
     public ValueTask<OneOf<GameSession, NotFound, DomainError>> AddGameSessionAsync(GameSessionData newGameSession);
 
-    /// <summary>
-    ///     Update an existing game session.
-    /// </summary>
-    /// <param name="sessionId">The id of the game session to update</param>
-    /// <param name="gameSessionData">The new game session data</param>
-    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
-    /// <returns>Result indicating if the update was successful</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateGameSessionAsync(int sessionId, GameSessionData gameSessionData, bool tracking);
 
-    /// <summary>
-    ///     Delete a game session.
-    /// </summary>
-    /// <param name="sessionId">The id of the game session to delete</param>
-    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
-    /// <returns>Result indicating if the game session was deleted</returns>
     public ValueTask<OneOf<Success, NotFound>> DeleteGameSessionAsync(int sessionId, bool tracking);
 
-    /// <summary>
-    ///     Get a game session by its join code.
-    /// </summary>
-    /// <param name="joinCode">The join code of the game session</param>
-    /// <param name="tracking">Flag indicating if the entity should be tracked by the context</param>
-    /// <returns>The game session, if found</returns>
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByJoinCodeAsync(string joinCode, bool tracking);
 
-    /// <summary>
-    ///     Start a game session.
-    /// </summary>
-    /// <param name="sessionId">The id of the game session to start</param>
-    /// <returns>Result indicating if the session could be started</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId);
 
-    /// <summary>
-    ///     End a game session.
-    /// </summary>
-    /// <param name="sessionId">The id of the game session to end</param>
-    /// <returns>Result indicating if the session could be ended</returns>
     public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId);
 
-    /// <summary>
-    ///     Mark Mr.X as caught by a detective team and swap the two teams' roles: the catching
-    ///     team becomes the new Mr.X team and the former Mr.X team becomes a detective team.
-    /// </summary>
-    /// <param name="sessionId">The id of the game session</param>
-    /// <param name="catchingTeamId">The id of the detective team that caught Mr.X</param>
-    /// <returns>The swapped teams, or an error if the catch could not be processed</returns>
+    /// <summary>swaps roles: the catching detective team becomes mr.x and the old mr.x team becomes a detective team</summary>
     public ValueTask<OneOf<MrXCaughtResult, NotFound, DomainError>> CatchMrXAsync(int sessionId, int catchingTeamId);
 
     /// <summary>
-    ///     Create a fresh waiting session that copies the teams, members, geofence area and
-    ///     settings of a finished session. The finished session is left untouched as history.
+    ///     creates a new waiting session with the teams, members, geofence and settings of a finished one. the
+    ///     finished session stays as it is
     /// </summary>
-    /// <param name="finishedSessionId">The id of the finished session to base the rematch on</param>
-    /// <param name="newJoinCode">The unique join code to assign to the new session</param>
     /// <param name="activeMemberIds">
-    ///     The team-member ids still connected to the finished session. When this set is non-empty,
-    ///     only those members are copied into the rematch so players who already left are not carried
-    ///     over as ghosts. A null or empty set means presence is unknown, so every member is copied.
+    ///     members still connected to the finished session. only they get copied, so players who already left
+    ///     don't come back as ghosts. null or empty means presence is unknown and everyone gets copied
     /// </param>
-    /// <returns>The newly created waiting session, or an error if the rematch could not be created</returns>
     public ValueTask<OneOf<GameSession, NotFound, DomainError>> CreateRematchSessionAsync(int finishedSessionId, string newJoinCode, IReadOnlySet<int>? activeMemberIds = null);
 
-    /// <summary>
-    ///     Data used to create or update a game session.
-    /// </summary>
-    /// <param name="HostUserId">The id of the host user</param>
-    /// <param name="SessionName">The display name of the session</param>
-    /// <param name="JoinCode">The join code used by participants</param>
-    /// <param name="Status">The session status</param>
-    /// <param name="StartTime">The optional actual start time</param>
-    /// <param name="EndTime">The optional actual end time</param>
-    /// <param name="PlannedDurationMinutes">The planned duration in minutes</param>
-    /// <param name="MrXRevealInterval">The Mr.X reveal interval in minutes</param>
+    /// <param name="MrXRevealInterval">minutes between two mr.x reveals</param>
     public sealed record GameSessionData(
         int HostUserId,
         string SessionName,
@@ -116,11 +48,6 @@ public interface IGameSessionService
         int MrXRevealInterval = 5
     );
 
-    /// <summary>
-    ///     The outcome of a successful Mr.X catch: the two teams whose roles were swapped.
-    /// </summary>
-    /// <param name="NewMrXTeam">The team that caught Mr.X and is now the Mr.X team</param>
-    /// <param name="FormerMrXTeam">The team that was Mr.X and is now a detective team</param>
     public sealed record MrXCaughtResult(Team NewMrXTeam, Team FormerMrXTeam);
 }
 
@@ -397,15 +324,13 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             return DomainError.TeamNotInSession(catchingTeamId, sessionId);
         }
 
-        // Only a detective team can catch Mr.X. This also rejects the degenerate case where the
-        // caller passes the current Mr.X team (its role is MrX, not Detective) or a spectator team.
+        // this also rejects a caller passing the current mr.x team or a spectator team
         if (catchingTeam.Role != TeamRole.Detective)
         {
             logger.LogWarning("Rejected catch for session {SessionId} because catching team {TeamId} has role {Role}", sessionId, catchingTeamId, catchingTeam.Role);
             return DomainError.CatchingTeamNotEligible(catchingTeamId, catchingTeam.Role);
         }
 
-        // Swap roles: the catching team takes over as Mr.X, the former Mr.X becomes a detective team.
         mrXTeam.Role = TeamRole.Detective;
         mrXTeam.IsCaught = false;
         catchingTeam.Role = TeamRole.MrX;
@@ -477,8 +402,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
                 rematchSession.Id,
                 finishedSessionId);
 
-            // Recreate the teams; their ids change, so map old->new to reattach members. Team.IsCaught
-            // defaults to false on creation, so the finished match's caught state is intentionally dropped.
+            // the copied teams get new ids, so map old to new ids to put members back on the right team.
+            // AddTeam leaves IsCaught false, which drops the caught state of the finished match on purpose
             var newTeamIdByOldTeamId = new Dictionary<int, int>();
             var copiedTeams = new List<(int OldTeamId, Team NewTeam)>();
             foreach (var sourceTeam in sourceTeams)
@@ -501,34 +426,24 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
                 newTeamIdByOldTeamId[oldTeamId] = newTeam.Id;
             }
 
-            // Re-add every still-present member into the matching new team. Live-position fields
-            // (CurrentLatitude, CurrentLongitude, LastUpdated) reset to null because AddTeamMember does
-            // not copy them. Members who already left the finished session (no live realtime
-            // connection) are skipped so they do not linger in the new lobby as ghosts. An empty/null
-            // presence set means we have no presence info, so every member is copied as a fallback.
+            // live position fields start out empty because AddTeamMember doesn't copy them
             var filterByPresence = activeMemberIds is { Count: > 0 };
             var copiedMemberCount = 0;
             foreach (var sourceMember in sourceMembers)
             {
-                if (filterByPresence && !activeMemberIds!.Contains(sourceMember.Id))
+                bool isPresent = !filterByPresence || activeMemberIds!.Contains(sourceMember.Id);
+                if (isPresent && newTeamIdByOldTeamId.TryGetValue(sourceMember.TeamId, out var newTeamId))
                 {
-                    continue;
+                    uow.TeamMemberRepository.AddTeamMember(
+                        rematchSession.Id,
+                        newTeamId,
+                        sourceMember.UserId,
+                        sourceMember.GuestName,
+                        sourceMember.IsTeamLeader
+                    );
+
+                    copiedMemberCount++;
                 }
-
-                if (!newTeamIdByOldTeamId.TryGetValue(sourceMember.TeamId, out var newTeamId))
-                {
-                    continue;
-                }
-
-                uow.TeamMemberRepository.AddTeamMember(
-                    rematchSession.Id,
-                    newTeamId,
-                    sourceMember.UserId,
-                    sourceMember.GuestName,
-                    sourceMember.IsTeamLeader
-                );
-
-                copiedMemberCount++;
             }
 
             foreach (var sourcePoint in sourceGeofencePoints)

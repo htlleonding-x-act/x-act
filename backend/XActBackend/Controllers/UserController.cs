@@ -46,6 +46,7 @@ public sealed class UserController(
     [Route("")]
     [ProducesResponseType<UserDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> AddUser([FromBody] UserAddRequest addRequest)
     {
         if (!ValidateRequest<UserAddRequest.Validator, UserAddRequest>(addRequest))
@@ -57,7 +58,7 @@ public sealed class UserController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<User, Error> addResult = await userService.AddUserAsync(
+            OneOf<User, DomainError, Error> addResult = await userService.AddUserAsync(
                 new IUserService.UserData(
                     addRequest.Username,
                     addRequest.Email,
@@ -74,6 +75,12 @@ public sealed class UserController(
 
                 return CreatedAtAction(nameof(GetUserById), new { userId = user.Id },
                     UserDetailsDto.FromUser(user));
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected user create request with domain error {ErrorCode}: {ErrorMessage}", domainError.Code, domainError.Message);
+
+                return DomainErrorResult(domainError);
             }, async error =>
             {
                 await transaction.RollbackAsync();
@@ -93,6 +100,7 @@ public sealed class UserController(
     [HttpPut]
     [Route("{userId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> UpdateUser(
         [FromRoute] int userId,

@@ -108,6 +108,7 @@ public sealed class TeamController(
     [HttpPut]
     [Route("{teamId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateTeam(

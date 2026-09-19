@@ -1,20 +1,18 @@
 import 'package:latlong2/latlong.dart';
 
-/// Holds the game-area polygon set by the host during lobby setup.
-/// Points survive navigation (they live for the app session) so the game
-/// map can display the polygon without any backend round-trip.
+/// holds the game area polygon the host set during lobby setup. the points
+/// live for the whole app session, so the game map can show the polygon
+/// without asking the backend
 class GeofenceStore {
   GeofenceStore._();
   static final GeofenceStore instance = GeofenceStore._();
 
   List<LatLng> _points = const [];
 
-  /// The saved polygon vertices in sequence order. Unmodifiable.
+  /// in sequence order
   List<LatLng> get points => List.unmodifiable(_points);
 
-  /// Replaces the stored polygon with [points].
   void setPoints(List<LatLng> points) => _points = List.of(points);
 
-  /// Clears all stored points.
   void clear() => _points = const [];
 }

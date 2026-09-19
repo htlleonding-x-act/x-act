@@ -204,7 +204,7 @@ final class RealtimeService {
       return;
     }
 
-    // signalr_netcore expects non-null Object entries in args.
+    // signalr_netcore needs non-null Object entries in args
     final args = <Object>[
       sessionId,
       teamId,
@@ -240,9 +240,9 @@ final class RealtimeService {
     }
   }
 
-  /// The server sees a reconnect as a new connection with no groups or
-  /// presence, so restore them; resubscribing also refetches missed state.
-  /// Errors are ignored because the next reconnect or refresh retries.
+  /// the server treats a reconnect as a new connection without groups or
+  /// presence, so restore both. resubscribing also refetches missed state.
+  /// errors are ignored because the next reconnect or refresh tries again
   Future<void> _restoreAfterReconnect() async {
     try {
       final sessionId = _subscribedSessionId;
@@ -426,7 +426,7 @@ final class RealtimeService {
         }
         final isMisterX = targetTeam?.role == TeamRole.mrX;
 
-        // Keep last reveal ping visible between intervals.
+        // keep the last reveal ping on the map between intervals
         if (isMisterX && !payload.isRevealedPosition) {
           _latestSnapshot = snapshot;
           break;
@@ -480,9 +480,9 @@ final class RealtimeService {
   }
 }
 
-/// SignalR's default policy gives up after four attempts (about 42 s) and
-/// leaves the connection closed. A match can last an hour on flaky mobile
-/// networks, so retry quickly at first, then every 10 s, and never stop.
+/// signalr's default policy gives up after four attempts (about 42 s) and
+/// leaves the connection closed. a match can last an hour on flaky mobile
+/// networks, so retry quickly at first, then every 10 s, and never stop
 final class _RetryForeverPolicy implements IRetryPolicy {
   const _RetryForeverPolicy();
 

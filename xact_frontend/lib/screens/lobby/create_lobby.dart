@@ -77,13 +77,11 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         ),
       );
 
-      // While the host is defining the game area, the create-game form is
-      // still mounted underneath; flipping this flag now means the moment
-      // the area screen pops we reveal a loading view instead of the form
-      // briefly reappearing.
+      // the create form stays mounted under the area screen. setting this flag
+      // now shows a loading view the moment the area screen pops, instead of
+      // the form flashing back for a moment
       setState(() => _finalizingLobby = true);
 
-      // Step 1: Let the host define the game area.
       final areaSaved = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
@@ -110,7 +108,6 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         return;
       }
 
-      // Step 2: Enter the game.
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

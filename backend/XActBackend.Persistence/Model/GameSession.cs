@@ -1,6 +1,6 @@
 ﻿namespace XActBackend.Persistence.Model;
 
-public class GameSession
+public sealed class GameSession
 {
     public int Id { get; set; }
 
@@ -18,6 +18,7 @@ public class GameSession
 
     public int PlannedDurationMinutes { get; set; }
 
+    /// <summary>minutes between two mr.x reveals</summary>
     public int MrXRevealInterval { get; set; }
 
     public Instant CreatedAt { get; set; }

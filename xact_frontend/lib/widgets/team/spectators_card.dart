@@ -5,7 +5,7 @@ import '../xact_branding.dart';
 import 'draggable_player_tile.dart';
 import 'team_data.dart';
 
-/// Drag-target card that holds the unassigned players list.
+/// drag target that holds the unassigned players
 class SpectatorsCard extends StatelessWidget {
   final List<LobbyPlayer> spectators;
   final ValueChanged<LobbyPlayer> onPlayerDropped;

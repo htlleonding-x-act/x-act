@@ -15,10 +15,10 @@ class MapHeader extends StatefulWidget {
 class _MapHeaderState extends State<MapHeader> {
   late final Future<MapHeaderData> _load;
 
-  /// Seconds left until the next ping – drives the progress bar.
+  /// until the next ping, drives the progress bar
   int _secondsRemaining = 0;
 
-  /// Total interval in seconds.
+  /// length of the whole ping interval
   int _totalSeconds = 0;
 
   Timer? _timer;

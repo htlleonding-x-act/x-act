@@ -5,7 +5,6 @@ namespace XActBackend.Test;
 
 public sealed class GeofenceEvaluatorTests
 {
-    // A simple square spanning lat/lon 0..10.
     private static readonly IReadOnlyList<(double Latitude, double Longitude)> Square =
     [
         (0, 0),

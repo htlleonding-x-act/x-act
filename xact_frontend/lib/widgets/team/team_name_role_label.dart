@@ -3,7 +3,6 @@ import 'package:xact_frontend/api/models.dart';
 
 import '../xact_branding.dart';
 
-/// Displays a team name followed by a role badge.
 class TeamNameRoleLabel extends StatelessWidget {
   final String teamName;
   final TeamRole? role;

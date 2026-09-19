@@ -161,8 +161,6 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
-    // --- StartGameSession ---
-
     [Fact]
     public async ValueTask StartGameSession_NoContent()
     {
@@ -192,8 +190,6 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
-    // --- EndGameSession ---
-
     [Fact]
     public async ValueTask EndGameSession_NoContent()
     {
@@ -222,8 +218,6 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
-
-    // --- RematchGameSession ---
 
     private ValueTask FinishSeededSessionAsync() =>
         ModifyDatabaseContentAsync(context =>
@@ -260,12 +254,12 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         rematch.StartTime.Should().BeNull();
         rematch.EndTime.Should().BeNull();
 
-        // The finished session is preserved as history.
+        // the finished session stays as history
         var original = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionId}", TestCancellationToken);
         var originalContent = await original.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
         originalContent!.Status.Should().Be(SessionStatus.Finished);
 
-        // The rematch is an independent session reachable by its new join code.
+        // the rematch is its own session, reachable by the new join code
         var byCode = await ApiClient.GetAsync($"{BaseUrl}/join/REMAT1", TestCancellationToken);
         byCode.StatusCode.Should().Be(HttpStatusCode.OK);
         var byCodeContent = await byCode.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
@@ -287,7 +281,7 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
     [Fact]
     public async ValueTask RematchGameSession_Conflict_WhenNotFinished()
     {
-        // The seeded session is still Waiting, so it cannot be used for a rematch.
+        // the seeded session is still waiting, so it can't be used for a rematch
         var response = await ApiClient.PostAsJsonAsync(
             $"{BaseUrl}/{SeedData.SessionId}/rematch",
             new GameSessionRematchRequest("REMAT1"),
@@ -296,8 +290,6 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
-
-    // --- CatchMrX ---
 
     private async ValueTask ActivateSeededSessionAsync()
     {
@@ -319,7 +311,6 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
 
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
-        // The catching detective team is now Mr.X, and the former Mr.X team is now a detective team.
         var formerMrX = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.MrXTeamId}", TestCancellationToken);
         var newMrX = await ApiClient.GetAsync($"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}", TestCancellationToken);
         var formerMrXTeam = await formerMrX.Content.ReadFromJsonAsync<TeamDetailsDto>(JsonOptions, TestCancellationToken);
@@ -362,7 +353,7 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
     {
         await ActivateSeededSessionAsync();
 
-        // The current Mr.X team is not a detective team and therefore cannot "catch" Mr.X.
+        // the current mr.x team isn't a detective team, so it can't catch mr.x
         var request = new CatchMrXRequest(SeedData.MrXTeamId);
         var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionId}/catch", request, JsonOptions, TestCancellationToken);
 

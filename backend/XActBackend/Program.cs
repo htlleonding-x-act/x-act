@@ -23,7 +23,7 @@ builder.Services.ConfigureAdditionalRouteConstraints();
 
 var app = builder.Build();
 
-// not using HTTPS, because all production backends _have_ to be behind a reverse proxy which will handle SSL termination
+// no https here, every production backend sits behind a reverse proxy that terminates tls
 
 app.UseCors(Setup.CorsPolicyName);
 app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -43,5 +43,5 @@ static void ConfigureJsonSerialization(JsonOptions options, bool isDev)
     JsonConfig.ConfigureJsonSerialization(options.JsonSerializerOptions, isDev);
 }
 
-// used for integration testing
-public partial class Program { }
+// public so the integration tests can pass it to WebApplicationFactory
+public sealed partial class Program { }

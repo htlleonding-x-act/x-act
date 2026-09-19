@@ -104,6 +104,7 @@ public sealed class GeofencePointController(
     [HttpPut]
     [Route("{pointId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> UpdateGeofencePoint(
         [FromRoute] int sessionId,

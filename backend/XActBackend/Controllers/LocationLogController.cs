@@ -125,10 +125,8 @@ public sealed class LocationLogController(
         }
     }
 
-    /// <summary>
-    ///     Best-effort out-of-bounds check for the position just recorded. Runs outside the location
-    ///     log transaction and never fails the request: a broken offense check must not break tracking.
-    /// </summary>
+    // best effort out-of-bounds check that runs after the location log is committed. it never fails the
+    // request because a broken offense check must not break tracking
     private async ValueTask EvaluateOffenseAsync(int sessionId, int memberId, double latitude, double longitude)
     {
         try
@@ -165,6 +163,7 @@ public sealed class LocationLogController(
     [HttpPut]
     [Route("{logId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateLocationLog(

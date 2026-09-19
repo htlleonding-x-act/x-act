@@ -1,7 +1,6 @@
 part of 'api_service.dart';
 
 extension ApiServiceChatMethods on ApiService {
-  /// Load recent messages of the global "All" channel for the active session.
   Future<List<ChatMessage>> loadAllChatMessages({int? sessionId}) async {
     final resolvedSessionId = sessionId ?? await getActiveSessionId();
     if (resolvedSessionId == null) {
@@ -14,7 +13,6 @@ extension ApiServiceChatMethods on ApiService {
     return ApiListResponse.fromJson(json, ChatMessage.fromJson).items;
   }
 
-  /// Load recent messages of a team's private channel.
   Future<List<ChatMessage>> loadTeamChatMessages({
     required int teamId,
     int? sessionId,
@@ -30,7 +28,6 @@ extension ApiServiceChatMethods on ApiService {
     return ApiListResponse.fromJson(json, ChatMessage.fromJson).items;
   }
 
-  /// Post a message to the global "All" channel as the current member.
   Future<ChatMessage> sendAllChatMessage(String content) async {
     final sessionId = await _requireSessionId();
     final memberId = _requireMemberId();
@@ -42,7 +39,6 @@ extension ApiServiceChatMethods on ApiService {
     return ChatMessage.fromJson(json);
   }
 
-  /// Post a message to the current member's team channel.
   Future<ChatMessage> sendTeamChatMessage({
     required int teamId,
     required String content,
@@ -57,8 +53,7 @@ extension ApiServiceChatMethods on ApiService {
     return ChatMessage.fromJson(json);
   }
 
-  /// Ensure the realtime connection is started and subscribed to the active
-  /// session group, so global "All" chat events are delivered to this client.
+  /// all chat events only reach connections subscribed to the session group
   Future<void> ensureSessionChannelSubscription({int? sessionId}) async {
     final resolvedSessionId = sessionId ?? await getActiveSessionId();
     if (resolvedSessionId == null) {
@@ -68,8 +63,7 @@ extension ApiServiceChatMethods on ApiService {
     await _ensureRealtimeSubscription(resolvedSessionId);
   }
 
-  /// Ensure the realtime connection has joined the private team channel so
-  /// team messages are delivered to this client.
+  /// team chat events only reach connections that joined the team channel
   Future<void> ensureTeamChannelSubscription({
     required int teamId,
     int? sessionId,

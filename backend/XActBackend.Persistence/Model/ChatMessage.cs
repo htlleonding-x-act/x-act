@@ -1,6 +1,6 @@
 namespace XActBackend.Persistence.Model;
 
-public class ChatMessage
+public sealed class ChatMessage
 {
     public const int MaxContentLength = 1000;
     public const int MaxSenderNameLength = 64;
@@ -9,27 +9,21 @@ public class ChatMessage
 
     public int SessionId { get; set; }
 
-    /// <summary>
-    ///     The team this message belongs to. <c>null</c> denotes the global "All" channel
-    ///     visible to every member of the session.
-    /// </summary>
+    /// <summary>null means the session wide all chat</summary>
     public int? TeamId { get; set; }
 
     /// <summary>
-    ///     The member that sent the message. Nullable so chat history survives a member
-    ///     leaving the lobby (the reference is set to null on member deletion).
+    ///     nullable so the chat history survives the sender leaving, the reference is set to null when the
+    ///     member is deleted
     /// </summary>
     public int? SenderMemberId { get; set; }
 
     /// <summary>
-    ///     The sender's team at the time the message was sent. Stored denormalized so the
-    ///     "All" channel can attribute/colour a message even after the sender has left.
+    ///     copied at send time so the all chat can still color a message after the sender has left
     /// </summary>
     public int? SenderTeamId { get; set; }
 
-    /// <summary>
-    ///     The sender's display name (username or guest name) captured at send time.
-    /// </summary>
+    /// <summary>username or guest name, copied at send time</summary>
     public required string SenderName { get; set; }
 
     public required string Content { get; set; }

@@ -1,6 +1,6 @@
 ﻿namespace XActBackend.Persistence.Model;
 
-public class GeofencePoint
+public sealed class GeofencePoint
 {
     public int Id { get; set; }
 

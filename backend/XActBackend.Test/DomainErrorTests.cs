@@ -115,6 +115,15 @@ public sealed class DomainErrorTests
     }
 
     [Fact]
+    public void UsernameTaken_ReturnsExpectedCodeAndMessage()
+    {
+        var result = DomainError.UsernameTaken("host_user");
+
+        result.Code.Should().Be(DomainErrorCodes.UsernameTaken);
+        result.Message.Should().Contain("host_user");
+    }
+
+    [Fact]
     public void TeamLeaderAlreadyExists_ReturnsExpectedCodeAndMessage()
     {
         var result = DomainError.TeamLeaderAlreadyExists(12);

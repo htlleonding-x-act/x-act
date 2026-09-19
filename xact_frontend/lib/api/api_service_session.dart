@@ -41,9 +41,9 @@ extension ApiServiceSessionMethods on ApiService {
     throw Exception('Failed to create lobby after retries.');
   }
 
-  /// Create a fresh lobby that copies the teams, players, area and settings of a
-  /// finished session. The backend broadcasts a `rematch_created` event on the
-  /// finished session's channel so every connected client migrates over.
+  /// copies the teams, players, area and settings of a finished session into a
+  /// new lobby. the backend then sends `rematch_created` on the finished
+  /// session's channel so every connected client moves over
   Future<GameSessionDetails> createRematch(int finishedSessionId) async {
     for (var attempt = 0; attempt < 3; attempt++) {
       final response = await _postJsonObject(
@@ -238,9 +238,8 @@ extension ApiServiceSessionMethods on ApiService {
     });
   }
 
-  /// Reports that the current Mr. X team was caught by [catchingTeamId], which
-  /// triggers the backend to swap the two teams' roles. The resulting role
-  /// changes arrive via realtime team_updated + mr_x_caught events.
+  /// the backend swaps the roles of both teams. the new roles arrive through
+  /// the realtime `team_updated` and `mr_x_caught` events
   Future<void> markMrXCaught({
     required int sessionId,
     required int catchingTeamId,
@@ -372,8 +371,9 @@ extension ApiServiceSessionMethods on ApiService {
     } else if (details.status == SessionStatus.active &&
         teamId != null &&
         memberId != null) {
-      // Delete the member as a kick does, or they stay on everyone's map and
-      // still count in kick votes. Ignore errors so leaving works offline.
+      // delete the member like a kick does, otherwise they stay on everyone's
+      // map and still count in kick votes. errors are ignored so leaving also
+      // works offline
       try {
         await removeMember(
           sessionId: sessionId,
@@ -383,9 +383,9 @@ extension ApiServiceSessionMethods on ApiService {
       } catch (_) {}
     }
 
-    // Drop the realtime presence registration before leaving so a rematch started
-    // after this point (e.g. on the end-match screen) does not copy this player,
-    // who has left, into the new lobby as a ghost.
+    // drop the realtime presence first so a rematch started after this point,
+    // e.g. from the end match screen, doesn't copy this player into the new
+    // lobby as a ghost
     try {
       await _realtime.unregisterMemberPresence();
     } catch (_) {}
@@ -396,9 +396,9 @@ extension ApiServiceSessionMethods on ApiService {
     _session.clearMembership();
   }
 
-  /// Leave the current session locally without ending it for everyone else.
-  /// Used when this player was kicked: the server already removed the member, so
-  /// we only drop realtime presence and clear local session state.
+  /// leaves without ending the session for everyone else. used after a kick:
+  /// the server already removed the member, so only the realtime presence and
+  /// the local session state get cleared
   Future<void> leaveCurrentSessionLocally() async {
     final sessionId = _session.currentSessionId;
     if (sessionId == null) {
@@ -519,8 +519,8 @@ extension ApiServiceSessionMethods on ApiService {
       membersByTeamId[member.teamId]!.add(details);
     }
 
-    // Usernames stay fixed during a session and this runs on every location
-    // ping, so only refetch the user list when an unknown user id shows up.
+    // usernames don't change during a session and this runs on every location
+    // ping, so only refetch users when an unknown user id shows up
     final hasUnknownUser = snapshot.members.any(
       (member) =>
           member.userId != null && !_usersById.containsKey(member.userId),

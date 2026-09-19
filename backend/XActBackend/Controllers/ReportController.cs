@@ -47,6 +47,7 @@ public sealed class ReportController(
 
     [HttpPost]
     [Route("votes")]
+    [ProducesResponseType<KickVotePayload>(StatusCodes.Status200OK)]
     [ProducesResponseType<KickVotePayload>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -249,7 +250,7 @@ public sealed class ReportController(
 
         await realtimePublisher.PublishMemberKickedAsync(payload);
 
-        // Also raise the standard "left" event so existing rosters and lobby views update.
+        // also send the normal left event so existing rosters and lobby views update
         await realtimePublisher.PublishTeamMemberLeftAsync(
             member.SessionId,
             member.TeamId,

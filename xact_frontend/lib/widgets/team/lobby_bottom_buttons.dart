@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../xact_branding.dart';
 
-/// Bottom action buttons: Randomize Teams + Start Game.
+/// randomize teams and start game
 class LobbyBottomButtons extends StatelessWidget {
   final bool canStartGame;
   final VoidCallback onRandomize;

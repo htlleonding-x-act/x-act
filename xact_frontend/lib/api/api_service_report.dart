@@ -1,7 +1,6 @@
 part of 'api_service.dart';
 
 extension ApiServiceReportMethods on ApiService {
-  /// Load the session's single open kick vote, or `null` when none is running.
   Future<KickVote?> loadOpenKickVote({int? sessionId}) async {
     final resolvedSessionId = sessionId ?? await getActiveSessionId();
     if (resolvedSessionId == null) {
@@ -18,7 +17,6 @@ extension ApiServiceReportMethods on ApiService {
     return KickVote.fromJson(vote.cast<String, dynamic>());
   }
 
-  /// Load the active offenses (flagged players) of the session.
   Future<List<MemberOffense>> loadActiveOffenses({int? sessionId}) async {
     final resolvedSessionId = sessionId ?? await getActiveSessionId();
     if (resolvedSessionId == null) {
@@ -31,7 +29,6 @@ extension ApiServiceReportMethods on ApiService {
     return ApiListResponse.fromJson(json, MemberOffense.fromJson).items;
   }
 
-  /// Start a kick vote against [targetMemberId] as the current member.
   Future<KickVote> startKickVote({
     required int targetMemberId,
     String? reason,
@@ -50,7 +47,6 @@ extension ApiServiceReportMethods on ApiService {
     return KickVote.fromJson(json);
   }
 
-  /// Cast a ballot in an open kick vote as the current member.
   Future<KickVote> castKickBallot({
     required int voteId,
     required bool approve,
@@ -65,7 +61,7 @@ extension ApiServiceReportMethods on ApiService {
     return KickVote.fromJson(json);
   }
 
-  /// Cancel an open kick vote (allowed for the initiator or the host).
+  /// only the initiator or the host may cancel
   Future<KickVote> cancelKickVote({required int voteId}) async {
     final sessionId = await _requireSessionId();
     final memberId = _requireMemberId();
@@ -77,7 +73,7 @@ extension ApiServiceReportMethods on ApiService {
     return KickVote.fromJson(json);
   }
 
-  /// Instantly kick a member using host sudo powers.
+  /// kicks right away without a vote, host only
   Future<void> hostKickMember({
     required int targetMemberId,
     String? reason,

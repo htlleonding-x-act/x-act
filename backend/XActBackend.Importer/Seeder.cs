@@ -35,7 +35,8 @@ internal static class Seeder
 
     private static async Task SyncIdentitySequencesAsync(DatabaseContext ctx)
     {
-        // Seed data sets explicit IDs, so align identity sequences to avoid duplicate key errors on inserts.
+        // the seed data uses explicit ids, so move the identity sequences past them or later inserts hit
+        // duplicate keys
         string[] tableNames =
         [
             "User",

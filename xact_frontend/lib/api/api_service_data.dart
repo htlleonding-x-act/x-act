@@ -98,7 +98,7 @@ extension ApiServiceDataMethods on ApiService {
         continue;
       }
 
-      // Keep legend visibility aligned with marker visibility (e.g. Mr. X should not see detective teams in legend).
+      // same rule as the markers below: mr.x doesn't see detective teams in the legend either
       if (currentTeamRole == TeamRole.mrX && team.role != TeamRole.mrX) {
         continue;
       }
@@ -115,20 +115,17 @@ extension ApiServiceDataMethods on ApiService {
     return visibleTeams;
   }
 
-  // Visibility rules for player markers on the map:
-  //   - Spectators / unassigned: no map presence.
-  //   - Detectives: always visible to every viewer.
-  //   - Mr. X: only visible when the latest log is a revealed ping. The
-  //     marker is placed at the revealed log's coordinates so the position
-  //     does not leak between reveals. The backend snapshot service already
-  //     filters Mr. X's latestLocations down to revealed entries, so an
-  //     absent / non-revealed entry here means "hidden".
-  //   - The current player's own marker is rendered from local GPS by the
-  //     map widget, not from this list, so these rules apply to everyone
-  //     else.
-  //   - When the current viewer is Mr. X, every other player is hidden — Mr.
-  //     X must not learn detective positions from the map. The "You" marker
-  //     still comes from local GPS in the map widget.
+  // who shows up on the map:
+  //   - spectators and unassigned players: nobody sees them
+  //   - detectives: always visible to every viewer
+  //   - mr.x: only when the latest log is a revealed ping, placed at that log's
+  //     coordinates so the position doesn't leak between reveals. the backend
+  //     snapshot already filters mr.x down to revealed entries, so a missing or
+  //     unrevealed entry means hidden
+  //   - when the viewer is mr.x, every other player is hidden so mr.x can't
+  //     learn detective positions from the map
+  // the viewer's own marker comes from local gps in the map widget, not from
+  // this list, so these rules only cover everyone else
   Future<List<PlayerPositionData>> loadPlayerPositions(
     int sessionId, {
     LobbySnapshot? from,

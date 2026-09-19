@@ -63,6 +63,8 @@ Four projects with strict layering:
 
 **Validation**: Use FluentValidation for request validation; keep it in the Web API layer.
 
+**OpenAPI responses**: Declare every status an endpoint returns with `ProducesResponseType`, except 5xx. A server can always fail with a 500, so never document it.
+
 **HTTPS**: Do not add HTTPS middleware — TLS is terminated by a reverse proxy in front of the backend.
 
 **CORS**: `ClientOrigin` is required configuration; validate origin changes against `Setup.cs`.

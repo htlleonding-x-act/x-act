@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../xact_branding.dart';
 
-/// Header row for the game lobby showing title and player count.
 class GameLobbyHeader extends StatelessWidget {
   final String gameName;
   final int totalPlayers;

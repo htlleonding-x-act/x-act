@@ -113,6 +113,7 @@ public sealed class TeamMemberController(
     [HttpPut]
     [Route("{memberId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateTeamMember(

@@ -3,18 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:xact_frontend/api/models.dart';
 
-// ───────────────────────────── COLORS ───────────────────────────────
 class XActColors {
   XActColors._();
 
-  // Surface ramp — deeper, cooler navy
   static const Color bg = Color(0xFF0A0E1A);
   static const Color bg2 = Color(0xFF0F1422);
   static const Color surface = Color(0xFF161C2E);
   static const Color surface2 = Color(0xFF1E2640);
   static const Color surface3 = Color(0xFF2A3354);
 
-  // Legacy aliases (kept for back-compat at call sites)
+  // aliases so older call sites keep compiling
   static const Color surfaceAlt = surface2;
   static const Color surfaceDeep = bg2;
   static const Color hairline = surface3;
@@ -22,7 +20,6 @@ class XActColors {
   static final Color glass = const Color(0xFF161C2E).withValues(alpha: .72);
   static final Color glassHi = const Color(0xFF283250).withValues(alpha: .55);
 
-  // Brand & semantic
   static const Color primary = Color(0xFFFF4D5E);
   static const Color primaryLight = Color(0xFFFF6173);
   static const Color primaryDark = Color(0xFFE83847);
@@ -34,15 +31,13 @@ class XActColors {
   static const Color warning = Color(0xFFF6B05B);
   static const Color danger = primary;
 
-  // Role
   static const Color roleMrX = primary;
   static const Color roleDetective = secondary;
   static const Color roleSpectator = Color(0xFF94A3B8);
 
-  // Player location accent (used on map)
+  // the you marker on the map
   static const Color youLocation = secondary;
 
-  // Soft / glow tints
   static final Color primarySoft = primary.withValues(alpha: .16);
   static final Color primaryGlow = primary.withValues(alpha: .35);
   static final Color secondarySoft = secondary.withValues(alpha: .18);
@@ -50,14 +45,12 @@ class XActColors {
   static final Color successSoft = success.withValues(alpha: .16);
   static final Color spectatorSoft = roleSpectator.withValues(alpha: .16);
 
-  // Text scale (5 alphas)
   static const Color text1 = Colors.white;
   static final Color text2 = Colors.white.withValues(alpha: .78);
   static final Color text3 = Colors.white.withValues(alpha: .55);
   static final Color text4 = Colors.white.withValues(alpha: .36);
   static final Color text5 = Colors.white.withValues(alpha: .22);
 
-  // Hairlines
   static final Color hairlineSoft = Colors.white.withValues(alpha: .10);
   static final Color hairlineFaint = Colors.white.withValues(alpha: .06);
   static final Color hairlineHi = Colors.white.withValues(alpha: .18);
@@ -77,7 +70,6 @@ class XActColors {
       };
 }
 
-// ───────────────────────────── GEOMETRY ─────────────────────────────
 class XActSpace {
   XActSpace._();
   static const double s1 = 4;
@@ -102,7 +94,6 @@ class XActRadius {
   static const BorderRadius pill = BorderRadius.all(Radius.circular(9999));
 }
 
-// ───────────────────────────── ELEVATION ────────────────────────────
 class XActElevation {
   XActElevation._();
 
@@ -155,11 +146,9 @@ class XActElevation {
   ];
 }
 
-// ───────────────────────────── TYPE ─────────────────────────────────
 class XActText {
   XActText._();
 
-  // Display / wordmark (Space Grotesk)
   static TextStyle display = GoogleFonts.spaceGrotesk(
     fontSize: 56,
     fontWeight: FontWeight.w700,
@@ -175,7 +164,6 @@ class XActText {
     letterSpacing: -.6,
   );
 
-  // UI titles (Inter)
   static TextStyle title = GoogleFonts.inter(
     fontSize: 22,
     fontWeight: FontWeight.w700,
@@ -215,7 +203,6 @@ class XActText {
     color: XActColors.text3,
   );
 
-  // Eyebrow / overline (mono uppercase)
   static TextStyle eyebrow = GoogleFonts.jetBrainsMono(
     fontSize: 11,
     fontWeight: FontWeight.w600,
@@ -223,7 +210,7 @@ class XActText {
     letterSpacing: 1.6,
   );
 
-  // Mono — codes & timers
+  // for codes and timers
   static TextStyle mono = GoogleFonts.jetBrainsMono(
     fontSize: 22,
     fontWeight: FontWeight.w600,
@@ -239,17 +226,16 @@ class XActText {
   );
 }
 
-// ───────────────────────────── BRANDING ─────────────────────────────
 class XActBranding {
   XActBranding._();
 
-  // Re-exported for back-compat with current call sites.
+  // aliases so older call sites keep compiling
   static const Color primaryRed = XActColors.primary;
   static const Color primaryBlue = XActColors.secondary;
   static const Color backgroundColor = XActColors.bg;
   static const Color cardColor = XActColors.surface;
 
-  /// Auroral gradient backdrop — placed behind hero content on dark screens.
+  /// goes behind hero content on dark screens
   static Widget aurora({Widget? child}) {
     return Stack(
       children: [
@@ -290,7 +276,6 @@ class XActBranding {
     );
   }
 
-  /// Square logo mark with the "X" glyph and a red gradient.
   static Widget buildLogo({double size = 88}) {
     final radius = size * .30;
     return Container(
@@ -334,7 +319,7 @@ class XActBranding {
     );
   }
 
-  /// Header used on the start screen — logo + wordmark + tagline + body copy.
+  /// used on the start screen
   static Widget buildHeader({bool compact = false}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -379,8 +364,6 @@ class XActBranding {
       style: XActText.caption.copyWith(color: XActColors.text4),
     );
   }
-
-  // ─── Buttons ────────────────────────────────────────────────────────
 
   static Widget buildPrimaryButton({
     required String text,
@@ -580,8 +563,6 @@ class XActBranding {
     );
   }
 
-  // ─── Cards / forms ────────────────────────────────────────────────
-
   static Widget buildFormCard({required Widget child}) {
     return Container(
       width: double.infinity,
@@ -596,7 +577,7 @@ class XActBranding {
     );
   }
 
-  /// Eyebrow label (mono uppercase, used for section headers).
+  /// small mono uppercase label above a section
   static Widget buildEyebrow(String text, {Color? color}) {
     return Text(
       text.toUpperCase(),
@@ -604,7 +585,6 @@ class XActBranding {
     );
   }
 
-  /// Top app bar row with optional back chevron and trailing widget.
   static Widget buildTopBar({
     BuildContext? context,
     String? eyebrow,
@@ -677,7 +657,6 @@ class XActBranding {
     double size = 40,
   }) => _circleIconButton(icon: icon, onPressed: onPressed, size: size);
 
-  /// Reusable horizontal action card.
   static Widget buildActionCard({
     required IconData icon,
     required String title,
@@ -741,8 +720,6 @@ class XActBranding {
     );
   }
 
-  // ─── Inputs ───────────────────────────────────────────────────────
-
   static Widget buildTextField({
     required String label,
     required String hintText,
@@ -802,8 +779,6 @@ class XActBranding {
       ],
     );
   }
-
-  // ─── Role pill ────────────────────────────────────────────────────
 
   static Widget buildRolePill({
     required TeamRole? role,

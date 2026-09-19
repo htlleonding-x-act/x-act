@@ -22,6 +22,8 @@ public sealed class PowerUpUsageServiceTests
     private const int DefaultSessionId = 1;
     private const int DefaultTeamId = 1;
 
+    private static readonly Instant now = Instant.FromUtc(2026, 1, 1, 12, 0);
+
     private readonly IPowerUpUsageRepository _powerUpUsageRepository;
     private readonly ITeamMemberRepository _teamMemberRepository;
     private readonly IGameSessionRepository _gameSessionRepository;
@@ -101,7 +103,7 @@ public sealed class PowerUpUsageServiceTests
             Id = id,
             MemberId = memberId,
             PowerUpType = powerUpType,
-            UsedAt = usedAt ?? SystemClock.Instance.GetCurrentInstant(),
+            UsedAt = usedAt ?? now,
         };
 
     private static List<PowerUpUsage> CreateUsages() =>
@@ -177,7 +179,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask AddPowerUpUsageAsync_ReturnsAddedUsage()
     {
-        var usedAt = SystemClock.Instance.GetCurrentInstant();
+        var usedAt = now;
         var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, usedAt);
         var usage = new PowerUpUsage { Id = DefaultUsageId, MemberId = data.MemberId, PowerUpType = data.PowerUpType, UsedAt = data.UsedAt };
 
@@ -200,7 +202,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask AddPowerUpUsageAsync_ReturnsNotFound_WhenMemberMissing()
     {
-        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, now);
         _teamMemberRepository.GetMemberByIdAsync(DefaultMemberId, false).Returns((TeamMember?) null);
 
         OneOf<PowerUpUsage, NotFound, DomainError> result = await _sut.AddPowerUpUsageAsync(data);
@@ -215,7 +217,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask AddPowerUpUsageAsync_ReturnsDomainError_WhenSessionNotActive()
     {
-        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, now);
         _teamMemberRepository.GetMemberByIdAsync(DefaultMemberId, false).Returns(CreateMember());
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
@@ -232,7 +234,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask AddPowerUpUsageAsync_ReturnsNotFound_WhenTeamMissing()
     {
-        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, now);
         _teamMemberRepository.GetMemberByIdAsync(DefaultMemberId, false).Returns(CreateMember());
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
@@ -250,7 +252,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask AddPowerUpUsageAsync_ReturnsDomainError_WhenTeamRoleIsNotMrX()
     {
-        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, now);
         _teamMemberRepository.GetMemberByIdAsync(DefaultMemberId, false).Returns(CreateMember());
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
@@ -269,7 +271,7 @@ public sealed class PowerUpUsageServiceTests
     internal async ValueTask UpdatePowerUpUsageAsync_ReturnsSuccess_WhenFound()
     {
         var usage = CreateUsage(DefaultUsageId, DefaultMemberId, PowerUpType.BlackTicket);
-        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, now);
 
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
@@ -291,7 +293,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask UpdatePowerUpUsageAsync_ReturnsNotFound_WhenUnknown()
     {
-        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.DoubleMove, now);
 
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
@@ -310,7 +312,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask UpdatePowerUpUsageAsync_ReturnsNotFound_WhenPayloadMemberDoesNotMatch()
     {
-        var data = new IPowerUpUsageService.PowerUpUsageData(99, PowerUpType.DoubleMove, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(99, PowerUpType.DoubleMove, now);
 
         OneOf<Success, NotFound, DomainError> result = await _sut.UpdatePowerUpUsageAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultUsageId, data, true);
 
@@ -324,7 +326,7 @@ public sealed class PowerUpUsageServiceTests
     [Fact]
     internal async ValueTask UpdatePowerUpUsageAsync_ReturnsDomainError_WhenTeamRoleIsNotMrX()
     {
-        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.BlackTicket, SystemClock.Instance.GetCurrentInstant());
+        var data = new IPowerUpUsageService.PowerUpUsageData(DefaultMemberId, PowerUpType.BlackTicket, now);
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
         _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateDetectiveTeam());

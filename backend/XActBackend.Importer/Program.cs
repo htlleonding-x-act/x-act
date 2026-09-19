@@ -5,7 +5,8 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Importer;
 
-// avoid top level statements to avoid conflicts in int tests which reference two projects with entry points
+// no top level statements: the integration tests reference this project and the api, and two generated
+// entry points would clash
 internal static class Program
 {
     private static async Task Main(string[] args)

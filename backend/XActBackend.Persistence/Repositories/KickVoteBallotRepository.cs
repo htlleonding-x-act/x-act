@@ -3,27 +3,10 @@ using XActBackend.Persistence.Model;
 
 namespace XActBackend.Persistence.Repositories;
 
-/// <summary>
-///     Repository for <see cref="KickVoteBallot"/> entities.
-/// </summary>
 public interface IKickVoteBallotRepository
 {
-    /// <summary>
-    ///     Add a new ballot to a kick vote.
-    /// </summary>
-    /// <param name="kickVoteId">The id of the kick vote</param>
-    /// <param name="voterMemberId">The member casting the ballot</param>
-    /// <param name="approve"><c>true</c> approves the kick, <c>false</c> votes to keep the target</param>
-    /// <param name="castAt">Timestamp the ballot was cast</param>
-    /// <returns>The created tracked ballot entity</returns>
     public KickVoteBallot AddBallot(int kickVoteId, int? voterMemberId, bool approve, Instant castAt);
 
-    /// <summary>
-    ///     Get all ballots cast for a kick vote.
-    /// </summary>
-    /// <param name="kickVoteId">The id of the kick vote</param>
-    /// <param name="tracking">Flag indicating if entities should be tracked by the context</param>
-    /// <returns>All ballots for the vote</returns>
     public ValueTask<IReadOnlyCollection<KickVoteBallot>> GetBallotsByVoteIdAsync(int kickVoteId, bool tracking);
 }
 

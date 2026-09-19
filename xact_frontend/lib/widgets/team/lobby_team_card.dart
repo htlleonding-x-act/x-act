@@ -4,7 +4,7 @@ import '../xact_branding.dart';
 import 'draggable_player_tile.dart';
 import 'team_data.dart';
 
-/// Drag-target card for a single team in the lobby.
+/// drag target for one team in the lobby
 class LobbyTeamCard extends StatelessWidget {
   final TeamData team;
   final bool isLeader;
