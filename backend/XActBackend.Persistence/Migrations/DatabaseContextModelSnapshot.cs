@@ -477,6 +477,7 @@ namespace XActBackend.Persistence.Migrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<string>("UserId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -663,7 +664,8 @@ namespace XActBackend.Persistence.Migrations
                     b.HasOne("XActBackend.Persistence.Model.User", "User")
                         .WithMany("AuthIdentities")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
