@@ -1201,7 +1201,7 @@ final class RematchCreatedPayload {
   final int newSessionId;
   final String newJoinCode;
   final String sessionName;
-  final int hostUserId;
+  final String hostUserId;
 
   const RematchCreatedPayload({
     required this.finishedSessionId,
@@ -1217,7 +1217,7 @@ final class RematchCreatedPayload {
       newSessionId: _readInt(json, ['newSessionId']),
       newJoinCode: (json['newJoinCode'] as String?) ?? '',
       sessionName: (json['sessionName'] as String?) ?? 'Session',
-      hostUserId: _readInt(json, ['hostUserId']),
+      hostUserId: json['hostUserId'] as String,
     );
   }
 }
@@ -1369,7 +1369,7 @@ final class MemberKickedPayload {
   final int sessionId;
   final int teamId;
   final int memberId;
-  final int? userId;
+  final String? userId;
   final String? guestName;
   final String memberName;
   final String kickType;
@@ -1395,7 +1395,7 @@ final class MemberKickedPayload {
       sessionId: _readInt(json, ['sessionId']),
       teamId: _readInt(json, ['teamId']),
       memberId: _readInt(json, ['memberId']),
-      userId: _readNullableInt(json, ['userId']),
+      userId: json['userId'] as String?,
       guestName: json['guestName'] as String?,
       memberName: (json['memberName'] as String?) ?? 'A player',
       kickType: (json['kickType'] as String?) ?? 'vote',

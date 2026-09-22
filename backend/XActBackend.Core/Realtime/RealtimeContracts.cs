@@ -209,7 +209,7 @@ public sealed record RematchCreatedPayload(
     int NewSessionId,
     string NewJoinCode,
     string SessionName,
-    int HostUserId
+    string HostUserId
 );
 
 /// <summary>
@@ -254,7 +254,7 @@ public sealed record MemberKickedPayload(
     int SessionId,
     int TeamId,
     int MemberId,
-    int? UserId,
+    string? UserId,
     string? GuestName,
     string MemberName,
     string KickType,

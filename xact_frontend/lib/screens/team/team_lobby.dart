@@ -33,7 +33,7 @@ void openRematchLobby(
   required int sessionId,
   required String joinCode,
   required String sessionName,
-  required int hostUserId,
+  required String hostUserId,
 }) {
   final currentUserId = AppSession.instance.currentUserId;
   // the old membership belongs to the finished session. the lobby looks up the

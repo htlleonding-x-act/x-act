@@ -39,7 +39,6 @@ internal static class Seeder
         // duplicate keys
         string[] tableNames =
         [
-            "User",
             "GameSession",
             "Team",
             "TeamMember",

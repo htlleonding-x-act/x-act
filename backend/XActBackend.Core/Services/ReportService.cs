@@ -400,7 +400,7 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
     private static int ApprovalsNeeded(int eligible) => Math.Max(eligible, 1) / 2 + 1;
 
     private static bool IsHost(TeamMember member, GameSession session) =>
-        member.UserId.HasValue && member.UserId.Value == session.HostUserId;
+        member.UserId is not null && member.UserId == session.HostUserId;
 
     private static string? NormalizeReason(string? reason)
     {
@@ -426,7 +426,7 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
 
     private async ValueTask<string> ResolveMemberNameAsync(TeamMember member)
     {
-        if (member.UserId is int userId)
+        if (member.UserId is { } userId)
         {
             var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking: false);
             if (!string.IsNullOrWhiteSpace(user?.Username))

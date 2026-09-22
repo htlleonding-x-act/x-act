@@ -13,7 +13,7 @@ public sealed record MemberPresenceRegistration(
     int SessionId,
     int TeamId,
     int MemberId,
-    int? UserId,
+    string? UserId,
     string? GuestName);
 
 /// <summary>
