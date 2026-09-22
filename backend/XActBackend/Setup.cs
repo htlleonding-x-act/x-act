@@ -46,9 +46,8 @@ public static class Setup
                         {
                             ValidateIssuer = true,
                             ValidIssuer = settings.ValidIssuer ?? settings.Authority,
-                            // keycloak issues access tokens for the "account" audience unless the client gets an
-                            // audience mapper, so there is nothing stable to validate against yet
-                            ValidateAudience = false
+                            ValidateAudience = settings.ValidAudience is not null,
+                            ValidAudience = settings.ValidAudience
                         };
                     });
 

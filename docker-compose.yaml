@@ -51,6 +51,7 @@ services:
       - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=xact_db;Username=admin;Password=supersecretpassword
       - Authentication__Authority=http://keycloak:8080/realms/xact
       - Authentication__ValidIssuer=http://localhost:8080/realms/xact
+      - Authentication__ValidAudience=x-act-backend
       - Authentication__RequireHttpsMetadata=false
     depends_on:
       postgres:

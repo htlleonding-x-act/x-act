@@ -13,5 +13,11 @@ public sealed class AuthenticationSettings
     /// </summary>
     public string? ValidIssuer { get; init; }
 
+    /// <summary>
+    /// audience expected in the token. keycloak only stamps a usable one once the client has an audience mapper,
+    /// so a realm without that mapper leaves this unset and the audience is not validated
+    /// </summary>
+    public string? ValidAudience { get; init; }
+
     public bool RequireHttpsMetadata { get; init; } = true;
 }
