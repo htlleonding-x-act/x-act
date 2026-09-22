@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/auth/auth_config.dart';
@@ -49,16 +49,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Mobile (Android / iOS): receive via uni_links deep link.
-    try {
-      final initial = await getInitialUri();
-      if (initial != null) _handleIncomingUri(initial);
-    } catch (_) {}
-
-    _deepLinkSub = uriLinkStream.listen(
-      (uri) { if (uri != null) _handleIncomingUri(uri); },
-      onError: (_) {},
-    );
+    // Mobile (Android / iOS): the stream also replays the link that cold-started the app.
+    _deepLinkSub = AppLinks().uriLinkStream.listen(_handleIncomingUri, onError: (_) {});
   }
 
   // ── Keycloak browser launch ───────────────────────────────────────────────
