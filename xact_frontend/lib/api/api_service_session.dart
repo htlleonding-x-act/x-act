@@ -56,7 +56,7 @@ extension ApiServiceSessionMethods on ApiService {
   }
 
   Future<String> ensureMvpUser({required String preferredName}) async {
-    if (_accessToken != null) {
+    if (isAuthenticated) {
       try {
         await _syncUserWithBackend();
         if (_session.currentUserId != null) return _session.currentUserId!;

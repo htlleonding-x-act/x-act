@@ -48,15 +48,27 @@ extension ApiServiceHttpMethods on ApiService {
     return ApiListResponse.fromJson(json, TeamMemberInfo.fromJson).items;
   }
 
+  Map<String, String> _headers({bool jsonBody = false}) => {
+    'Accept': 'application/json',
+    if (jsonBody) 'Content-Type': 'application/json',
+    if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
+  };
+
+  /// Retries the request once with a refreshed access token, so an expired token
+  /// does not surface as a failed call in the middle of a match.
+  Future<http.Response> _send(Future<http.Response> Function() request) async {
+    final response = await request();
+
+    if (response.statusCode != 401 || !await _refreshAccessToken()) {
+      return response;
+    }
+
+    return request();
+  }
+
   Future<Map<String, dynamic>> _getJsonObject(String path) async {
     final uri = _baseUri.resolve(path);
-    final response = await _http.get(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      },
-    );
+    final response = await _send(() => _http.get(uri, headers: _headers()));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('HTTP ${response.statusCode} for GET $path');
@@ -75,14 +87,8 @@ extension ApiServiceHttpMethods on ApiService {
     Map<String, dynamic> payload,
   ) async {
     final uri = _baseUri.resolve(path);
-    final response = await _http.post(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      },
-      body: jsonEncode(payload),
+    final response = await _send(
+      () => _http.post(uri, headers: _headers(jsonBody: true), body: jsonEncode(payload)),
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -112,13 +118,7 @@ extension ApiServiceHttpMethods on ApiService {
 
   Future<void> _postNoContent(String path) async {
     final uri = _baseUri.resolve(path);
-    final response = await _http.post(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      },
-    );
+    final response = await _send(() => _http.post(uri, headers: _headers()));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('HTTP ${response.statusCode} for POST $path');
     }
@@ -129,14 +129,8 @@ extension ApiServiceHttpMethods on ApiService {
     Map<String, dynamic> payload,
   ) async {
     final uri = _baseUri.resolve(path);
-    final response = await _http.post(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      },
-      body: jsonEncode(payload),
+    final response = await _send(
+      () => _http.post(uri, headers: _headers(jsonBody: true), body: jsonEncode(payload)),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -149,14 +143,8 @@ extension ApiServiceHttpMethods on ApiService {
     Map<String, dynamic> payload,
   ) async {
     final uri = _baseUri.resolve(path);
-    final response = await _http.put(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      },
-      body: jsonEncode(payload),
+    final response = await _send(
+      () => _http.put(uri, headers: _headers(jsonBody: true), body: jsonEncode(payload)),
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -166,13 +154,7 @@ extension ApiServiceHttpMethods on ApiService {
 
   Future<void> _deleteNoContent(String path) async {
     final uri = _baseUri.resolve(path);
-    final response = await _http.delete(
-      uri,
-      headers: {
-        'Accept': 'application/json',
-        if (_accessToken != null) 'Authorization': 'Bearer $_accessToken',
-      },
-    );
+    final response = await _send(() => _http.delete(uri, headers: _headers()));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('HTTP ${response.statusCode} for DELETE $path');
     }

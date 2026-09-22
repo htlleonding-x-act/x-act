@@ -36,9 +36,13 @@ class AuthConfig {
     return _mobileRedirectUri;
   }
 
-  static Uri get loginUri {
+  static Uri endpoint(String name) {
     final base = authority.endsWith('/') ? authority : '$authority/';
-    return Uri.parse('${base}protocol/openid-connect/auth').replace(
+    return Uri.parse('${base}protocol/openid-connect/$name');
+  }
+
+  static Uri get loginUri {
+    return endpoint('auth').replace(
       queryParameters: <String, String>{
         'client_id': clientId,
         'redirect_uri': redirectUri,
