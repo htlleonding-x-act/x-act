@@ -11,6 +11,7 @@ services:
       - "6767:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-keycloak-db.sql:/docker-entrypoint-initdb.d/init-keycloak-db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d xact_db"]
       interval: 5s
@@ -23,11 +24,10 @@ services:
     command: start-dev
     restart: always
     environment:
-      # HIER KORRIGIERT: Die korrekten Variablen für Keycloak 24+
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: adminpassword
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/xact_db
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: admin
       KC_DB_PASSWORD: supersecretpassword
     ports:
