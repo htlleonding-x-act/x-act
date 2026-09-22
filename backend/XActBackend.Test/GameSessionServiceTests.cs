@@ -72,7 +72,7 @@ public sealed class GameSessionServiceTests
             CreateSession(2, "Game 2", "JOIN456"),
         ];
 
-    private static User CreateUser(string? id = DefaultUserId, bool isDeleted = false) =>
+    private static User CreateUser(string id = DefaultUserId, bool isDeleted = false) =>
         new()
         {
             Id = id,

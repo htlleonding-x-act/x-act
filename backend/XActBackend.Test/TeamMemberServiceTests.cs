@@ -89,7 +89,7 @@ public sealed class TeamMemberServiceTests
             ColorCode = "#ff0000",
         };
 
-    private static User CreateUser(string? id = DefaultUserId, bool isDeleted = false) =>
+    private static User CreateUser(string id = DefaultUserId, bool isDeleted = false) =>
         new()
         {
             Id = id,

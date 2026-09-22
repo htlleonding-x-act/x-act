@@ -84,7 +84,7 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
             }
 
             var newUser = uow.UserRepository.AddUser(username, email, AccountType.Free, id: keycloakSubject);
-            uow.UserAuthIdentityRepository.AddAuthIdentity(newUser.Id!, keycloakSubject);
+            uow.UserAuthIdentityRepository.AddAuthIdentity(newUser.Id, keycloakSubject);
             await uow.SaveChangesAsync();
 
             return newUser;

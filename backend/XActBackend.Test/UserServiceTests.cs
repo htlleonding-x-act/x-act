@@ -36,7 +36,7 @@ public sealed class UserServiceTests
     }
 
     private static User CreateUser(
-        string? id = DefaultUserId,
+        string id = DefaultUserId,
         string? username = null,
         string? email = null
     ) =>

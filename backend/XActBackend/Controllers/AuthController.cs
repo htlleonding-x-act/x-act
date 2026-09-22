@@ -1,8 +1,11 @@
-using Microsoft.AspNetCore.Mvc;
-using XActBackend.Core.Services;
-using XActBackend.Util;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.JsonWebTokens;
+using OneOf;
+using OneOf.Types;
+using XActBackend.Core.Services;
+using XActBackend.Persistence.Model;
+using XActBackend.Util;
 
 namespace XActBackend.Controllers;
 
@@ -10,45 +13,35 @@ namespace XActBackend.Controllers;
 [Route("api/auth")]
 public sealed class AuthController(
     IUserService userService,
-    ILogger<AuthController> logger
-) : ControllerBase
+    ILogger<AuthController> logger) : BaseController
 {
-    [HttpPost("register")]
+    private const string FallbackUsername = "Player";
+
+    /// <summary>links the keycloak identity of the bearer token to a user, creating one on first login</summary>
+    [HttpPost]
+    [Route("register")]
     [ProducesResponseType<UserDetailsDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<UserDetailsDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async ValueTask<IActionResult> GetOrCreateUser()
+    public async ValueTask<ActionResult<UserDetailsDto>> RegisterCurrentUser()
     {
-        // In .NET 6+ MapInboundClaims defaults to false, so use raw JWT claim names.
-        var keycloakSubject = User.FindFirst("sub")?.Value
-                              ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(keycloakSubject))
+        string? keycloakSubject = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+        if (string.IsNullOrWhiteSpace(keycloakSubject))
         {
-            logger.LogWarning("No Keycloak subject found in JWT claims.");
+            logger.LogWarning("Bearer token without a subject claim reached the register endpoint");
+
             return Unauthorized();
         }
 
-        var username = User.FindFirst("preferred_username")?.Value
-                       ?? User.FindFirst("name")?.Value
-                       ?? User.FindFirst(ClaimTypes.Name)?.Value
-                       ?? "Player";
-        var email = User.FindFirst("email")?.Value
-                    ?? User.FindFirst(ClaimTypes.Email)?.Value
-                    ?? string.Empty;
+        string username = User.FindFirst(JwtRegisteredClaimNames.PreferredUsername)?.Value ?? FallbackUsername;
+        string email = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value ?? string.Empty;
 
-        try
-        {
-            var result = await userService.GetOrCreateByKeycloakSubjectAsync(keycloakSubject, username, email);
+        OneOf<User, Error> userResult =
+            await userService.GetOrCreateByKeycloakSubjectAsync(keycloakSubject, username, email);
 
-            return result.Match<IActionResult>(
-                user => Ok(UserDetailsDto.FromUser(user)),
-                _ => Problem("Failed to create user.")
-            );
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to get or create user for Keycloak subject {Subject}", keycloakSubject);
-            return Problem();
-        }
+        return userResult.Match<ActionResult<UserDetailsDto>>(
+            user => Ok(UserDetailsDto.FromUser(user)),
+            _ => Problem()
+        );
     }
 }

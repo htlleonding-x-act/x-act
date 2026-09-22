@@ -150,7 +150,7 @@ public sealed class UserController(
     }
 
     [HttpDelete]
-    [Route("{userId:int}")]
+    [Route("{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> DeleteUser([FromRoute] string userId)
@@ -189,7 +189,7 @@ public sealed class UserListResponse
 }
 
 public sealed record UserInformationDto(
-    string? Id,
+    string Id,
     string? Username,
     string? Email,
     AccountType AccountType
@@ -216,7 +216,7 @@ public sealed record UserDetailsDto(
 {
     public static UserDetailsDto FromUser(User user) =>
         new(
-            user.Id!,
+            user.Id,
             user.Username!,
             user.Email!,
             user.AccountType,
