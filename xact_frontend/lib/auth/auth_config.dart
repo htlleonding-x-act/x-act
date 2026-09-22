@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'auth_challenge.dart';
+
 class AuthConfig {
   static const String authority = String.fromEnvironment(
     'KEYCLOAK_AUTHORITY',
@@ -41,7 +43,7 @@ class AuthConfig {
     return Uri.parse('${base}protocol/openid-connect/$name');
   }
 
-  static Uri get loginUri {
+  static Uri loginUri(AuthChallenge challenge) {
     return endpoint('auth').replace(
       queryParameters: <String, String>{
         'client_id': clientId,
@@ -50,6 +52,9 @@ class AuthConfig {
         'scope': 'openid',
         // Always show the login form — prevents SSO silent re-auth after logout.
         'prompt': 'login',
+        'code_challenge': challenge.challenge,
+        'code_challenge_method': 'S256',
+        'state': challenge.state,
       },
     );
   }

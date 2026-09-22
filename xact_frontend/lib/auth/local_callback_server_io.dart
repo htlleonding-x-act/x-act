@@ -2,12 +2,11 @@ import 'dart:io';
 
 Future<HttpServer?> startLocalCallbackServer(
   int port,
-  void Function(String code) onCode,
+  void Function(Uri uri) onCallback,
 ) async {
   try {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, port);
     server.listen((request) async {
-      final code = request.uri.queryParameters['code'];
       request.response
         ..statusCode = 200
         ..headers.contentType = ContentType.html
@@ -18,7 +17,7 @@ Future<HttpServer?> startLocalCallbackServer(
           '</body></html>',
         );
       await request.response.close();
-      if (code != null) onCode(code);
+      onCallback(request.uri);
     });
     return server;
   } catch (_) {

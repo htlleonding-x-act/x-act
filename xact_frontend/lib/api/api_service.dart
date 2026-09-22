@@ -35,12 +35,13 @@ final class ApiService {
 
   bool get isAuthenticated => _accessToken != null;
 
-  Future<bool> exchangeAuthCode(String code) async {
+  Future<bool> exchangeAuthCode(String code, String codeVerifier) async {
     // Public client: exchange directly with Keycloak — no backend proxy needed.
     final stored = await _requestTokens({
       'grant_type': 'authorization_code',
       'code': code,
       'redirect_uri': AuthConfig.redirectUri,
+      'code_verifier': codeVerifier,
     });
 
     if (!stored) return false;

@@ -1,6 +1,6 @@
 Future<Object?> startLocalCallbackServer(
   int port,
-  void Function(String code) onCode,
+  void Function(Uri uri) onCallback,
 ) async => null;
 
 Future<void> stopLocalCallbackServer(Object? server) async {}

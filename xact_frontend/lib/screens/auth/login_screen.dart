@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:app_links/app_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xact_frontend/api/api_service.dart';
+import 'package:xact_frontend/auth/auth_challenge.dart';
 import 'package:xact_frontend/auth/auth_config.dart';
+import 'package:xact_frontend/auth/auth_storage.dart';
 import 'package:xact_frontend/auth/local_callback_server.dart';
 import 'package:xact_frontend/auth/web_url_cleaner.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
@@ -26,17 +28,22 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _launchKeycloak());
+
+    // On web the callback is a fresh load of this app with ?code=... in the URL, so
+    // finishing that login must not start another one.
+    if (kIsWeb && Uri.base.queryParameters.containsKey('code')) {
+      _handleCallback(Uri.base);
+      return;
+    }
+
     _initCallbackListener();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _launchKeycloak());
   }
 
   // ── Callback listener setup ───────────────────────────────────────────────
 
   Future<void> _initCallbackListener() async {
     if (kIsWeb) {
-      // Web: Keycloak redirects back to the same URL with ?code=...
-      // Check current URL immediately (handles page-reload after redirect).
-      _handleIncomingUri(Uri.base);
       return;
     }
 
@@ -44,13 +51,13 @@ class _LoginScreenState extends State<LoginScreen> {
       // Desktop: spin up a local HTTP server so no custom URI scheme is needed.
       _callbackServer = await startLocalCallbackServer(
         AuthConfig.desktopCallbackPort,
-        _onCodeReceived,
+        _handleCallback,
       );
       return;
     }
 
     // Mobile (Android / iOS): the stream also replays the link that cold-started the app.
-    _deepLinkSub = AppLinks().uriLinkStream.listen(_handleIncomingUri, onError: (_) {});
+    _deepLinkSub = AppLinks().uriLinkStream.listen(_handleCallback, onError: (_) {});
   }
 
   // ── Keycloak browser launch ───────────────────────────────────────────────
@@ -59,17 +66,18 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_isLoading) return;
     _setLoading(true);
 
+    final challenge = AuthChallenge.generate();
+    await AuthStorage.savePendingChallenge(challenge);
+
     // On web, open in a new tab — Keycloak will redirect back to this origin.
     // On desktop/mobile, open in an external application.
     final launched = await launchUrl(
-      AuthConfig.loginUri,
+      AuthConfig.loginUri(challenge),
       mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
     );
 
-    if (mounted && !launched) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the login page. Please try again.')),
-      );
+    if (!launched) {
+      _showError('Could not open the login page. Please try again.');
     }
 
     _setLoading(false);
@@ -77,15 +85,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // ── Code-exchange handler ─────────────────────────────────────────────────
 
-  void _handleIncomingUri(Uri uri) {
+  Future<void> _handleCallback(Uri uri) async {
     final code = uri.queryParameters['code'];
-    if (code != null) _onCodeReceived(code);
-  }
+    if (code == null) return;
 
-  Future<void> _onCodeReceived(String code) async {
     _setLoading(true);
 
-    final success = await ApiService.instance.exchangeAuthCode(code);
+    final pending = await AuthStorage.loadPendingChallenge();
+    await AuthStorage.clearPendingChallenge();
+
+    // A callback carrying someone else's state was not started by this app, and the
+    // code is worthless without the verifier that belongs to it.
+    if (pending == null || pending.state != uri.queryParameters['state']) {
+      cleanBrowserUrl();
+      _setLoading(false);
+      _showError('Login failed. Please try again.');
+      return;
+    }
+
+    final success = await ApiService.instance.exchangeAuthCode(
+      code,
+      pending.verifier,
+    );
 
     _setLoading(false);
 
@@ -97,8 +118,14 @@ class _LoginScreenState extends State<LoginScreen> {
         MaterialPageRoute(builder: (_) => const StartScreen()),
       );
     } else {
+      _showError('Login failed. Please try again.');
+    }
+  }
+
+  void _showError(String message) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Login failed. Please try again.')),
+        SnackBar(content: Text(message)),
       );
     }
   }

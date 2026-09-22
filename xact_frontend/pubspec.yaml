@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.2
+  crypto: ^3.0.7
   signalr_netcore: ^1.4.4
   url_launcher: ^6.3.1
   app_links: ^7.0.0
