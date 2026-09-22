@@ -1,0 +1,30 @@
+{
+  "realm": "xact",
+  "displayName": "X-ACT",
+  "enabled": true,
+  "registrationAllowed": true,
+  "loginWithEmailAllowed": true,
+  "clients": [
+    {
+      "clientId": "x-act-frontend",
+      "name": "X-ACT Frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8088/*",
+        "http://localhost:9482/*",
+        "http://10.0.2.2:*/*",
+        "xact://*"
+      ],
+      "webOrigins": [
+        "http://localhost:8088"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      }
+    }
+  ]
+}
