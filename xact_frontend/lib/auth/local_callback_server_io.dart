@@ -13,15 +13,15 @@ Future<HttpServer?> startLocalCallbackServer(
         ..headers.contentType = ContentType.html
         ..write(
           '<html><body style="font-family:sans-serif;text-align:center;margin-top:4em">'
-          '<h2>Login erfolgreich ✓</h2>'
-          '<p>Du kannst diesen Tab jetzt schließen.</p>'
+          '<h2>Signed in ✓</h2>'
+          '<p>You can close this tab now.</p>'
           '</body></html>',
         );
       await request.response.close();
       if (code != null) onCode(code);
     });
     return server;
-  } catch (e) {
+  } catch (_) {
     return null;
   }
 }
