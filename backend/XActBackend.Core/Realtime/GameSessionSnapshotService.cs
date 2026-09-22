@@ -1,11 +1,13 @@
-﻿using XActBackend.Core.Services;
+﻿using OneOf;
+using OneOf.Types;
+using XActBackend.Core.Services;
 using XActBackend.Persistence.Model;
 
 namespace XActBackend.Core.Realtime;
 
 public interface IGameSessionSnapshotService
 {
-    public ValueTask<GameSessionSnapshot?> BuildSnapshotAsync(int sessionId);
+    public ValueTask<OneOf<GameSessionSnapshot, NotFound>> BuildSnapshotAsync(int sessionId);
 }
 
 public interface IGameSessionRealtimePublisher
@@ -38,17 +40,18 @@ internal sealed class GameSessionSnapshotService(
     IReportService reportService,
     IOffenseService offenseService) : IGameSessionSnapshotService
 {
-    public async ValueTask<GameSessionSnapshot?> BuildSnapshotAsync(int sessionId)
+    public async ValueTask<OneOf<GameSessionSnapshot, NotFound>> BuildSnapshotAsync(int sessionId)
     {
-        var sessionResult = await gameSessionService.GetGameSessionByIdAsync(sessionId, tracking: false);
-        GameSession? gameSession = sessionResult.Match<GameSession?>(
-            session => session,
-            _ => null);
+        OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetGameSessionByIdAsync(sessionId, tracking: false);
 
-        if (gameSession is null)
-        {
-            return null;
-        }
+        return await sessionResult.Match<ValueTask<OneOf<GameSessionSnapshot, NotFound>>>(
+            async gameSession => await BuildSnapshotAsync(gameSession),
+            notFound => ValueTask.FromResult<OneOf<GameSessionSnapshot, NotFound>>(notFound));
+    }
+
+    private async ValueTask<GameSessionSnapshot> BuildSnapshotAsync(GameSession gameSession)
+    {
+        int sessionId = gameSession.Id;
 
         IReadOnlyCollection<Team> teams = await teamService.GetTeamsBySessionIdAsync(sessionId, tracking: false);
 

@@ -33,10 +33,10 @@ public static class RealtimeEvents
 
 public static class KickReasons
 {
-    /// <summary>The member was removed because a kick vote passed.</summary>
+    /// <summary>a kick vote passed</summary>
     public const string Vote = "vote";
 
-    /// <summary>The member was removed by the host using sudo powers.</summary>
+    /// <summary>the host kicked the member directly</summary>
     public const string Host = "host";
 }
 
@@ -44,7 +44,7 @@ public static class RealtimeGroups
 {
     public static string Session(int sessionId) => $"session:{sessionId}";
 
-    // Private per-team channel; team chat is only delivered to connections that joined this group.
+    // team chat only goes to connections that joined this group
     public static string Team(int sessionId, int teamId) => $"session:{sessionId}:team:{teamId}";
 }
 
@@ -213,8 +213,7 @@ public sealed record RematchCreatedPayload(
 );
 
 /// <summary>
-///     A kick vote and its current tally. Doubles as the REST payload (open vote and action
-///     responses) and the realtime payload for the started/updated/resolved events.
+///     used as the http response and as the realtime payload of the started, updated and resolved events
 /// </summary>
 public sealed record KickVotePayload(
     int VoteId,
@@ -264,8 +263,7 @@ public sealed record MemberKickedPayload(
 );
 
 /// <summary>
-///     An automatically detected offense. Doubles as the REST payload (active offense list) and the
-///     realtime payload for the raised/cleared events.
+///     used in the http list of active offenses and as the realtime payload of the raised and cleared events
 /// </summary>
 public sealed record MemberOffensePayload(
     int OffenseId,

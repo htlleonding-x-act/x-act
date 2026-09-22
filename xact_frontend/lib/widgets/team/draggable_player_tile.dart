@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../xact_branding.dart';
 import 'team_data.dart';
 
-/// Static (non-draggable) content for a player tile.
+/// the tile content without the drag behavior
 class PlayerTileContent extends StatelessWidget {
   final LobbyPlayer player;
   final Color dotColor;
@@ -108,7 +108,7 @@ class PlayerTileContent extends StatelessWidget {
   }
 }
 
-/// Draggable player tile – can be long-press-dragged into any team or spectators.
+/// long press drag it onto any team or the spectators
 class DraggablePlayerTile extends StatelessWidget {
   final LobbyPlayer player;
   final Color dotColor;

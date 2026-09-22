@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace XActBackend.Persistence.Util;
 
@@ -47,6 +48,7 @@ public static class PersistenceSetup
         {
             ConfigureDatabase(services, configurationManager, isDev);
 
+            services.TryAddSingleton<IClock>(SystemClock.Instance);
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<ITransactionProvider, UnitOfWork>();
         }

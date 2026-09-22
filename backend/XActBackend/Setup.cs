@@ -27,7 +27,7 @@ public static class Setup
 
             services.Configure<Settings>(s => configSection.Bind(s));
 
-            // different instance, but the same values - used for startup config outside of DI context
+            // a second copy with the same values for startup code that runs before dependency injection is set up
             var settings = Activator.CreateInstance<Settings>();
             configSection.Bind(settings);
 
@@ -61,8 +61,8 @@ public static class Setup
 
             services.AddCors(o => o.AddPolicy(CorsPolicyName, builder =>
             {
-                // wildcard port (e.g. http://localhost:*) is not supported by WithOrigins;
-                // use a loopback predicate so any localhost port is accepted in development
+                // WithOrigins can't handle a wildcard port like http://localhost:*, so an origin ending in :*
+                // allows any loopback origin instead
                 if (settings.ClientOrigin.EndsWith(":*"))
                 {
                     builder.SetIsOriginAllowed(origin =>

@@ -27,14 +27,14 @@ public abstract class WebApiTestBase(WebApiTestFixture webApiFixture) : IClassFi
 
     public ValueTask DisposeAsync()
     {
-        // nothing to dispose
-        // database is reset during init to ensure a clean slate even if a test run is interrupted
+        // nothing to clean up here, the database gets reset in InitializeAsync so even an interrupted run
+        // starts clean
         return ValueTask.CompletedTask;
     }
 
     protected virtual ValueTask ImportSeedDataAsync(DatabaseContext context)
     {
-        // add seed data for all tests here if needed, override in derived classes to add test class specific seed data
+        // seed data for every test goes here, derived classes override this to add their own
         return ValueTask.CompletedTask;
     }
 

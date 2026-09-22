@@ -49,20 +49,20 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
       return;
     }
 
-    // Header failure should not block the chat itself.
+    // a failing header must not block the chat
     try {
       final header = await ApiService.instance.loadTeamChatHeader();
       if (mounted) {
         setState(() => _header = header);
       }
     } catch (_) {
-      // ignore, keep fallback header
+      // keep the fallback header
     }
 
     try {
       await ApiService.instance.ensureTeamChannelSubscription(teamId: teamId);
     } catch (_) {
-      // realtime is best-effort; history still loads below
+      // realtime is best effort, the history still loads below
     }
 
     await _loadHistory(teamId);

@@ -355,7 +355,7 @@ public sealed class GameSessionServiceTests
             MrXRevealInterval = 3,
         };
 
-        // The MrX team is flagged caught at the end of the finished match; the copy must drop that.
+        // the mr.x team is flagged caught at the end of the finished match, the copy has to drop that
         var mrXTeam = CreateTeamWithMaxPlayers(20, "Team 1", TeamRole.MrX, "#000000", 6, isCaught: true);
         var detectiveTeam = CreateTeamWithMaxPlayers(21, "Team 2", TeamRole.Detective, "#5B7CFA", 5);
         var sourceTeams = new List<Team> { mrXTeam, detectiveTeam };
@@ -404,17 +404,14 @@ public sealed class GameSessionServiceTests
             _ => Assert.Fail("Expected GameSession but got DomainError")
         );
 
-        // Teams copied into the new session (IsCaught reset is guaranteed by AddTeam, which always
-        // creates teams with IsCaught = false).
+        // IsCaught gets reset because AddTeam always creates teams with IsCaught false
         _teamRepository.Received(1).AddTeam(rematchSessionId, mrXTeam.TeamName, mrXTeam.Role, mrXTeam.ColorCode, mrXTeam.MaxPlayerCount);
         _teamRepository.Received(1).AddTeam(rematchSessionId, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount);
 
-        // Members re-added into the matching new team (host on new MrX team, two on new detective team).
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newMrXTeam.Id, hostUserId, null, true);
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, 8, null, true);
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, null, "Guest A", false);
 
-        // Geofence area copied point-by-point.
         _geofencePointRepository.Received(1).AddGeofencePoint(rematchSessionId, 48.1, 14.3, 0);
         _geofencePointRepository.Received(1).AddGeofencePoint(rematchSessionId, 48.2, 14.4, 1);
 
@@ -446,7 +443,7 @@ public sealed class GameSessionServiceTests
 
         var mrXMember = CreateMember(30, mrXTeam.Id, hostUserId, null, isTeamLeader: true);
         var detectiveMember = CreateMember(31, detectiveTeam.Id, 8, null, isTeamLeader: true);
-        // Guest 32 has already left the finished session: it is absent from the connected set below.
+        // guest 32 already left the finished session, so it is missing from the connected set below
         var guestMember = CreateMember(32, detectiveTeam.Id, null, "Guest A", isTeamLeader: false);
         var sourceMembers = new List<TeamMember> { mrXMember, detectiveMember, guestMember };
 
@@ -475,7 +472,6 @@ public sealed class GameSessionServiceTests
         _teamRepository.AddTeam(rematchSessionId, mrXTeam.TeamName, mrXTeam.Role, mrXTeam.ColorCode, mrXTeam.MaxPlayerCount).Returns(newMrXTeam);
         _teamRepository.AddTeam(rematchSessionId, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount).Returns(newDetectiveTeam);
 
-        // Only the host and the detective leader are still connected; the guest has left.
         IReadOnlySet<int> connectedMemberIds = new HashSet<int> { mrXMember.Id, detectiveMember.Id };
 
         OneOf<GameSession, NotFound, DomainError> result =
@@ -487,11 +483,9 @@ public sealed class GameSessionServiceTests
             _ => Assert.Fail("Expected GameSession but got DomainError")
         );
 
-        // The two still-connected members are copied into the new lobby.
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newMrXTeam.Id, hostUserId, null, true);
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, 8, null, true);
 
-        // The guest that left is not carried over as a ghost.
         _teamMemberRepository.DidNotReceive().AddTeamMember(rematchSessionId, newDetectiveTeam.Id, null, "Guest A", false);
     }
 
@@ -619,7 +613,7 @@ public sealed class GameSessionServiceTests
     {
         var existing = CreateSession();
         existing.Status = SessionStatus.Waiting;
-        var now = SystemClock.Instance.GetCurrentInstant();
+        var now = Instant.FromUtc(2026, 3, 15, 12, 0);
         var data = new IGameSessionService.GameSessionData(
             DefaultUserId,
             "Updated Session",
@@ -704,8 +698,6 @@ public sealed class GameSessionServiceTests
         );
     }
 
-    // --- StartGameSessionAsync ---
-
     [Fact]
     public async ValueTask StartGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
     {
@@ -751,8 +743,6 @@ public sealed class GameSessionServiceTests
         await _uow.Received(1).SaveChangesAsync();
     }
 
-    // --- EndGameSessionAsync ---
-
     [Fact]
     public async ValueTask EndGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
     {
@@ -797,8 +787,6 @@ public sealed class GameSessionServiceTests
         session.EndTime.Should().Be(now);
         await _uow.Received(1).SaveChangesAsync();
     }
-
-    // --- CatchMrXAsync ---
 
     private const int DefaultCatchingTeamId = 20;
 

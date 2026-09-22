@@ -5,13 +5,11 @@ import 'xact_branding.dart';
 class ChatInputBar extends StatefulWidget {
   final String hintText;
 
-  /// Called with the trimmed message text when the user sends. When `null`,
-  /// the input is shown in a disabled state.
+  /// gets the trimmed text. null shows the input as disabled
   final ValueChanged<String>? onSend;
 
-  /// Action for the leading icon button. When `null` (or when the bar is
-  /// disabled) the leading button is omitted so it is not a focusable,
-  /// no-op control for keyboard and screen-reader users.
+  /// null, or a disabled bar, drops the leading button so keyboard and screen
+  /// reader users don't land on a control that does nothing
   final VoidCallback? onLeadingPressed;
   final IconData leadingIcon;
 

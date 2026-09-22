@@ -1,6 +1,6 @@
 ﻿namespace XActBackend.Persistence.Model;
 
-public class LocationLog
+public sealed class LocationLog
 {
     public int Id { get; set; }
 

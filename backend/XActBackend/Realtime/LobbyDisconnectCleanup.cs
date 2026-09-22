@@ -17,9 +17,9 @@ public sealed record MemberPresenceRegistration(
     string? GuestName);
 
 /// <summary>
-///     Deletes the team member of a lobby player whose realtime connection dropped, after a grace period and
-///     only if the session is still waiting. A locked phone or a quick app switch also drops the connection,
-///     and the app does not rejoin on its own, so deleting right away would leave the player without a team.
+///     removes a lobby player whose connection dropped, but only after a grace period and only while the session
+///     is still waiting. a locked phone or a quick app switch drops the connection too, and the app can't rejoin a
+///     team by itself, so removing the member right away would leave the player without a team
 /// </summary>
 public interface ILobbyDisconnectCleanup
 {
@@ -38,7 +38,7 @@ internal sealed class LobbyDisconnectCleanup(
     {
         await Task.Delay(settings.Value.LobbyDisconnectGracePeriod);
 
-        // The app reconnected within the grace period and registered this member again, so they stay on the team.
+        // the app reconnected in time and registered the member again, so they stay
         if (GameSessionHub.GetConnectedMemberIds(registration.SessionId).Contains(registration.MemberId))
         {
             return;

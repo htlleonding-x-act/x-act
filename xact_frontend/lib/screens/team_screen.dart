@@ -49,13 +49,13 @@ class _TeamScreenState extends State<TeamScreen> {
         }
       });
     } catch (_) {
-      // Screen still shows the initial load if realtime is unavailable.
+      // without realtime the screen still shows the initial load
     }
   }
 
   bool _isTeamRealtimeEvent(String type) {
-    // A Mr. X catch arrives as two team_updated events (the role swap); reloading
-    // on these keeps the button visibility and team labels in sync for everyone.
+    // a mr.x catch arrives as two team_updated events (the role swap). reloading
+    // on them keeps the button visibility and team labels in sync for everyone
     return type == RealtimeEvents.teamAdded ||
         type == RealtimeEvents.teamUpdated ||
         type == RealtimeEvents.teamDeleted ||
@@ -161,8 +161,8 @@ class _TeamScreenState extends State<TeamScreen> {
         sessionId: sessionId,
         catchingTeamId: catchingTeam.teamId,
       );
-      // The resulting role swap arrives via realtime team_updated events, which
-      // reload this screen (and flip the map view) automatically.
+      // the role swap comes back as realtime team_updated events, which reload
+      // this screen and flip the map view
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -254,7 +254,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                         value: _codeController.text,
                         length: _codeLength,
                       ),
-                      // Hidden field that drives the visible cells.
+                      // hidden field that drives the visible cells
                       SizedBox(
                         height: 0,
                         child: Offstage(
@@ -465,5 +465,5 @@ class _UpperCaseTextFormatter extends TextInputFormatter {
   }
 }
 
-// Kept for back-compat with any external imports.
+// kept so imports of the public name keep working
 class UpperCaseTextFormatter extends _UpperCaseTextFormatter {}

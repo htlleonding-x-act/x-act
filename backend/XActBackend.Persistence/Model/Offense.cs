@@ -1,10 +1,10 @@
 namespace XActBackend.Persistence.Model;
 
 /// <summary>
-///     An automatically detected rule violation by a team member (e.g. leaving the game area).
-///     Active offenses drive the report tab's "flagged players" list shown to everyone.
+///     a rule violation the server detects on its own, like leaving the game area. active offenses make up
+///     the flagged players list in the report tab
 /// </summary>
-public class Offense
+public sealed class Offense
 {
     public int Id { get; set; }
 

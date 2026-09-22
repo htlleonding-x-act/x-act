@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import 'xact_branding.dart';
 
-/// Scrollable list of chat bubbles. Own messages align right, others align
-/// left with a sender label. Auto-scrolls to the newest message.
+/// own messages sit on the right, others on the left with a sender label. it
+/// scrolls to the newest message by itself
 class ChatMessageList extends StatefulWidget {
   final List<ChatMessage> messages;
   final int? currentMemberId;
   final String emptyLabel;
 
-  /// Optional accent colour per message (e.g. by sender team in the All chat).
+  /// e.g. the sender's team color in the all chat
   final Color Function(ChatMessage message)? senderColorResolver;
 
   const ChatMessageList({

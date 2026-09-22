@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using XActBackend.Core.Realtime;
 using XActBackend.Core.Services;
 
@@ -8,7 +9,7 @@ public static class CoreSetup
 {
     public static void ConfigureCore(this IServiceCollection services)
     {
-        services.AddSingleton<IClock>(SystemClock.Instance);
+        services.TryAddSingleton<IClock>(SystemClock.Instance);
         services.AddScoped<IGameSessionService, GameSessionService>();
         services.AddScoped<IGeofencePointService, GeoFencePointService>();
         services.AddScoped<ILocationLogService, LocationLogService>();

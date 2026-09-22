@@ -111,8 +111,8 @@ internal sealed class GameSessionRealtimePublisher(
             log.TransportMode,
             log.IsRevealedPosition);
 
-        // Detectives receive session events too, so hidden Mr. X pings go only to Mr. X's team;
-        // otherwise anyone reading the traffic could track Mr. X. Snapshots filter them too.
+        // detectives get session events too, so hidden mr.x pings only go to the mr.x team. otherwise anyone
+        // reading the traffic could track mr.x. snapshots filter them the same way
         string group = team.Role == TeamRole.MrX && !log.IsRevealedPosition
             ? RealtimeGroups.Team(team.SessionId, team.Id)
             : RealtimeGroups.Session(team.SessionId);
@@ -143,8 +143,7 @@ internal sealed class GameSessionRealtimePublisher(
             message.Content,
             message.SentAt);
 
-        // "All" messages (TeamId null) go to the whole session group; team messages go to the
-        // private team group so only members who joined that channel receive them.
+        // all chat messages go to the whole session, team messages only to connections that joined the team group
         string group = message.TeamId is int teamId
             ? RealtimeGroups.Team(message.SessionId, teamId)
             : RealtimeGroups.Session(message.SessionId);
@@ -153,8 +152,8 @@ internal sealed class GameSessionRealtimePublisher(
     }
 
     public ValueTask PublishRematchCreatedAsync(int finishedSessionId, GameSession newSession) =>
-        // Announce on the *finished* session's group so every client still subscribed to the
-        // ended match (host + players on the end-match screen) learns the new session to join.
+        // sent to the finished session's group because the host and the players on the end match screen are
+        // still listening there
         PublishToSessionAsync(
             finishedSessionId,
             RealtimeEvents.RematchCreated,

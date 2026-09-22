@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-/// Result returned when a new team is created via the dialog.
 class AddTeamResult {
   final String name;
   final Color color;
@@ -14,7 +13,7 @@ class AddTeamResult {
   });
 }
 
-/// Dialog that lets the lobby leader create or edit a team.
+/// used by the lobby leader both to create and to edit a team
 class AddTeamDialog extends StatefulWidget {
   final String title;
   final String submitLabel;

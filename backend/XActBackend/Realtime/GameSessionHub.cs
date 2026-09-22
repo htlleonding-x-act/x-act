@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using OneOf;
+using OneOf.Types;
 using System.Collections.Concurrent;
 using XActBackend.Core.Realtime;
 using XActBackend.Core.Services;
@@ -66,9 +68,8 @@ public sealed class GameSessionHub(
     }
 
     /// <summary>
-    ///     The team-member ids that currently have a live realtime connection registered for the
-    ///     given session. A rematch uses this to keep players who have already left the finished
-    ///     session out of the new lobby (a still-connected client is exactly one that can migrate).
+    ///     members with a live connection in the session. the rematch and the lobby cleanup use this to tell who
+    ///     is still around
     /// </summary>
     public static IReadOnlySet<int> GetConnectedMemberIds(int sessionId) =>
         presenceByConnection.Values
@@ -83,11 +84,7 @@ public sealed class GameSessionHub(
             throw new HubException("Invalid session id");
         }
 
-        GameSessionSnapshot? snapshot = await snapshotService.BuildSnapshotAsync(sessionId);
-        if (snapshot is null)
-        {
-            throw new HubException("Session not found");
-        }
+        GameSessionSnapshot snapshot = await BuildSnapshotOrThrowAsync(sessionId);
 
         await Groups.AddToGroupAsync(Context.ConnectionId, RealtimeGroups.Session(sessionId));
 
@@ -111,7 +108,7 @@ public sealed class GameSessionHub(
             throw new HubException("Invalid team channel id");
         }
 
-        // Only allow joining a team channel that actually exists in the session and has members.
+        // a team channel only exists for a team that has members in this session
         IReadOnlyCollection<TeamMember> teamMembers = await teamMemberService.GetMembersByTeamIdAsync(sessionId, teamId, tracking: false);
         if (teamMembers.Count == 0)
         {
@@ -138,12 +135,15 @@ public sealed class GameSessionHub(
             throw new HubException("Invalid session id");
         }
 
-        GameSessionSnapshot? snapshot = await snapshotService.BuildSnapshotAsync(sessionId);
-        if (snapshot is null)
-        {
-            throw new HubException("Session not found");
-        }
+        return await BuildSnapshotOrThrowAsync(sessionId);
+    }
 
-        return snapshot;
+    private async ValueTask<GameSessionSnapshot> BuildSnapshotOrThrowAsync(int sessionId)
+    {
+        OneOf<GameSessionSnapshot, NotFound> snapshotResult = await snapshotService.BuildSnapshotAsync(sessionId);
+
+        return snapshotResult.Match(
+            snapshot => snapshot,
+            _ => throw new HubException("Session not found"));
     }
 }

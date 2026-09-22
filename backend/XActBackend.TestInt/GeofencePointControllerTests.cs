@@ -89,7 +89,7 @@ public sealed class GeofencePointControllerTests(WebApiTestFixture fixture) : Se
     [Fact]
     public async ValueTask AddGeofencePoint_ReturnsUnprocessableEntity_WhenLimitReached()
     {
-        // Seed has 2 points for SessionId; fill up to the limit of 10
+        // the seed has 2 points for this session, so add points up to the limit of 10
         await ModifyDatabaseContentAsync(async ctx =>
         {
             for (int i = 3; i <= 10; i++)

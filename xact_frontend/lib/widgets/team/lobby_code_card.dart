@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../xact_branding.dart';
 
-/// Game-code hero card with copy / QR / share actions.
 class GameCodeCard extends StatelessWidget {
   final String gameCode;
   final String codeLabel;

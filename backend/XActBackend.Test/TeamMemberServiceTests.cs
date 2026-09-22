@@ -291,7 +291,7 @@ public sealed class TeamMemberServiceTests
     [Fact]
     internal async ValueTask AddTeamMemberAsync_ReturnsAddedMember()
     {
-        var lastUpdated = SystemClock.Instance.GetCurrentInstant();
+        var lastUpdated = Instant.FromUtc(2026, 1, 1, 12, 0);
         var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null, true, 45.0, 90.0, lastUpdated);
         var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, DefaultUserId);
         member.IsTeamLeader = true;
@@ -338,7 +338,7 @@ public sealed class TeamMemberServiceTests
     {
         var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, null);
         var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, null, "New Guest");
-        var now = SystemClock.Instance.GetCurrentInstant();
+        var now = Instant.FromUtc(2026, 1, 1, 12, 0);
         _clock.GetCurrentInstant().Returns(now);
 
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, true).Returns(member);

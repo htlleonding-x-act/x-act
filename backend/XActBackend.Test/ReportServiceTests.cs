@@ -88,8 +88,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.StartKickVoteAsync(SessionId, InitiatorId, HostMemberId, reason: null);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportTargetIsHost);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportTargetIsHost));
     }
 
     [Fact]
@@ -101,8 +103,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.StartKickVoteAsync(SessionId, InitiatorId, InitiatorId, reason: null);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportTargetIsSelf);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportTargetIsSelf));
     }
 
     [Fact]
@@ -113,8 +117,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.StartKickVoteAsync(SessionId, InitiatorId, TargetId, reason: null);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.SessionNotActive);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.SessionNotActive));
     }
 
     [Fact]
@@ -128,8 +134,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.StartKickVoteAsync(SessionId, InitiatorId, TargetId, reason: null);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportVoteAlreadyActive);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportVoteAlreadyActive));
     }
 
     [Fact]
@@ -142,7 +150,7 @@ public sealed class ReportServiceTests
         _voteRepository
             .AddKickVote(SessionId, TargetId, InitiatorId, Arg.Any<string?>(), Arg.Any<Instant>(), Arg.Any<Instant>())
             .Returns(OpenVote(now.Plus(Duration.FromSeconds(KickVote.VoteDurationSeconds))));
-        // Three members -> two eligible voters (host + initiator) -> needs 2 approvals, so one is not enough.
+        // three members give two eligible voters (host and initiator), which needs two approvals, so one is not enough
         _teamMemberRepository.GetMembersBySessionIdAsync(SessionId, false)
             .Returns(new List<TeamMember> { HostMember(), GuestMember(InitiatorId, "Init"), GuestMember(TargetId, "Target") });
         _ballotRepository.GetBallotsByVoteIdAsync(VoteId, false)
@@ -151,12 +159,17 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.StartKickVoteAsync(SessionId, InitiatorId, TargetId, reason: "left the area");
 
-        result.TryPickT0(out var action, out _).Should().BeTrue();
-        action.Resolved.Should().BeFalse();
-        action.KickedMember.Should().BeNull();
-        action.Vote.Status.Should().Be(KickVoteStatus.Open);
-        action.Vote.ApproveCount.Should().Be(1);
-        action.Vote.EligibleVoterCount.Should().Be(2);
+        result.Switch(
+            action =>
+            {
+                action.Resolved.Should().BeFalse();
+                action.KickedMember.Should().BeNull();
+                action.Vote.Status.Should().Be(KickVoteStatus.Open);
+                action.Vote.ApproveCount.Should().Be(1);
+                action.Vote.EligibleVoterCount.Should().Be(2);
+            },
+            _ => Assert.Fail("Expected a result but got NotFound"),
+            _ => Assert.Fail("Expected a result but got DomainError"));
     }
 
     [Fact]
@@ -171,8 +184,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.CastBallotAsync(SessionId, VoteId, HostMemberId, approve: true);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportAlreadyVoted);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportAlreadyVoted));
     }
 
     [Fact]
@@ -185,8 +200,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.CastBallotAsync(SessionId, VoteId, HostMemberId, approve: true);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportVoteNotOpen);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportVoteNotOpen));
     }
 
     [Fact]
@@ -195,11 +212,12 @@ public sealed class ReportServiceTests
         _voteRepository.GetByIdAsync(VoteId, true).Returns(OpenVote(now.Plus(Duration.FromSeconds(30))));
         _gameSessionRepository.GetSessionByIdAsync(SessionId, false).Returns(CreateSession());
         _teamMemberRepository.GetMemberByIdAsync(HostMemberId, false).Returns(HostMember());
-        // Two eligible voters (host + initiator); both approve -> passes.
+        // two eligible voters (host and initiator) and both approve, so the vote passes
         _teamMemberRepository.GetMembersBySessionIdAsync(SessionId, false)
             .Returns(new List<TeamMember> { HostMember(), GuestMember(InitiatorId, "Init"), GuestMember(TargetId, "Target") });
         _teamMemberRepository.GetMemberByIdAsync(TargetId, true).Returns(GuestMember(TargetId, "Target"));
-        // First call: duplicate check (only initiator). Second call: tally after host's ballot.
+        // the first call is the duplicate check with only the initiator's ballot, the second is the tally after
+        // the host voted
         _ballotRepository.GetBallotsByVoteIdAsync(VoteId, false).Returns(
             new List<KickVoteBallot> { Ballot(InitiatorId, approve: true) },
             new List<KickVoteBallot> { Ballot(InitiatorId, approve: true), Ballot(HostMemberId, approve: true) });
@@ -207,11 +225,16 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.CastBallotAsync(SessionId, VoteId, HostMemberId, approve: true);
 
-        result.TryPickT0(out var action, out _).Should().BeTrue();
-        action.Resolved.Should().BeTrue();
-        action.Vote.Status.Should().Be(KickVoteStatus.Passed);
-        action.KickedMember.Should().NotBeNull();
-        action.KickedMember!.Id.Should().Be(TargetId);
+        result.Switch(
+            action =>
+            {
+                action.Resolved.Should().BeTrue();
+                action.Vote.Status.Should().Be(KickVoteStatus.Passed);
+                action.KickedMember.Should().NotBeNull();
+                action.KickedMember!.Id.Should().Be(TargetId);
+            },
+            _ => Assert.Fail("Expected a result but got NotFound"),
+            _ => Assert.Fail("Expected a result but got DomainError"));
         _teamMemberRepository.Received(1).RemoveTeamMember(Arg.Is<TeamMember>(m => m.Id == TargetId));
     }
 
@@ -226,8 +249,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.KickVoteActionResult, NotFound, DomainError> result =
             await _sut.CancelKickVoteAsync(SessionId, VoteId, strangerId);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportCancelNotAllowed);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportCancelNotAllowed));
     }
 
     [Fact]
@@ -239,8 +264,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.HostKickResult, NotFound, DomainError> result =
             await _sut.HostKickMemberAsync(SessionId, InitiatorId, TargetId);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportNotHost);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportNotHost));
     }
 
     [Fact]
@@ -253,8 +280,10 @@ public sealed class ReportServiceTests
         OneOf<IReportService.HostKickResult, NotFound, DomainError> result =
             await _sut.HostKickMemberAsync(SessionId, HostMemberId, HostMemberId);
 
-        result.TryPickT2(out var error, out _).Should().BeTrue();
-        error.Code.Should().Be(DomainErrorCodes.ReportTargetIsHost);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got a result"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            error => error.Code.Should().Be(DomainErrorCodes.ReportTargetIsHost));
     }
 
     [Fact]
@@ -268,9 +297,14 @@ public sealed class ReportServiceTests
         OneOf<IReportService.HostKickResult, NotFound, DomainError> result =
             await _sut.HostKickMemberAsync(SessionId, HostMemberId, TargetId);
 
-        result.TryPickT0(out var hostKick, out _).Should().BeTrue();
-        hostKick.KickedMember.Id.Should().Be(TargetId);
-        hostKick.KickedMemberName.Should().Be("Target");
+        result.Switch(
+            hostKick =>
+            {
+                hostKick.KickedMember.Id.Should().Be(TargetId);
+                hostKick.KickedMemberName.Should().Be("Target");
+            },
+            _ => Assert.Fail("Expected a result but got NotFound"),
+            _ => Assert.Fail("Expected a result but got DomainError"));
         _teamMemberRepository.Received(1).RemoveTeamMember(Arg.Is<TeamMember>(m => m.Id == TargetId));
     }
 }

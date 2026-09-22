@@ -20,6 +20,8 @@ public sealed class LocationLogServiceTests
     private const int DefaultSessionId = 1;
     private const int DefaultTeamId = 1;
 
+    private static readonly Instant now = Instant.FromUtc(2026, 1, 1, 12, 0);
+
     private readonly ILocationLogRepository _locationLogRepository;
     private readonly ITeamMemberRepository _teamMemberRepository;
     private readonly IGameSessionRepository _gameSessionRepository;
@@ -35,8 +37,10 @@ public sealed class LocationLogServiceTests
         _uow.LocationLogRepository.Returns(_locationLogRepository);
         _uow.TeamMemberRepository.Returns(_teamMemberRepository);
         _uow.GameSessionRepository.Returns(_gameSessionRepository);
+        var clock = Substitute.For<IClock>();
+        clock.GetCurrentInstant().Returns(now);
         var logger = Substitute.For<ILogger<LocationLogService>>();
-        _sut = new LocationLogService(_uow, logger);
+        _sut = new LocationLogService(_uow, clock, logger);
     }
 
     private static TeamMember CreateMember() =>
@@ -156,7 +160,7 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask AddLocationLogAsync_ReturnsAddedLog()
     {
-        var timestamp = SystemClock.Instance.GetCurrentInstant();
+        var timestamp = now;
         var data = new ILocationLogService.LocationLogData(DefaultMemberId, timestamp, 10.0, 20.0, 5.0, TransportMode.Foot, false);
         var log = new LocationLog { Id = DefaultLogId, MemberId = data.MemberId, Timestamp = data.Timestamp };
 
@@ -187,7 +191,7 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask AddLocationLogAsync_StoresServerTime_InsteadOfClientTimestamp()
     {
-        Instant clientTimestamp = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(1);
+        Instant clientTimestamp = now - Duration.FromHours(1);
         var data = new ILocationLogService.LocationLogData(DefaultMemberId, clientTimestamp, 10.0, 20.0, 5.0, TransportMode.Foot, false);
 
         _locationLogRepository.AddLocationLog(
@@ -204,13 +208,11 @@ public sealed class LocationLogServiceTests
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
 
-        Instant before = SystemClock.Instance.GetCurrentInstant();
         await _sut.AddLocationLogAsync(data);
-        Instant after = SystemClock.Instance.GetCurrentInstant();
 
         _locationLogRepository.Received(1).AddLocationLog(
             DefaultMemberId,
-            Arg.Is<Instant>(timestamp => timestamp >= before && timestamp <= after),
+            now,
             data.Latitude,
             data.Longitude,
             data.AccuracyMeters,
@@ -221,7 +223,7 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask AddLocationLogAsync_ReturnsNotFound_WhenMemberMissing()
     {
-        var data = new ILocationLogService.LocationLogData(DefaultMemberId, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, false);
+        var data = new ILocationLogService.LocationLogData(DefaultMemberId, now, 10.0, 20.0, 5.0, TransportMode.Foot, false);
         _teamMemberRepository.GetMemberByIdAsync(DefaultMemberId, false).Returns((TeamMember?) null);
 
         OneOf<LocationLog, NotFound, DomainError> result = await _sut.AddLocationLogAsync(data);
@@ -236,7 +238,7 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask AddLocationLogAsync_ReturnsDomainError_WhenSessionNotActive()
     {
-        var data = new ILocationLogService.LocationLogData(DefaultMemberId, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, false);
+        var data = new ILocationLogService.LocationLogData(DefaultMemberId, now, 10.0, 20.0, 5.0, TransportMode.Foot, false);
         _teamMemberRepository.GetMemberByIdAsync(DefaultMemberId, false).Returns(CreateMember());
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
@@ -254,7 +256,7 @@ public sealed class LocationLogServiceTests
     public async ValueTask UpdateLocationLogAsync_ReturnsSuccess_WhenFound()
     {
         var log = CreateLog();
-        var data = new ILocationLogService.LocationLogData(DefaultMemberId, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, true);
+        var data = new ILocationLogService.LocationLogData(DefaultMemberId, now, 10.0, 20.0, 5.0, TransportMode.Foot, true);
 
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
@@ -275,7 +277,7 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask UpdateLocationLogAsync_ReturnsNotFound_WhenUnknown()
     {
-        var data = new ILocationLogService.LocationLogData(DefaultMemberId, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, true);
+        var data = new ILocationLogService.LocationLogData(DefaultMemberId, now, 10.0, 20.0, 5.0, TransportMode.Foot, true);
 
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
@@ -293,7 +295,7 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask UpdateLocationLogAsync_ReturnsNotFound_WhenPayloadMemberDoesNotMatch()
     {
-        var data = new ILocationLogService.LocationLogData(999, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, true);
+        var data = new ILocationLogService.LocationLogData(999, now, 10.0, 20.0, 5.0, TransportMode.Foot, true);
 
         OneOf<Success, NotFound, DomainError> result = await _sut.UpdateLocationLogAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, DefaultLogId, data, true);
 
@@ -307,7 +309,7 @@ public sealed class LocationLogServiceTests
     [Fact]
     public async ValueTask UpdateLocationLogAsync_ReturnsDomainError_WhenSessionNotActive()
     {
-        var data = new ILocationLogService.LocationLogData(DefaultMemberId, SystemClock.Instance.GetCurrentInstant(), 10.0, 20.0, 5.0, TransportMode.Foot, true);
+        var data = new ILocationLogService.LocationLogData(DefaultMemberId, now, 10.0, 20.0, 5.0, TransportMode.Foot, true);
         _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
 

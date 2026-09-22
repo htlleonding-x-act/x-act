@@ -7,14 +7,14 @@ import '../api/api_service.dart';
 import '../api/models.dart';
 import 'app_session.dart';
 
-/// Notification identifiers for per-chat Android system notifications.
+/// ids of the android system notifications, one per chat
 class _NotificationIds {
   static const int allChat = 90001;
   static const int teamChat = 90002;
 }
 
-/// Tracks unread chat state and shows / dismisses Android system notifications
-/// so the user never sees stale alerts after reading a message.
+/// tracks unread chats and shows or dismisses the android system notifications
+/// so the user never sees stale alerts after reading a message
 final class ChatNotificationService {
   ChatNotificationService._();
 
@@ -28,27 +28,24 @@ final class ChatNotificationService {
   bool _hasUnreadAll = false;
   bool _hasUnreadTeam = false;
 
-  /// Whether there are unread messages in the global "All" chat.
   bool get hasUnreadAll => _hasUnreadAll;
 
-  /// Whether there are unread messages in the team chat.
   bool get hasUnreadTeam => _hasUnreadTeam;
 
   final StreamController<void> _changeController =
       StreamController<void>.broadcast();
 
-  /// Fires whenever [hasUnreadAll] or [hasUnreadTeam] changes.
+  /// fires when [hasUnreadAll] or [hasUnreadTeam] changes
   Stream<void> get onChange => _changeController.stream;
 
-  /// Initialise the notification plugin and start listening to chat events.
   Future<void> init() async {
-    // Always listen for realtime events so in-app unread indicators work on all
-    // platforms, even where system notifications are unavailable.
+    // always listen so the in-app unread dots work on every platform, even
+    // where system notifications don't exist
     await _eventSubscription?.cancel();
     _eventSubscription =
         ApiService.instance.realtimeEvents.listen(_onRealtimeEvent);
 
-    // System notifications are currently only implemented for Android.
+    // system notifications only exist for android so far
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return;
     }
@@ -64,7 +61,7 @@ final class ChatNotificationService {
         ?.requestNotificationsPermission();
   }
 
-  /// Stop listening and cancel all outstanding notifications.
+  /// also cancels every notification that is still showing
   void dispose() {
     unawaited(_eventSubscription?.cancel());
     _eventSubscription = null;
@@ -78,8 +75,7 @@ final class ChatNotificationService {
     _changeController.add(null);
   }
 
-  /// Mark the global "All" chat as read — hides the in-app dot AND the
-  /// Android system notification.
+  /// hides both the in-app dot and the android notification
   void markAllChatRead() {
     if (!_hasUnreadAll) return;
     _hasUnreadAll = false;
@@ -89,8 +85,7 @@ final class ChatNotificationService {
     _changeController.add(null);
   }
 
-  /// Mark the team chat as read — hides the in-app dot AND the Android
-  /// system notification.
+  /// hides both the in-app dot and the android notification
   void markTeamChatRead() {
     if (!_hasUnreadTeam) return;
     _hasUnreadTeam = false;
@@ -100,14 +95,11 @@ final class ChatNotificationService {
     _changeController.add(null);
   }
 
-  // ── Internals ──────────────────────────────────────────────────────
-
   void _onRealtimeEvent(RealtimeEventEnvelope envelope) {
     if (envelope.type != RealtimeEvents.chatMessagePosted) return;
 
     final message = ChatMessage.fromJson(envelope.payload);
 
-    // Ignore messages sent by ourselves.
     final currentMemberId = AppSession.instance.currentMemberId;
     if (currentMemberId != null && message.senderMemberId == currentMemberId) {
       return;

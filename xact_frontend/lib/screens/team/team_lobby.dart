@@ -24,9 +24,9 @@ import 'package:xact_frontend/widgets/team/team_data.dart';
 import 'package:xact_frontend/widgets/team/team_overview_card.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-/// Switches session state to the freshly created rematch lobby and opens it,
-/// replacing the current screen. Shared by the game and end-match screens so
-/// every client migrates the same way the instant the host starts a rematch.
+/// points the session state at the new rematch lobby and opens it in place of
+/// the current screen. the game and end match screens both use it so every
+/// client moves over the same way
 void openRematchLobby(
   BuildContext context, {
   required int sessionId,
@@ -35,8 +35,8 @@ void openRematchLobby(
   required int hostUserId,
 }) {
   final currentUserId = AppSession.instance.currentUserId;
-  // Point session state at the new lobby and drop the finished session's
-  // membership; the lobby re-resolves the player's new membership on load.
+  // the old membership belongs to the finished session. the lobby looks up the
+  // player's new membership when it loads
   AppSession.instance.setSession(sessionId: sessionId, joinCode: joinCode);
   AppSession.instance.clearMembership();
 
@@ -248,15 +248,15 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             unawaited(_openGameForAll());
           }
 
-          // _refreshLobby() pushes its own snapshots onto this stream. Ignore
-          // any that arrive while it runs, or each refresh triggers the next.
+          // _refreshLobby() pushes its own snapshots onto this stream. ignore
+          // them while it runs, otherwise each refresh triggers the next one
           if (_refreshesInFlight == 0) {
             _queueRealtimeRefresh();
           }
         }
       });
     } catch (_) {
-      // Lobby still works with manual refresh and HTTP fallback.
+      // the lobby still works with manual refresh and the http fallback
     }
   }
 

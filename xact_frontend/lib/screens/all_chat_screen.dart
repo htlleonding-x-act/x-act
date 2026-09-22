@@ -38,12 +38,11 @@ class _AllChatScreenState extends State<AllChatScreen> {
   }
 
   Future<void> _init() async {
-    // Make sure the realtime connection is started and subscribed to the
-    // session group before we rely on _onEvent for live updates.
+    // subscribe first, live updates through _onEvent depend on it
     try {
       await ApiService.instance.ensureSessionChannelSubscription();
     } catch (_) {
-      // Realtime is best-effort; history still loads below.
+      // realtime is best effort, the history still loads below
     }
     await _loadHistory();
   }

@@ -73,20 +73,20 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     return hostUserId != null && currentUserId == hostUserId;
   }
 
-  /// Keep listening on the finished session's channel so that when the host
-  /// starts a rematch, every client (host included) migrates into the new lobby.
+  /// keeps listening on the finished session's channel so every client, the
+  /// host included, moves into the new lobby when the host starts a rematch
   Future<void> _initRematchListener() async {
     try {
       await ApiService.instance.ensureRealtimeSessionSubscription(
         widget.sessionId,
       );
-      // Mark this player as present on the finished session. The host's rematch
-      // only copies still-connected members, so a player who leaves this screen
-      // (and unregisters) is not carried over into the new lobby as a ghost.
+      // mark this player as present on the finished session. the rematch only
+      // copies connected members, so a player who leaves this screen and
+      // unregisters isn't carried over into the new lobby as a ghost
       await ApiService.instance.registerCurrentMemberPresence();
     } catch (_) {
-      // The subscription normally persists from the lobby; the listener below
-      // still works if it is already in place.
+      // the subscription usually carries over from the lobby, so the listener
+      // below still works
     }
 
     _rematchSub = ApiService.instance.realtimeEvents.listen((event) {
@@ -108,9 +108,9 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     setState(() => _working = true);
     try {
       final rematch = await ApiService.instance.createRematch(widget.sessionId);
-      // Navigate straight from the response; other clients follow via the
-      // broadcast. The guard in _navigateToRematch prevents a double push when
-      // the host receives its own broadcast.
+      // navigate from the response right away, other clients follow the
+      // broadcast. the guard in _navigateToRematch stops a second push when the
+      // host gets its own broadcast
       _navigateToRematch(
         sessionId: rematch.sessionId,
         joinCode: rematch.joinCode,

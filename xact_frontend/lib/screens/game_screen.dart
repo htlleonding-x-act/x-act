@@ -75,8 +75,8 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _retryLocationTracking() async {
-    // Without this check, a player who denied location would get the prompt
-    // or the settings screen every 2 seconds. initState asks once.
+    // without this check a player who denied location would get the prompt or
+    // the settings screen every 2 seconds. initState already asks once
     if (!await LocationService.instance.hasPermission()) {
       return;
     }
@@ -104,13 +104,13 @@ class _GameScreenState extends State<GameScreen> {
         }
       });
     } catch (_) {
-      // Announcements are best-effort; the game keeps working without them.
+      // announcements are best effort, the game works without them
     }
   }
 
-  /// The backend sends team chat only to the team's SignalR group. Joining
-  /// it here lets ChatNotificationService flag new messages even if the
-  /// player never opens the Team Chat tab.
+  /// the backend only sends team chat to the team's signalr group. joining it
+  /// here lets ChatNotificationService flag new messages even if the player
+  /// never opens the team chat tab
   Future<void> _joinTeamChannel() async {
     final sessionId = AppSession.instance.currentSessionId;
     final teamId = AppSession.instance.currentTeamId;
@@ -140,7 +140,7 @@ class _GameScreenState extends State<GameScreen> {
 
       setState(() => _sessionDetails = details);
     } catch (_) {
-      // Best-effort polling; the button can remain hidden until a successful fetch.
+      // best effort polling, the button stays hidden until a fetch succeeds
     }
   }
 
@@ -214,7 +214,7 @@ class _GameScreenState extends State<GameScreen> {
         await _openEndMatchScreen();
       }
     } catch (_) {
-      // Best-effort poll; transient failures should not interrupt play.
+      // best effort poll, a short failure must not interrupt play
     }
   }
 
@@ -242,7 +242,7 @@ class _GameScreenState extends State<GameScreen> {
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
 
-    // Fallback: still show own GPS on map even if upload identity is incomplete.
+    // still show the own gps position on the map even without the ids needed to upload it
     await LocationService.instance.startWatching();
   }
 
@@ -350,8 +350,8 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  /// The match ended (host pressed end). Open the end-match screen at once
-  /// instead of waiting for the next status poll to notice.
+  /// opens the end match screen right away instead of waiting for the next
+  /// status poll to notice the match ended
   void _onGameSessionEnded(GameSessionEndedPayload payload) {
     if (payload.sessionId != AppSession.instance.currentSessionId) {
       return;
@@ -360,9 +360,9 @@ class _GameScreenState extends State<GameScreen> {
     unawaited(_openEndMatchScreen());
   }
 
-  /// The host started a rematch while this client was still in-game. Jump
-  /// straight into the new lobby instead of waiting for the status poll to
-  /// route through the end-match screen.
+  /// the host started a rematch while this client was still in game. jump
+  /// straight into the new lobby instead of waiting for the status poll to go
+  /// through the end match screen
   void _onRematchCreated(RematchCreatedPayload payload) {
     if (_rematchNavigationStarted ||
         _endMatchNavigationStarted ||
@@ -371,7 +371,7 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    // Block the finished-session poll/navigation and tear down game timers.
+    // stops the finished session poll and its navigation, then tears down the game timers
     _rematchNavigationStarted = true;
     _endMatchNavigationStarted = true;
     _trackingInitCancelled = true;
@@ -389,8 +389,9 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  /// This client's member was kicked (by vote or host). Leave the game without
-  /// ending the session for everyone else, and return to the start screen.
+  /// this client's member got kicked by a vote or the host. leave the game
+  /// without ending the session for everyone else and go back to the start
+  /// screen
   void _onMemberKicked(MemberKickedPayload payload) {
     if (!mounted ||
         _endMatchNavigationStarted ||
@@ -403,7 +404,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _leaveAfterKick(MemberKickedPayload payload) async {
-    // Block the finished-session poll/navigation and tear down game timers.
+    // stops the finished session poll and its navigation, then tears down the game timers
     _endMatchNavigationStarted = true;
     _trackingInitCancelled = true;
     _trackingRetryTimer?.cancel();
@@ -414,7 +415,7 @@ class _GameScreenState extends State<GameScreen> {
     try {
       await ApiService.instance.leaveCurrentSessionLocally();
     } catch (_) {
-      // Best-effort cleanup; navigate away regardless.
+      // best effort cleanup, navigate away either way
     }
 
     if (!mounted) {

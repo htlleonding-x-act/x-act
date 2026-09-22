@@ -29,8 +29,10 @@ public sealed class UserServiceTests
         _uow = Substitute.For<IUnitOfWork>();
         _userRepository = Substitute.For<IUserRepository>();
         _uow.UserRepository.Returns(_userRepository);
+        var clock = Substitute.For<IClock>();
+        clock.GetCurrentInstant().Returns(Instant.FromUtc(2026, 1, 1, 12, 0));
         var logger = Substitute.For<ILogger<UserService>>();
-        _sut = new UserService(_uow, logger);
+        _sut = new UserService(_uow, clock, logger);
     }
 
     private static User CreateUser(
@@ -149,15 +151,34 @@ public sealed class UserServiceTests
         var data = new IUserService.UserData("new_user", "new@test.com");
         var user = CreateUser(DefaultUserId, data.Username, data.Email);
 
+        _userRepository.GetUserByUsernameAsync(data.Username, false).Returns((User?) null);
         _userRepository.AddUser(data.Username, data.Email, data.AccountType).Returns(user);
 
-        OneOf<User, Error> result = await _sut.AddUserAsync(data);
+        OneOf<User, DomainError, Error> result = await _sut.AddUserAsync(data);
 
         result.Switch(
             found => found.Should().BeEquivalentTo(user),
+            domainError => Assert.Fail("Expected a user but got a DomainError"),
             error => Assert.Fail("Expected a user but got an Error")
         );
         await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask AddUserAsync_ReturnsDomainError_WhenUsernameTaken()
+    {
+        var data = new IUserService.UserData(DefaultUsername, "other@test.com");
+        _userRepository.GetUserByUsernameAsync(DefaultUsername, false).Returns(CreateUser());
+
+        OneOf<User, DomainError, Error> result = await _sut.AddUserAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected a DomainError but got a user"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.UsernameTaken),
+            _ => Assert.Fail("Expected a DomainError but got an Error")
+        );
+        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default);
+        await _uow.DidNotReceive().SaveChangesAsync();
     }
 
     [Fact]

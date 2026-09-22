@@ -5,7 +5,7 @@ using Testcontainers.PostgreSql;
 
 namespace XActBackend.TestInt.Util;
 
-// ReSharper disable once ClassNeverInstantiated.Global - Instantiated by xUnit
+// ReSharper disable once ClassNeverInstantiated.Global - xunit creates it
 public sealed class WebApiTestFixture : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder("postgres:latest")
@@ -56,11 +56,9 @@ public sealed class WebApiTestFixture : IAsyncLifetime
     {
         await using var contextScope = CreateContextScope();
 
-        // Drop schema, if it exists
         await contextScope.Context.Database
                           .ExecuteSqlRawAsync($"DROP SCHEMA IF EXISTS \"{DatabaseContext.SchemaName}\" CASCADE;");
 
-        // Apply migrations and ensure the database is created
         await contextScope.Context.Database.MigrateAsync();
 
         await seedDataImporter(contextScope.Context);

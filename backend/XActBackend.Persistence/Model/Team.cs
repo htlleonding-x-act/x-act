@@ -1,6 +1,6 @@
 ﻿namespace XActBackend.Persistence.Model;
 
-public class Team
+public sealed class Team
 {
     public const int DefaultMaxPlayerCount = 6;
 

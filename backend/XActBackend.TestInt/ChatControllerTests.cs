@@ -121,7 +121,6 @@ public sealed class ChatControllerTests : SeededWebApiTestBase
     public async ValueTask PostTeamMessage_NotDeliveredToSessionOnlySubscriber()
     {
         await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
-        // Subscribe to the session group only; do NOT join the team channel.
         await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
 
         var request = new ChatMessagePostRequest(SeedData.DetectiveMemberId, "Secret team message");
@@ -134,7 +133,6 @@ public sealed class ChatControllerTests : SeededWebApiTestBase
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
 
-        // A session-only subscriber must not receive the private team message.
         RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(1), TestCancellationToken);
 
         realtimeEvent.Should().BeNull();
@@ -143,7 +141,7 @@ public sealed class ChatControllerTests : SeededWebApiTestBase
     [Fact]
     public async ValueTask PostTeamMessage_ReturnsForbidden_WhenSenderNotOnTeam()
     {
-        // Host member belongs to the Mr.X team, not the detective team.
+        // the host member is on the mr.x team, not the detective team
         var request = new ChatMessagePostRequest(SeedData.HostMemberId, "I should not be here");
 
         HttpResponseMessage response = await ApiClient.PostAsJsonAsync(

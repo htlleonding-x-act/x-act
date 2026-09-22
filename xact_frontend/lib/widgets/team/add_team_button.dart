@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../xact_branding.dart';
 
-/// Ghost button for adding a new team in the lobby.
 class AddTeamButton extends StatelessWidget {
   final VoidCallback onPressed;
 

@@ -148,7 +148,10 @@ public sealed class ChatServiceTests
 
         OneOf<ChatMessage, NotFound, DomainError> result = await _sut.PostSessionMessageAsync(SessionId, MemberId, "Hi");
 
-        result.IsT0.Should().BeTrue();
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected message but got NotFound"),
+            _ => Assert.Fail("Expected message but got DomainError"));
         _chatRepository.Received(1).AddChatMessage(SessionId, null, MemberId, TeamId, "Guest A", "Hi", now);
     }
 
@@ -159,7 +162,10 @@ public sealed class ChatServiceTests
 
         OneOf<ChatMessage, NotFound, DomainError> result = await _sut.PostSessionMessageAsync(SessionId, MemberId, "Hi");
 
-        result.IsT1.Should().BeTrue();
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got message"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError"));
         await _uow.DidNotReceive().SaveChangesAsync();
     }
 
@@ -171,7 +177,10 @@ public sealed class ChatServiceTests
 
         OneOf<ChatMessage, NotFound, DomainError> result = await _sut.PostSessionMessageAsync(SessionId, MemberId, "Hi");
 
-        result.IsT1.Should().BeTrue();
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got message"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError"));
     }
 
     [Fact]
@@ -185,7 +194,10 @@ public sealed class ChatServiceTests
 
         OneOf<ChatMessage, NotFound, DomainError> result = await _sut.PostTeamMessageAsync(SessionId, TeamId, MemberId, "Team msg");
 
-        result.IsT0.Should().BeTrue();
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected message but got NotFound"),
+            _ => Assert.Fail("Expected message but got DomainError"));
         _chatRepository.Received(1).AddChatMessage(SessionId, TeamId, MemberId, TeamId, "Guest A", "Team msg", now);
         await _uow.Received(1).SaveChangesAsync();
     }
@@ -213,6 +225,9 @@ public sealed class ChatServiceTests
 
         OneOf<ChatMessage, NotFound, DomainError> result = await _sut.PostTeamMessageAsync(SessionId, TeamId, MemberId, "Team msg");
 
-        result.IsT1.Should().BeTrue();
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got message"),
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected NotFound but got DomainError"));
     }
 }

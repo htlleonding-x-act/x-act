@@ -31,31 +31,22 @@ class MapArea extends StatefulWidget {
 class _MapAreaState extends State<MapArea> {
   final MapController _mapController = MapController();
 
-  // Fallback used only when neither a geofence nor a GPS fix is available.
   static const LatLng _fallbackCenter = kFallbackMapCenter;
 
-  // Current GPS position of "this" player. Null until first fix.
   LatLng? _myPosition;
 
-  // When true, the map auto-pans to follow the player's GPS position.
-  // Defaults to true when no geofence is available; defaults to false when
-  // we have an area to display (the area should stay framed unless the user
-  // explicitly recenters on themselves).
+  // follows the player's gps position. it starts off when there is an area to
+  // show, so the area stays framed until the user recenters on themselves
   late bool _followMode;
 
-  // Initial camera center, resolved synchronously in initState.
   late LatLng _initialMapCenter;
 
-  // When true, the control buttons are expanded (burger menu open).
   bool _showControls = false;
 
   StreamSubscription<Position>? _positionSub;
   StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
 
-  // ── Geofence ──────────────────────────────────────────────────────────────
-  // Polygon boundary loaded from the backend for the active session.
   List<LatLng> _geofencePoints = [];
-  // True when the player is outside the defined game area.
   bool _isOutOfBounds = false;
 
   List<PlayerMarker> _otherPlayers = [];
@@ -66,8 +57,8 @@ class _MapAreaState extends State<MapArea> {
   void initState() {
     super.initState();
 
-    // Use the cached geofence (set by the host on save, or by a prior load)
-    // so the very first frame is already framed on the game area.
+    // start from the cached geofence, saved by the host or a previous load, so
+    // the very first frame already shows the game area
     final cachedGeofence = GeofenceStore.instance.points;
     if (cachedGeofence.length >= 3) {
       _geofencePoints = List.of(cachedGeofence);
@@ -86,8 +77,8 @@ class _MapAreaState extends State<MapArea> {
     _refreshPlayers();
     _listenToRealtimeUpdates();
 
-    // If we already have a geofence, fit the camera tightly on the next frame
-    // (initialCenter alone doesn't pick the right zoom for the polygon).
+    // fit the camera on the next frame, initialCenter alone doesn't pick the
+    // right zoom for the polygon
     if (_geofencePoints.length >= 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _fitCameraToGeofence();
@@ -95,8 +86,6 @@ class _MapAreaState extends State<MapArea> {
     }
   }
 
-  /// Fits the camera so the entire geofence polygon is visible with padding.
-  /// No-op when fewer than 3 points are available.
   void _fitCameraToGeofence() {
     if (!mounted || _geofencePoints.length < 3) return;
     try {
@@ -108,7 +97,7 @@ class _MapAreaState extends State<MapArea> {
         ),
       );
     } catch (_) {
-      // Map controller not yet attached – ignore; the next load will retry.
+      // the map controller isn't attached yet, the next load tries again
     }
   }
 
@@ -128,8 +117,9 @@ class _MapAreaState extends State<MapArea> {
     try {
       await ApiService.instance.ensureRealtimeSessionSubscription(sessionId);
 
-      // RealtimeService patches these snapshots locally on each event, since a
-      // server snapshot reads all location history and is too costly per ping.
+      // RealtimeService patches these snapshots locally on each event because a
+      // server snapshot reads the whole location history and costs too much per
+      // ping
       _realtimeSnapshotSub =ApiService.instance.realtimeSnapshots.listen((
         snapshot,
       ) {
@@ -138,7 +128,7 @@ class _MapAreaState extends State<MapArea> {
         }
       });
     } catch (_) {
-      // Keep map functional with regular HTTP fallback paths.
+      // the map keeps working through the regular http fallback
     }
   }
 
@@ -163,11 +153,11 @@ class _MapAreaState extends State<MapArea> {
         _geofencePoints = loaded;
       });
       if (loaded.length >= 3) {
-        // Cache so the next MapArea (e.g. after fullscreen toggle) starts
-        // already framed on the area without a backend round-trip.
+        // cache it so the next MapArea, e.g. after toggling fullscreen, starts
+        // framed on the area without asking the backend
         GeofenceStore.instance.setPoints(loaded);
-        // Only auto-fit when this load actually introduced the polygon –
-        // refreshing in-place shouldn't yank the camera away from the user.
+        // only auto fit when this load brought in the polygon. a refresh in
+        // place shouldn't pull the camera away from the user
         if (!hadGeofenceBefore) {
           setState(() => _followMode = false);
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -238,21 +228,19 @@ class _MapAreaState extends State<MapArea> {
         _myMarkerColor = currentTeamColor ?? XActColors.secondary;
       });
     } catch (_) {
-      // Keep existing markers when refresh fails.
+      // keep the current markers when a refresh fails
     }
   }
 
   Future<void> _startListeningToGps() async {
-    // Kick off the GPS stream (permission request included).
+    // this also asks for the location permission
     await LocationService.instance.startWatching();
 
-    // Use the last known position immediately if available (no wait needed).
     final existing = LocationService.instance.lastKnownPosition;
     if (existing != null) {
       _applyPosition(existing);
     }
 
-    // Subscribe to live updates.
     _positionSub = LocationService.instance.positionStream.listen(_applyPosition);
 
   }
@@ -270,14 +258,12 @@ class _MapAreaState extends State<MapArea> {
     }
   }
 
-  /// Returns true when [point] lies outside the [_geofencePoints] polygon.
-  /// Uses the Ray Casting algorithm. Returns false when no polygon is defined.
   bool _checkOutOfBounds(LatLng point) {
     if (_geofencePoints.length < 3) return false;
     return !_isPointInPolygon(point, _geofencePoints);
   }
 
-  /// Ray Casting point-in-polygon check.
+  /// ray casting point in polygon test
   static bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
     final x = point.longitude;
     final y = point.latitude;
@@ -299,7 +285,6 @@ class _MapAreaState extends State<MapArea> {
   List<Marker> _buildAllMarkers() {
     final markers = <Marker>[];
 
-    // Real GPS position of the current player.
     if (_myPosition != null) {
       markers.add(
         _buildMarker(
@@ -314,7 +299,6 @@ class _MapAreaState extends State<MapArea> {
       );
     }
 
-    // Other players loaded from backend polling.
     markers.addAll(_otherPlayers.map(_buildMarker));
 
     return markers;
@@ -338,7 +322,6 @@ class _MapAreaState extends State<MapArea> {
               initialZoom: 15.0,
               minZoom: 10.0,
               maxZoom: 18.0,
-              // Disable follow mode as soon as the user manually drags the map.
               onPositionChanged: (_, hasGesture) {
                 if (hasGesture && _followMode) {
                   setState(() => _followMode = false);
@@ -378,7 +361,6 @@ class _MapAreaState extends State<MapArea> {
                 },
               ),
               MarkerLayer(markers: _buildAllMarkers()),
-              // Geofence polygon (shown for all players once the host saves it)
               if (_geofencePoints.length >= 3)
                 PolygonLayer(
                   polygons: [
@@ -397,7 +379,6 @@ class _MapAreaState extends State<MapArea> {
             teamEntries: _legendTeamEntries,
             myLocationColor: _myMarkerColor,
           ),
-          // Out-of-bounds warning banner
           if (_isOutOfBounds)
             Positioned(
               top: 100,
@@ -436,7 +417,6 @@ class _MapAreaState extends State<MapArea> {
                 ),
               ),
             ),
-          // "No GPS fix yet" indicator
           if (_myPosition == null)
             Positioned(
               top: 100,
@@ -483,7 +463,6 @@ class _MapAreaState extends State<MapArea> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Expanded controls – only visible when burger menu is open.
                 if (_showControls) ...[
                   _ZoomButton(
                     icon: Icons.add,
@@ -529,7 +508,6 @@ class _MapAreaState extends State<MapArea> {
                   ],
                   const SizedBox(height: 8),
                 ],
-                // Burger / close button – always visible.
                 _ZoomButton(
                   icon: _showControls ? Icons.close : Icons.menu,
                   onPressed: () =>

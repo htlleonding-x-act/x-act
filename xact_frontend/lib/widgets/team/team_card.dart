@@ -3,7 +3,7 @@ import 'package:xact_frontend/api/models.dart';
 
 import '../xact_branding.dart';
 
-/// A team card displayed on the in-game Team tab.
+/// used on the team tab during the game
 class TeamCard extends StatelessWidget {
   final String teamName;
   final TeamRole? role;

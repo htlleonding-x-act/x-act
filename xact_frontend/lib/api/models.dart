@@ -685,9 +685,9 @@ final class RealtimeEventEnvelope {
   }
 }
 
-/// A single chat message. Parses both the REST DTO (`id`) and the realtime
-/// `chat_message_posted` payload (`messageId`). A `null` [teamId] denotes the
-/// global "All" channel; a non-null value is that team's private channel.
+/// parses both the http dto (`id`) and the realtime `chat_message_posted`
+/// payload (`messageId`). a null [teamId] means the all chat, any other value
+/// is that team's private chat
 final class ChatMessage {
   final int id;
   final int sessionId;
@@ -1197,9 +1197,8 @@ final class GameSessionEndedPayload {
   }
 }
 
-/// Realtime `rematch_created` payload. Broadcast on the finished session's
-/// channel so every still-connected client can migrate into the fresh lobby
-/// identified by [newSessionId] / [newJoinCode].
+/// sent on the finished session's channel so every client that is still
+/// connected can move into the new lobby
 final class RematchCreatedPayload {
   final int finishedSessionId;
   final int newSessionId;
@@ -1265,8 +1264,8 @@ final class LocationLogRecordedPayload {
   }
 }
 
-/// A kick vote and its current tally. Parses the REST payload and the realtime
-/// `kick_vote_started` / `kick_vote_updated` / `kick_vote_resolved` payloads.
+/// parses the http payload and the realtime `kick_vote_started`,
+/// `kick_vote_updated` and `kick_vote_resolved` payloads
 final class KickVote {
   final int voteId;
   final int sessionId;
@@ -1302,7 +1301,7 @@ final class KickVote {
 
   bool get isOpen => status == KickVoteStatus.open;
 
-  /// Approvals still needed for a strict majority of eligible voters.
+  /// total approvals a strict majority of the eligible voters needs
   int get approvalsNeeded => (eligibleVoterCount ~/ 2) + 1;
 
   factory KickVote.fromJson(Map<String, dynamic> json) {
@@ -1328,8 +1327,8 @@ final class KickVote {
   }
 }
 
-/// An automatically detected offense. Parses the REST payload and the realtime
-/// `member_offense_raised` / `member_offense_cleared` payloads.
+/// parses the http payload and the realtime `member_offense_raised` and
+/// `member_offense_cleared` payloads
 final class MemberOffense {
   final int offenseId;
   final int sessionId;
@@ -1368,7 +1367,7 @@ final class MemberOffense {
   }
 }
 
-/// Realtime `member_kicked` payload. [kickType] is `vote` or `host`.
+/// [kickType] is `vote` or `host`
 final class MemberKickedPayload {
   final int sessionId;
   final int teamId;

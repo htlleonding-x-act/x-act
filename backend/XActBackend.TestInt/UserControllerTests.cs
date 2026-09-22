@@ -65,6 +65,16 @@ public sealed class UserControllerTests(WebApiTestFixture fixture) : SeededWebAp
     }
 
     [Fact]
+    public async ValueTask AddUser_Conflict_WhenUsernameTaken()
+    {
+        var request = new UserAddRequest("host_user", "other_host@example.com");
+
+        var response = await ApiClient.PostAsJsonAsync(BaseUrl, request, JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
     public async ValueTask AddUser_BadRequest()
     {
         var request = new UserAddRequest("dup_user", "host@example.com");

@@ -1,6 +1,6 @@
 ﻿namespace XActBackend.Persistence.Model;
 
-public class PowerUpUsage
+public sealed class PowerUpUsage
 {
     public int Id { get; set; }
 

@@ -5,62 +5,24 @@ using XActBackend.Persistence.Util;
 
 namespace XActBackend.Core.Services;
 
-/// <summary>
-///     Drives the report/voting system: members can start a vote to kick a misbehaving player,
-///     cast ballots, and cancel votes, while the host can instantly kick a player with sudo powers.
-///     The host can never be the target of a vote or a kick.
-/// </summary>
+/// <summary>kick votes and host kicks. the host can never be the target of either</summary>
 public interface IReportService
 {
-    /// <summary>
-    ///     Get the session's single open kick vote, if one is currently running and not yet expired.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <returns>The open vote view, or <c>null</c> when there is none</returns>
+    /// <summary>null when no vote is open or the open one has run past its window</summary>
     public ValueTask<KickVoteView?> GetOpenVoteAsync(int sessionId);
 
-    /// <summary>
-    ///     Start a kick vote against a target member. The initiator automatically approves.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="initiatorMemberId">The member starting the vote</param>
-    /// <param name="targetMemberId">The member the vote wants to kick</param>
-    /// <param name="reason">Optional reason for the kick</param>
-    /// <returns>The vote result, not found or a domain error if the vote is not allowed</returns>
+    /// <summary>the initiator's approval is counted right away</summary>
     public ValueTask<OneOf<KickVoteActionResult, NotFound, DomainError>> StartKickVoteAsync(int sessionId, int initiatorMemberId, int targetMemberId, string? reason);
 
-    /// <summary>
-    ///     Cast a ballot in an open kick vote. Resolves the vote immediately when the outcome is decided.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="voteId">The id of the kick vote</param>
-    /// <param name="voterMemberId">The member casting the ballot</param>
-    /// <param name="approve"><c>true</c> approves the kick, <c>false</c> votes to keep the target</param>
-    /// <returns>The vote result, not found or a domain error if the ballot is not allowed</returns>
+    /// <summary>resolves the vote as soon as the outcome is decided</summary>
     public ValueTask<OneOf<KickVoteActionResult, NotFound, DomainError>> CastBallotAsync(int sessionId, int voteId, int voterMemberId, bool approve);
 
-    /// <summary>
-    ///     Cancel an open kick vote. Only the initiator or the host may cancel.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="voteId">The id of the kick vote</param>
-    /// <param name="actingMemberId">The member requesting the cancellation</param>
-    /// <returns>The vote result, not found or a domain error if the cancellation is not allowed</returns>
+    /// <summary>only the initiator or the host may cancel</summary>
     public ValueTask<OneOf<KickVoteActionResult, NotFound, DomainError>> CancelKickVoteAsync(int sessionId, int voteId, int actingMemberId);
 
-    /// <summary>
-    ///     Instantly kick a member using host sudo powers, bypassing any vote. The acting member must
-    ///     be the host and the target must not be the host.
-    /// </summary>
-    /// <param name="sessionId">The id of the session</param>
-    /// <param name="actingMemberId">The member invoking host powers</param>
-    /// <param name="targetMemberId">The member to kick</param>
-    /// <returns>The host kick result, not found or a domain error if the kick is not allowed</returns>
+    /// <summary>kicks right away without a vote. only the host can do this</summary>
     public ValueTask<OneOf<HostKickResult, NotFound, DomainError>> HostKickMemberAsync(int sessionId, int actingMemberId, int targetMemberId);
 
-    /// <summary>
-    ///     A snapshot of a kick vote and its current tally, ready to be shown or broadcast.
-    /// </summary>
     public sealed record KickVoteView(
         int VoteId,
         int SessionId,
@@ -78,13 +40,6 @@ public interface IReportService
         Instant? ResolvedAt
     );
 
-    /// <summary>
-    ///     The outcome of a kick-vote action (start/cast/cancel).
-    /// </summary>
-    /// <param name="Vote">The current view of the vote</param>
-    /// <param name="Resolved">Whether the vote is no longer open after this action</param>
-    /// <param name="KickedMember">The member removed when the vote passed, otherwise <c>null</c></param>
-    /// <param name="KickedMemberName">The display name of the kicked member, if any</param>
     public sealed record KickVoteActionResult(
         KickVoteView Vote,
         bool Resolved,
@@ -92,12 +47,7 @@ public interface IReportService
         string? KickedMemberName
     );
 
-    /// <summary>
-    ///     The outcome of a host sudo kick.
-    /// </summary>
-    /// <param name="KickedMember">The member that was removed</param>
-    /// <param name="KickedMemberName">The display name of the kicked member</param>
-    /// <param name="ResolvedVote">An open vote against the same member that was cancelled, if any</param>
+    /// <param name="ResolvedVote">an open vote against the same member that the kick cancelled</param>
     public sealed record HostKickResult(
         TeamMember KickedMember,
         string KickedMemberName,
@@ -117,7 +67,7 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
             return null;
         }
 
-        // A vote past its window is treated as no longer open; it is lazily expired on the next start.
+        // a vote past its window counts as closed here but only gets marked expired on the next start or ballot
         if (clock.GetCurrentInstant() > vote.ExpiresAt)
         {
             return null;
@@ -172,7 +122,7 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
                 return DomainError.ReportVoteAlreadyActive(sessionId);
             }
 
-            // The previous vote's window elapsed; expire it so this new one can take its place.
+            // the old vote ran out, so expire it and let the new one take its place
             existing.Status = KickVoteStatus.Expired;
             existing.ResolvedAt = now;
         }
@@ -183,7 +133,6 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
         var vote = uow.KickVoteRepository.AddKickVote(sessionId, targetMemberId, initiatorMemberId, normalizedReason, now, expiresAt);
         await uow.SaveChangesAsync();
 
-        // The initiator implicitly approves their own kick vote.
         uow.KickVoteBallotRepository.AddBallot(vote.Id, initiatorMemberId, approve: true, now);
         await uow.SaveChangesAsync();
 
@@ -224,7 +173,7 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
 
         Instant now = clock.GetCurrentInstant();
 
-        // The window elapsed: lazily expire the vote instead of recording a late ballot.
+        // the ballot came too late, so expire the vote instead of counting it
         if (now > vote.ExpiresAt)
         {
             vote.Status = KickVoteStatus.Expired;
@@ -329,7 +278,7 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
         Instant now = clock.GetCurrentInstant();
         string targetName = await ResolveMemberNameAsync(target);
 
-        // If a vote was running against this member, cancel it so it does not linger after the kick.
+        // cancel a running vote against this member so it doesn't hang around after the kick
         IReportService.KickVoteView? resolvedVoteView = null;
         var openVote = await uow.KickVoteRepository.GetOpenVoteBySessionAsync(sessionId, tracking: true);
         if (openVote is not null && openVote.TargetMemberId == targetMemberId)
@@ -347,16 +296,13 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
         return new IReportService.HostKickResult(target, targetName, resolvedVoteView);
     }
 
-    /// <summary>
-    ///     Recompute the tally of an open vote, resolve it (passing/failing) when the outcome is
-    ///     decided, remove the target on a pass, and build the resulting view.
-    /// </summary>
+    // recounts the ballots, resolves the vote once the outcome is decided and removes the target if it passed
     private async ValueTask<IReportService.KickVoteActionResult> ApplyBallotsAndBuildAsync(KickVote vote, int? targetId, int? initiatorId, Instant now)
     {
         IReadOnlyCollection<KickVoteBallot> ballots = await uow.KickVoteBallotRepository.GetBallotsByVoteIdAsync(vote.Id, tracking: false);
         IReadOnlyCollection<TeamMember> members = await uow.TeamMemberRepository.GetMembersBySessionIdAsync(vote.SessionId, tracking: false);
 
-        // Resolve names while the target member still exists in the roster (before a potential kick).
+        // look up names before a possible kick removes the target from the roster
         string targetName = await ResolveMemberNameAsync(members, targetId);
         string initiatorName = await ResolveMemberNameAsync(members, initiatorId);
 
@@ -440,18 +386,17 @@ internal sealed class ReportService(IUnitOfWork uow, IClock clock, ILogger<Repor
             vote.ResolvedAt);
     }
 
-    // The target cannot vote on their own kick, so their ballots never count toward the tally.
+    // the target can't vote on their own kick, so their ballots never count
     private static int CountApprovals(IReadOnlyCollection<KickVoteBallot> ballots, int? targetId) =>
         ballots.Count(ballot => ballot.Approve && ballot.VoterMemberId != targetId);
 
     private static int CountedBallots(IReadOnlyCollection<KickVoteBallot> ballots, int? targetId) =>
         ballots.Count(ballot => ballot.VoterMemberId != targetId);
 
-    // Everyone in the session may vote except the target.
     private static int EligibleCount(IReadOnlyCollection<TeamMember> members, int? targetId) =>
         members.Count(member => member.Id != targetId);
 
-    // Strict majority of the eligible voters.
+    // strict majority, and at least one approval even when nobody is eligible
     private static int ApprovalsNeeded(int eligible) => Math.Max(eligible, 1) / 2 + 1;
 
     private static bool IsHost(TeamMember member, GameSession session) =>

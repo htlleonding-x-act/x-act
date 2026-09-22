@@ -31,28 +31,24 @@ class DefineGameAreaScreen extends StatefulWidget {
 class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   final MapController _mapController = MapController();
 
-  // Corner markers the host has placed - these form the polygon.
+  // the corners the host placed, they form the polygon
   final List<LatLng> _points = [];
 
-  // Index of the currently selected corner marker, -1 when none is selected.
+  // -1 when no corner is selected
   int _selectedIndex = -1;
 
-  // When true, the next map tap repositions the selected corner marker.
+  // the next map tap moves the selected corner
   bool _isMoveMode = false;
 
-  // Fallback used only when GPS is unavailable / denied.
   static const LatLng _fallbackCenter = kFallbackMapCenter;
 
-  // Resolved initial center – null while GPS is being acquired.
+  // null while the gps fix is still pending
   LatLng? _initialCenter;
 
-  // Current user location shown as a simple symbol on the map.
   LatLng? _myLocation;
 
-  // True while waiting for the first GPS fix on screen open.
   bool _isLocating = true;
 
-  // True when permission was denied and we had to fall back to [_fallbackCenter].
   bool _usedFallback = false;
 
   @override
@@ -64,9 +60,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     _resolveInitialCenter();
   }
 
-  /// Tries to resolve the map's initial center from the device GPS.
-  /// Falls back to [_fallbackCenter] when permission is denied, location
-  /// services are disabled, or the lookup times out.
+  /// falls back to [_fallbackCenter] when permission is denied, location
+  /// services are off or the lookup times out
   Future<void> _resolveInitialCenter() async {
     final cached = LocationService.instance.lastKnownPosition;
     if (cached != null) {
@@ -136,9 +131,9 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     });
   }
 
-  // Returns the index at which [point] should be inserted so that it lands
-  // between the two existing corners that form the closest edge. This keeps
-  // the polygon shape natural instead of always appending chronologically.
+  // index where [point] goes so it lands between the two corners of the
+  // closest edge. this keeps the shape natural instead of always appending at
+  // the end
   int _bestInsertIndex(LatLng point) {
     final n = _points.length;
     if (n < 3) return n;
@@ -323,10 +318,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     }
 
     GeofenceStore.instance.setPoints(List.of(_points));
-    Navigator.of(context).pop(true); // signal success to caller
+    Navigator.of(context).pop(true); // true tells the caller the area was saved
   }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
 
   String get _statusText {
     if (_points.isEmpty) return 'Tap on the map to place the first corner';
@@ -425,10 +418,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
               (details) => _showPointMenu(index, details.globalPosition),
         ),
 
-        // ── Crosshair hint overlay ──────────────────────────────
         const Center(child: DefineGameAreaCrosshairOverlay()),
 
-        // ── Fallback notice when GPS was unavailable ────────────
         if (_usedFallback)
           Positioned(
             top: 8,
@@ -471,7 +462,6 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
             ),
           ),
 
-        // ── Status bar at bottom ────────────────────────────────
         Positioned(
           left: 0,
           right: 0,

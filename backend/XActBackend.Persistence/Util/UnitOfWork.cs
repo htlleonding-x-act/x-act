@@ -29,17 +29,17 @@ public interface IUnitOfWork
     public Task SaveChangesAsync();
 }
 
-internal sealed class UnitOfWork(DatabaseContext context, ILogger<UnitOfWork> logger)
+internal sealed class UnitOfWork(DatabaseContext context, IClock clock, ILogger<UnitOfWork> logger)
     : IUnitOfWork, ITransactionProvider
 {
     private IDbContextTransaction? _transaction;
 
-    public IUserRepository UserRepository => new UserRepository(context.Users);
-    public IUserAuthIdentityRepository UserAuthIdentityRepository => new UserAuthIdentityRepository(context.UserAuthIdentities);
-    public IGameSessionRepository GameSessionRepository => new GameSessionRepository(context.GameSessions);
+    public IUserRepository UserRepository => new UserRepository(context.Users, clock);
+    public IUserAuthIdentityRepository UserAuthIdentityRepository => new UserAuthIdentityRepository(context.UserAuthIdentities, clock);
+    public IGameSessionRepository GameSessionRepository => new GameSessionRepository(context.GameSessions, clock);
     public IGeofencePointRepository GeofencePointRepository => new GeofencePointRepository(context.GeofencePoints);
     public ITeamRepository TeamRepository => new TeamRepository(context.Teams);
-    public ITeamMemberRepository TeamMemberRepository => new TeamMemberRepository(context.TeamMembers);
+    public ITeamMemberRepository TeamMemberRepository => new TeamMemberRepository(context.TeamMembers, clock);
     public ILocationLogRepository LocationLogRepository => new LocationLogRepository(context.LocationLogs);
     public IPowerUpUsageRepository PowerUpUsageRepository => new PowerUpUsageRepository(context.PowerUpUsages);
     public IChatMessageRepository ChatMessageRepository => new ChatMessageRepository(context.ChatMessages);
@@ -86,7 +86,7 @@ internal sealed class UnitOfWork(DatabaseContext context, ILogger<UnitOfWork> lo
             return;
         }
 
-        // Transaction was neither committed nor rolled back, rolling back now - silent, this is acceptable
+        // the transaction was never committed or rolled back, so roll it back without a warning
         await _transaction.RollbackAsync();
         await _transaction.DisposeAsync();
     }
@@ -98,8 +98,8 @@ internal sealed class UnitOfWork(DatabaseContext context, ILogger<UnitOfWork> lo
             return;
         }
 
-        logger
-            .LogWarning($"Transaction was not disposed in {nameof(DisposeAsync)} and will now be rolled back and disposed in {nameof(Dispose)}");
+        logger.LogWarning("Transaction was not disposed in {AsyncDisposeMethod} and will now be rolled back and disposed in {DisposeMethod}",
+                          nameof(DisposeAsync), nameof(Dispose));
         _transaction.Rollback();
         _transaction.Dispose();
     }

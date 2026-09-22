@@ -19,7 +19,6 @@ class LobbyPlayer {
   });
 }
 
-/// Data model for a team in the lobby.
 class TeamData {
   final int teamId;
   final TeamRole role;
@@ -28,7 +27,7 @@ class TeamData {
   int maxPlayers;
   List<LobbyPlayer> players;
 
-  /// When `false` the team cannot be deleted (Mister X + first detective team).
+  /// false for the mr.x team and the first detective team, which can't be deleted
   bool isDeletable;
 
   TeamData({

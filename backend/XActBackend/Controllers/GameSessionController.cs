@@ -125,6 +125,7 @@ public sealed class GameSessionController(
     [HttpPut]
     [Route("{sessionId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<IActionResult> UpdateGameSession(
@@ -341,8 +342,7 @@ public sealed class GameSessionController(
             {
                 await transaction.CommitAsync();
 
-                // Both teams changed role, so push the updated team state to every client and
-                // announce the swap so each client can surface it to the player.
+                // both teams changed role, so each gets a team update on top of the caught event
                 await realtimePublisher.PublishTeamUpdatedAsync(caught.NewMrXTeam);
                 await realtimePublisher.PublishTeamUpdatedAsync(caught.FormerMrXTeam);
                 await realtimePublisher.PublishMrXCaughtAsync(caught.NewMrXTeam, caught.FormerMrXTeam);
@@ -391,9 +391,7 @@ public sealed class GameSessionController(
         {
             await transaction.BeginTransactionAsync();
 
-            // Only carry over players still connected to the finished session so anyone who already
-            // left does not reappear in the new lobby as a ghost. A still-connected client is exactly
-            // the one that can migrate into the rematch.
+            // a client that is still connected is exactly one that can move into the rematch
             IReadOnlySet<int> connectedMemberIds = GameSessionHub.GetConnectedMemberIds(sessionId);
 
             OneOf<GameSession, NotFound, DomainError> result =
@@ -403,8 +401,6 @@ public sealed class GameSessionController(
             {
                 await transaction.CommitAsync();
 
-                // Announce on the finished session's channel so every still-connected client
-                // (host + players on the end-match screen) migrates into the new lobby.
                 await realtimePublisher.PublishRematchCreatedAsync(sessionId, rematchSession);
 
                 logger.LogInformation("Created rematch session {RematchSessionId} from finished session {SessionId}", rematchSession.Id, sessionId);

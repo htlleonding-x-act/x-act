@@ -7,7 +7,6 @@ import '../api/models.dart';
 import '../services/app_session.dart';
 import '../widgets/xact_branding.dart';
 
-/// One player in the report roster, enriched with role/host/self flags.
 class _PlayerRow {
   final int memberId;
   final int teamId;
@@ -58,7 +57,7 @@ class _ReportScreenState extends State<ReportScreen> {
     super.initState();
     _eventSub = ApiService.instance.realtimeEvents.listen(_onEvent);
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      // Keep the open-vote countdown ticking.
+      // rebuild every second so the vote countdown keeps ticking
       if (mounted && _vote != null) {
         setState(() {});
       }
@@ -87,7 +86,7 @@ class _ReportScreenState extends State<ReportScreen> {
     try {
       await ApiService.instance.ensureRealtimeSessionSubscription(sessionId);
     } catch (_) {
-      // Realtime is best-effort; the initial REST load still populates the tab.
+      // realtime is best effort, the first http load still fills the tab
     }
 
     try {
@@ -185,7 +184,7 @@ class _ReportScreenState extends State<ReportScreen> {
             ..addAll(roster);
         });
       } catch (_) {
-        // Keep the previous roster on a transient failure.
+        // keep the previous roster when a refresh fails
       }
     });
   }
@@ -221,8 +220,8 @@ class _ReportScreenState extends State<ReportScreen> {
           return;
         }
         setState(() => _offensesByMember.remove(payload.memberId));
-        // Vote kicks are already announced via kick_vote_resolved; only the host
-        // sudo kick needs its own notice here to avoid a duplicate toast.
+        // vote kicks are already announced through kick_vote_resolved, so only
+        // the host kick needs its own toast here
         if (payload.byHost && payload.memberId != _currentMemberId) {
           _toast('${payload.memberName} was kicked by the host.');
         }
@@ -309,8 +308,8 @@ class _ReportScreenState extends State<ReportScreen> {
       return;
     }
 
-    // If the player is currently flagged and the initiator typed nothing, record
-    // the out-of-bounds offense as the reason so it persists even if they return.
+    // if the target is flagged and the initiator typed nothing, use the
+    // out-of-bounds offense as the reason so it stays even after they return
     final effectiveReason = reason.isNotEmpty
         ? reason
         : (_offensesByMember.containsKey(row.memberId)
@@ -391,7 +390,7 @@ class _ReportScreenState extends State<ReportScreen> {
     });
   }
 
-  /// Runs an action with a busy guard and a generic error toast.
+  /// runs [action] behind a busy guard and shows a generic error toast when it fails
   Future<void> _run(Future<void> Function() action, {VoidCallback? onError}) async {
     if (_busy) {
       return;
@@ -415,12 +414,11 @@ class _ReportScreenState extends State<ReportScreen> {
     required String actionLabel,
     required bool destructive,
   }) {
-    // The dialog owns its TextEditingController via _ReasonDialog's State so the
-    // controller is disposed in dispose() — after the dialog's exit animation,
-    // in correct element-teardown order. Disposing it here (e.g. in a finally
-    // after `await showDialog`) would run while the TextField is still mounted,
-    // since showDialog's future completes before the pop animation, and trips
-    // the framework's `_dependents.isEmpty` assertion during teardown.
+    // the dialog's State owns the TextEditingController and disposes it after
+    // the exit animation. disposing it here, e.g. in a finally after
+    // `await showDialog`, would run while the TextField is still mounted,
+    // because showDialog completes before the pop animation, and that trips
+    // the framework's `_dependents.isEmpty` assertion
     return showDialog<String>(
       context: context,
       builder: (dialogContext) => _ReasonDialog(
@@ -592,8 +590,8 @@ class _ReportScreenState extends State<ReportScreen> {
     );
   }
 
-  /// Explains why the vote is running: who started it, an out-of-bounds flag on
-  /// the target (if any), and the typed reason (if any).
+  /// why the vote is running: who started it, the target's out-of-bounds flag
+  /// if there is one, and the typed reason if there is one
   Widget _buildVoteWhy(KickVote vote) {
     final targetOffense = vote.targetMemberId != null
         ? _offensesByMember[vote.targetMemberId]
@@ -601,7 +599,7 @@ class _ReportScreenState extends State<ReportScreen> {
     final offenseLabel =
         targetOffense != null ? _offenseReasonLabel(targetOffense.type) : null;
     final reason = vote.reason?.trim();
-    // Show the typed reason unless it just repeats the live offense chip above it.
+    // hide the typed reason when it only repeats the offense chip above it
     final showReason =
         reason != null && reason.isNotEmpty && reason != offenseLabel;
 
@@ -672,8 +670,8 @@ class _ReportScreenState extends State<ReportScreen> {
       );
     }
 
-    // The initiator already approved by starting the vote, so they only see the
-    // host/initiator "Cancel vote" control, not a ballot.
+    // starting the vote already counted as the initiator's approval, so they
+    // only get the cancel control, not a ballot
     final showBallot = !isInitiator;
     final canCancel = isInitiator || _isHost;
 
@@ -765,9 +763,9 @@ class _ReportScreenState extends State<ReportScreen> {
                         maxLines: 1,
                       ),
                     ),
-                    // The viewer's own row reads "You"; everyone else sees the
-                    // host's row marked "Host". Showing at most one tag keeps the
-                    // line from overflowing on narrow layouts.
+                    // the viewer's own row says you and the host's row says
+                    // host. at most one tag keeps the line from overflowing on
+                    // narrow screens
                     if (row.isSelf)
                       _tag('You', XActColors.secondary)
                     else if (row.isHost)
@@ -892,9 +890,9 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 }
 
-/// Reason-prompt dialog used for starting a kick vote / host kick. Owns its own
-/// [TextEditingController] so it is disposed in [State.dispose] (after the exit
-/// animation), avoiding a premature dispose that corrupts the element tree.
+/// reason prompt for a kick vote or a host kick. it owns its
+/// [TextEditingController] so the controller gets disposed in [State.dispose],
+/// after the exit animation
 class _ReasonDialog extends StatefulWidget {
   const _ReasonDialog({
     required this.title,
