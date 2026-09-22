@@ -251,6 +251,49 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
     }
 
     [Fact]
+    public async ValueTask AddHiddenMrXLocationLog_IsNotPublishedToSession()
+    {
+        await ActivateSeedSessionAsync();
+
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        LocationLogDetailsDto revealedLog = await AddMrXLocationLogAsync();
+        revealedLog.IsRevealedPosition.Should().BeTrue();
+
+        RealtimeEventEnvelope? revealedEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+        revealedEvent.Should().NotBeNull();
+        revealedEvent!.Type.Should().Be(RealtimeEvents.LocationLogRecorded);
+
+        LocationLogDetailsDto hiddenLog = await AddMrXLocationLogAsync();
+        hiddenLog.IsRevealedPosition.Should().BeFalse();
+
+        RealtimeEventEnvelope? hiddenEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(1), TestCancellationToken);
+        hiddenEvent?.Type.Should().NotBe(RealtimeEvents.LocationLogRecorded);
+    }
+
+    private async ValueTask<LocationLogDetailsDto> AddMrXLocationLogAsync()
+    {
+        var request = new LocationLogAddRequest(
+            SeedData.BaseInstant.Plus(Duration.FromMinutes(45)),
+            48.25,
+            16.35,
+            4.0,
+            TransportMode.Foot,
+            false);
+
+        HttpResponseMessage response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.MrXTeamId}/members/{SeedData.HostMemberId}/locationlogs",
+            request,
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        return (await response.Content.ReadFromJsonAsync<LocationLogDetailsDto>(JsonOptions, TestCancellationToken))!;
+    }
+
+    [Fact]
     public async ValueTask DisconnectInWaitingLobby_RemovesRegisteredMember()
     {
         await using (var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken))
@@ -267,7 +310,7 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
         }
 
         var memberStillExists = true;
-        for (var i = 0; i < 12; i++)
+        for (var i = 0; i < 50; i++)
         {
             HttpResponseMessage checkResponse = await ApiClient.GetAsync(
                 $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.GuestMemberId}",
@@ -284,6 +327,39 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
 
         memberStillExists.Should().BeFalse();
     }
+
+    [Fact]
+    public async ValueTask ReconnectWithinGracePeriod_KeepsRegisteredMember()
+    {
+        await using (var droppedClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken))
+        {
+            await droppedClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+            await RegisterGuestPresenceAsync(droppedClient);
+        }
+
+        await using var reconnectedClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await reconnectedClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+        await RegisterGuestPresenceAsync(reconnectedClient);
+
+        await Task.Delay(TimeSpan.FromSeconds(2), TestCancellationToken);
+
+        HttpResponseMessage checkResponse = await ApiClient.GetAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members/{SeedData.GuestMemberId}",
+            TestCancellationToken);
+
+        checkResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        await reconnectedClient.UnregisterMemberPresenceAsync(TestCancellationToken);
+    }
+
+    private ValueTask RegisterGuestPresenceAsync(SignalRTestClient realtimeClient) =>
+        realtimeClient.RegisterMemberPresenceAsync(
+            SeedData.SessionId,
+            SeedData.DetectiveTeamId,
+            SeedData.GuestMemberId,
+            userId: null,
+            guestName: "guest_player",
+            TestCancellationToken);
 
     [Fact]
     public async ValueTask RematchGameSession_PublishesRematchCreatedEvent()

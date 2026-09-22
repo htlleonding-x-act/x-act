@@ -26,7 +26,10 @@ class _MapHeaderState extends State<MapHeader> {
   @override
   void initState() {
     super.initState();
-    _load = ApiService.instance.loadMapHeader()..then(_startCountdown);
+    _load = ApiService.instance.loadMapHeader();
+    unawaited(
+      _load.then(_startCountdown, onError: (Object _) => _retryRefreshSoon()),
+    );
   }
 
   @override
@@ -76,9 +79,23 @@ class _MapHeaderState extends State<MapHeader> {
   }
 
   Future<void> _refreshCountdown() async {
-    final data = await ApiService.instance.loadMapHeader();
+    try {
+      final data = await ApiService.instance.loadMapHeader();
+      if (!mounted) return;
+      _startCountdown(data);
+    } catch (_) {
+      _retryRefreshSoon();
+    }
+  }
+
+  void _retryRefreshSoon() {
     if (!mounted) return;
-    _startCountdown(data);
+    _timer?.cancel();
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        unawaited(_refreshCountdown());
+      }
+    });
   }
 
   double get _progress =>
@@ -136,10 +153,10 @@ class _MapHeaderState extends State<MapHeader> {
                             XActBranding.buildEyebrow('Next ping'),
                             const SizedBox(height: 2),
                             Text(
-                              snapshot.hasError
-                                  ? 'unavailable'
-                                  : (_totalSeconds > 0
-                                      ? _countdownText
+                              _totalSeconds > 0
+                                  ? _countdownText
+                                  : (snapshot.hasError
+                                      ? 'unavailable'
                                       : (snapshot.data?.nextPingText ?? '…')),
                               style: XActText.mono.copyWith(
                                 fontSize: 20,

@@ -28,6 +28,7 @@ final class ApiService {
   final http.Client _http;
   final AppSession _session = AppSession.instance;
   final RealtimeService _realtime = RealtimeService.instance;
+  final Map<int, UserInfo> _usersById = {};
 
   Stream<RealtimeEventEnvelope> get realtimeEvents => _realtime.eventStream;
 

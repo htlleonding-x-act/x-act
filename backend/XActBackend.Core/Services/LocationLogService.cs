@@ -146,9 +146,11 @@ internal sealed class LocationLogService(IUnitOfWork uow, ILogger<LocationLogSer
                         Instant serverNow = SystemClock.Instance.GetCurrentInstant();
                         bool isRevealed = await DetermineIfRevealedPositionAsync(newLocationLog.MemberId, serverNow);
 
+                        // Store server time, not the client timestamp: the reveal check compares stored timestamps to a server-time window.
+                        // Phone clock skew or network delay could otherwise push a reveal ping into the wrong window and reveal Mr. X twice.
                         var log = uow.LocationLogRepository.AddLocationLog(
                             newLocationLog.MemberId,
-                            newLocationLog.Timestamp,
+                            serverNow,
                             newLocationLog.Latitude,
                             newLocationLog.Longitude,
                             newLocationLog.AccuracyMeters,

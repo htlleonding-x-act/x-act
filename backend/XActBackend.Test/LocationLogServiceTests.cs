@@ -162,7 +162,7 @@ public sealed class LocationLogServiceTests
 
         _locationLogRepository.AddLocationLog(
             data.MemberId,
-            data.Timestamp,
+            Arg.Any<Instant>(),
             data.Latitude,
             data.Longitude,
             data.AccuracyMeters,
@@ -182,6 +182,40 @@ public sealed class LocationLogServiceTests
             domainError => Assert.Fail("Expected LocationLog but got DomainError")
         );
         await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask AddLocationLogAsync_StoresServerTime_InsteadOfClientTimestamp()
+    {
+        Instant clientTimestamp = SystemClock.Instance.GetCurrentInstant() - Duration.FromHours(1);
+        var data = new ILocationLogService.LocationLogData(DefaultMemberId, clientTimestamp, 10.0, 20.0, 5.0, TransportMode.Foot, false);
+
+        _locationLogRepository.AddLocationLog(
+            Arg.Any<int>(),
+            Arg.Any<Instant>(),
+            Arg.Any<double>(),
+            Arg.Any<double>(),
+            Arg.Any<double>(),
+            Arg.Any<TransportMode>(),
+            Arg.Any<bool>()
+        ).Returns(new LocationLog { Id = DefaultLogId, MemberId = DefaultMemberId });
+
+        _teamMemberRepository.GetMemberByIdAsync(DefaultMemberId, false).Returns(CreateMember());
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, false).Returns(CreateMember());
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateActiveSession());
+
+        Instant before = SystemClock.Instance.GetCurrentInstant();
+        await _sut.AddLocationLogAsync(data);
+        Instant after = SystemClock.Instance.GetCurrentInstant();
+
+        _locationLogRepository.Received(1).AddLocationLog(
+            DefaultMemberId,
+            Arg.Is<Instant>(timestamp => timestamp >= before && timestamp <= after),
+            data.Latitude,
+            data.Longitude,
+            data.AccuracyMeters,
+            data.TransportMode,
+            false);
     }
 
     [Fact]

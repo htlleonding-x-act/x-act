@@ -144,14 +144,14 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock, ILogger<T
     {
         var member = await uow.TeamMemberRepository.GetMemberBySessionAndTeamIdAsync(sessionId, teamId, memberId, tracking);
 
-        if (member is null || teamMemberData.SessionId != sessionId || teamMemberData.TeamId != teamId)
+        if (member is null || teamMemberData.SessionId != sessionId)
         {
             return new NotFound();
         }
 
         OneOf<NotFound, DomainError, Success> validationResult = await ValidateMemberMutationAsync(
             sessionId,
-            teamId,
+            teamMemberData.TeamId,
             teamMemberData.UserId,
             teamMemberData.GuestName,
             teamMemberData.IsTeamLeader,

@@ -127,6 +127,8 @@ public sealed class TeamMemberController(
             return BadRequest();
         }
 
+        int targetTeamId = updateRequest.TeamId ?? teamId;
+
         try
         {
             await transaction.BeginTransactionAsync();
@@ -137,7 +139,7 @@ public sealed class TeamMemberController(
                 memberId,
                 new ITeamMemberService.TeamMemberData(
                     sessionId,
-                    teamId,
+                    targetTeamId,
                     updateRequest.UserId,
                     updateRequest.GuestName,
                     updateRequest.IsTeamLeader,
@@ -152,7 +154,7 @@ public sealed class TeamMemberController(
             {
                 await transaction.CommitAsync();
 
-                var updatedMemberResult = await teamMemberService.GetTeamMemberByIdAsync(sessionId, teamId, memberId, tracking: false);
+                var updatedMemberResult = await teamMemberService.GetTeamMemberByIdAsync(sessionId, targetTeamId, memberId, tracking: false);
                 await updatedMemberResult.Match(
                     member => realtimePublisher.PublishTeamMemberUpdatedAsync(member),
                     _ => ValueTask.CompletedTask);
@@ -286,7 +288,8 @@ public sealed record TeamMemberUpdateRequest(
     bool IsTeamLeader,
     double? CurrentLatitude,
     double? CurrentLongitude,
-    Instant? LastUpdated
+    Instant? LastUpdated,
+    int? TeamId = null
 )
 {
     public sealed class Validator : AbstractValidator<TeamMemberUpdateRequest>
@@ -294,6 +297,7 @@ public sealed record TeamMemberUpdateRequest(
         public Validator()
         {
             RuleFor(x => x.UserId).GreaterThan(0).When(x => x.UserId.HasValue);
+            RuleFor(x => x.TeamId).GreaterThan(0).When(x => x.TeamId.HasValue);
             RuleFor(x => x.GuestName).MaximumLength(50).When(x => !string.IsNullOrWhiteSpace(x.GuestName));
             RuleFor(x => x).Must(x => (x.UserId.HasValue && string.IsNullOrWhiteSpace(x.GuestName))
                                   || (!x.UserId.HasValue && !string.IsNullOrWhiteSpace(x.GuestName)))

@@ -26,6 +26,10 @@ final class LocationService {
 
   StreamSubscription<Position>? _positionSub;
   Timer? _uploadTimer;
+  // stopTracking() bumps this. A start call still awaiting permission or the
+  // last known position sees the change and gives up, so it never leaves a
+  // GPS stream or upload timer running that nothing will cancel.
+  int _generation = 0;
 
   // ── Position broadcast stream ─────────────────────────────────────────────
 
@@ -56,6 +60,14 @@ final class LocationService {
       return false;
     }
 
+    return permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always;
+  }
+
+  /// Returns `true` if location permission is already granted (whileInUse or
+  /// always). Unlike [requestPermission], it never prompts or opens settings.
+  Future<bool> hasPermission() async {
+    final permission = await Geolocator.checkPermission();
     return permission == LocationPermission.whileInUse ||
         permission == LocationPermission.always;
   }
@@ -114,6 +126,7 @@ final class LocationService {
   /// yet). Calling [startTracking] later will replace this subscription.
   Future<void> startWatching() async {
     if (_positionSub != null) return; // already running
+    final generation = _generation;
 
     final granted = await requestPermission();
     if (!granted) {
@@ -129,22 +142,12 @@ final class LocationService {
       }
     } catch (_) {}
 
+    if (generation != _generation) return;
+
     // Force an initial fix to prevent "Acquiring GPS" loops on some devices.
     unawaited(getCurrentPosition(timeLimit: const Duration(seconds: 5)));
 
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5,
-    );
-
-    _positionSub =
-        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-          (position) {
-            lastKnownPosition = position;
-            _positionController.add(position);
-          },
-          onError: (_) {},
-        );
+    _listenToPositions();
   }
 
   /// Starts continuous GPS tracking and periodic upload to the backend.
@@ -162,7 +165,7 @@ final class LocationService {
   }) async {
     // If already tracking, stop first.
     stopTracking();
-
+    final generation = _generation;
 
     _memberId = memberId;
     _sessionId = sessionId;
@@ -182,23 +185,12 @@ final class LocationService {
       }
     } catch (_) {}
 
+    if (generation != _generation) return;
+
     // Force an initial fix to prevent "Acquiring GPS" loops on some devices.
     unawaited(getCurrentPosition(timeLimit: const Duration(seconds: 5)));
 
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      // Only emit a new event when the device has moved at least 5 m.
-      distanceFilter: 5,
-    );
-
-    _positionSub =
-        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-          (position) {
-            lastKnownPosition = position;
-            _positionController.add(position);
-          },
-          onError: (_) {},
-        );
+    _listenToPositions();
 
     // Upload on a fixed interval so the backend is always up-to-date even
     // when the player is standing still (distanceFilter would skip those).
@@ -207,6 +199,7 @@ final class LocationService {
 
   /// Stops GPS tracking and cancels uploads.
   void stopTracking() {
+    _generation++;
     _positionSub?.cancel();
     _uploadTimer?.cancel();
     _positionSub = null;
@@ -220,6 +213,23 @@ final class LocationService {
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────
+
+  void _listenToPositions() {
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      // Only emit a new event when the device has moved at least 5 m.
+      distanceFilter: 5,
+    );
+
+    _positionSub ??=
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (position) {
+            lastKnownPosition = position;
+            _positionController.add(position);
+          },
+          onError: (_) {},
+        );
+  }
 
   Future<void> _uploadPosition() async {
     final position = lastKnownPosition;

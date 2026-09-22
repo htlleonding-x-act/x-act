@@ -7,7 +7,6 @@ extension ApiServiceSessionMethods on ApiService {
   Future<GameSessionDetails> createLobby({required String lobbyName}) async {
     final hostUserId = await ensureMvpUser(
       preferredName: _session.currentUsername ?? 'Host',
-      reuseByName: true,
     );
     await _closeOpenSessionsForHost(hostUserId);
 
@@ -60,26 +59,12 @@ extension ApiServiceSessionMethods on ApiService {
     throw Exception('Failed to create rematch after retries.');
   }
 
-  Future<int> ensureMvpUser({
-    required String preferredName,
-    bool reuseByName = false,
-  }) async {
+  Future<int> ensureMvpUser({required String preferredName}) async {
     final users = await _listUsers();
 
     if (_session.currentUserId != null &&
         users.any((u) => u.userId == _session.currentUserId)) {
       return _session.currentUserId!;
-    }
-
-    if (reuseByName) {
-      final preferredByName = users.where(
-        (u) => u.username.toLowerCase() == preferredName.toLowerCase(),
-      );
-      if (preferredByName.isNotEmpty) {
-        final user = preferredByName.first;
-        _session.setIdentity(userId: user.userId, username: user.username);
-        return user.userId;
-      }
     }
 
     final desired = preferredName.trim().isEmpty
@@ -290,27 +275,6 @@ extension ApiServiceSessionMethods on ApiService {
     await _deleteNoContent('/api/gamesessions/$sessionId/teams/$teamId');
   }
 
-  Future<TeamMemberDetails> addGuestMember({
-    required int sessionId,
-    required int teamId,
-    required String guestName,
-    bool isTeamLeader = false,
-  }) async {
-    final json = await _postJsonObjectOrThrow(
-      '/api/gamesessions/$sessionId/teams/$teamId/members',
-      {
-        'userId': null,
-        'guestName': guestName,
-        'isTeamLeader': isTeamLeader,
-        'currentLatitude': null,
-        'currentLongitude': null,
-        'lastUpdated': null,
-      },
-    );
-
-    return TeamMemberDetails.fromJson(json);
-  }
-
   Future<TeamMemberDetails> addUserMember({
     required int sessionId,
     required int teamId,
@@ -342,36 +306,27 @@ extension ApiServiceSessionMethods on ApiService {
     );
   }
 
-  Future<TeamMemberDetails> moveMemberToTeam({
+  Future<void> moveMemberToTeam({
     required int sessionId,
     required TeamMemberDetails member,
     required int sourceTeamId,
     required int targetTeamId,
   }) async {
     if (sourceTeamId == targetTeamId) {
-      return member;
+      return;
     }
 
-    await removeMember(
-      sessionId: sessionId,
-      teamId: sourceTeamId,
-      memberId: member.memberId,
-    );
-
-    if (member.userId != null) {
-      return addUserMember(
-        sessionId: sessionId,
-        teamId: targetTeamId,
-        userId: member.userId!,
-        isTeamLeader: member.isTeamLeader,
-      );
-    }
-
-    return addGuestMember(
-      sessionId: sessionId,
-      teamId: targetTeamId,
-      guestName: member.guestName ?? 'Guest',
-      isTeamLeader: member.isTeamLeader,
+    await _putJsonNoContent(
+      '/api/gamesessions/$sessionId/teams/$sourceTeamId/members/${member.memberId}',
+      {
+        'userId': member.userId,
+        'guestName': member.userId == null ? (member.guestName ?? 'Guest') : null,
+        'isTeamLeader': member.isTeamLeader,
+        'currentLatitude': null,
+        'currentLongitude': null,
+        'lastUpdated': null,
+        'teamId': targetTeamId,
+      },
     );
   }
 
@@ -410,8 +365,22 @@ extension ApiServiceSessionMethods on ApiService {
         _session.currentUserId != null &&
         details.hostUserId == _session.currentUserId;
 
+    final teamId = _session.currentTeamId;
+    final memberId = _session.currentMemberId;
     if (isHost && details.status != SessionStatus.finished) {
       await _finishSession(details);
+    } else if (details.status == SessionStatus.active &&
+        teamId != null &&
+        memberId != null) {
+      // Delete the member as a kick does, or they stay on everyone's map and
+      // still count in kick votes. Ignore errors so leaving works offline.
+      try {
+        await removeMember(
+          sessionId: sessionId,
+          teamId: teamId,
+          memberId: memberId,
+        );
+      } catch (_) {}
     }
 
     // Drop the realtime presence registration before leaving so a rematch started
@@ -509,6 +478,9 @@ extension ApiServiceSessionMethods on ApiService {
     return null;
   }
 
+  Future<LobbySnapshot> toLobbySnapshot(GameSessionSnapshot snapshot) =>
+      _toLobbySnapshot(snapshot);
+
   Future<LobbySnapshot> _toLobbySnapshot(GameSessionSnapshot snapshot) async {
     final teams = snapshot.teams
         .map(
@@ -547,17 +519,26 @@ extension ApiServiceSessionMethods on ApiService {
       membersByTeamId[member.teamId]!.add(details);
     }
 
-    Map<int, UserInfo> usersById = <int, UserInfo>{};
-    try {
-      final users = await _listUsers();
-      usersById = {for (final user in users) user.userId: user};
-    } catch (_) {
+    // Usernames stay fixed during a session and this runs on every location
+    // ping, so only refetch the user list when an unknown user id shows up.
+    final hasUnknownUser = snapshot.members.any(
+      (member) =>
+          member.userId != null && !_usersById.containsKey(member.userId),
+    );
+    if (hasUnknownUser) {
+      try {
+        final users = await _listUsers();
+        _usersById
+          ..clear()
+          ..addAll({for (final user in users) user.userId: user});
+      } catch (_) {
+      }
     }
 
     return LobbySnapshot(
       teams: teams,
       membersByTeamId: membersByTeamId,
-      usersById: usersById,
+      usersById: Map.of(_usersById),
       latestLocations: snapshot.latestLocations,
     );
   }

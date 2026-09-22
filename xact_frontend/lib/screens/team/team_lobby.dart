@@ -79,6 +79,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
   Timer? _realtimeRefreshDebounce;
+  int _refreshesInFlight = 0;
 
   List<LobbyPlayer> _spectators = [];
   List<TeamData> _teams = [];
@@ -120,6 +121,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       setState(() => _loading = true);
     }
 
+    _refreshesInFlight++;
     try {
       final snapshot = await ApiService.instance.loadLobbySnapshot(
         widget.sessionId,
@@ -209,6 +211,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         SnackBar(content: Text('Failed to load game lobby: $error')),
       );
     } finally {
+      _refreshesInFlight--;
       if (mounted && !silent) {
         setState(() => _loading = false);
       }
@@ -245,7 +248,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             unawaited(_openGameForAll());
           }
 
-          _queueRealtimeRefresh();
+          // _refreshLobby() pushes its own snapshots onto this stream. Ignore
+          // any that arrive while it runs, or each refresh triggers the next.
+          if (_refreshesInFlight == 0) {
+            _queueRealtimeRefresh();
+          }
         }
       });
     } catch (_) {
@@ -254,7 +261,10 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
 
   bool _isLobbyRealtimeEvent(String eventType) {
-    return eventType == RealtimeEvents.teamMemberJoined ||
+    return eventType == RealtimeEvents.teamAdded ||
+        eventType == RealtimeEvents.teamUpdated ||
+        eventType == RealtimeEvents.teamDeleted ||
+        eventType == RealtimeEvents.teamMemberJoined ||
         eventType == RealtimeEvents.teamMemberUpdated ||
         eventType == RealtimeEvents.teamMemberLeft ||
         eventType == RealtimeEvents.gameSessionStarted ||
@@ -537,6 +547,19 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       return;
     }
 
+    final detectiveSlots = detectiveTeams.fold<int>(
+      0,
+      (sum, team) => sum + team.maxPlayers,
+    );
+    if (players.length - 1 > detectiveSlots) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Not enough team slots to randomize all players.'),
+        ),
+      );
+      return;
+    }
+
     players.shuffle();
 
     final moves = <_PlannedMove>[];
@@ -546,11 +569,19 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       _PlannedMove(player: mrXPlayer, targetTeamId: misterXTeam.teamId),
     );
 
-    for (var i = 0; i < players.length; i++) {
-      final targetTeam = detectiveTeams[i % detectiveTeams.length];
-      moves.add(
-        _PlannedMove(player: players[i], targetTeamId: targetTeam.teamId),
-      );
+    final openSlots = {
+      for (final team in detectiveTeams) team.teamId: team.maxPlayers,
+    };
+    var teamIndex = 0;
+    for (final player in players) {
+      var targetTeam = detectiveTeams[teamIndex % detectiveTeams.length];
+      while (openSlots[targetTeam.teamId]! <= 0) {
+        teamIndex++;
+        targetTeam = detectiveTeams[teamIndex % detectiveTeams.length];
+      }
+      openSlots[targetTeam.teamId] = openSlots[targetTeam.teamId]! - 1;
+      teamIndex++;
+      moves.add(_PlannedMove(player: player, targetTeamId: targetTeam.teamId));
     }
 
     _randomizeTeamsAsync(moves);
