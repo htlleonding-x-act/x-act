@@ -4,7 +4,7 @@ public sealed class GameSession
 {
     public int Id { get; set; }
 
-    public int HostUserId { get; set; }
+    public required string HostUserId { get; set; }
 
     public required string SessionName { get; set; }
 

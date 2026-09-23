@@ -12,6 +12,17 @@ namespace XActBackend.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterColumn<string>(
+                name: "UserId",
+                schema: "XActBackend",
+                table: "UserAuthIdentity",
+                type: "text",
+                nullable: false,
+                defaultValue: "",
+                oldClrType: typeof(string),
+                oldType: "text",
+                oldNullable: true);
+
             migrationBuilder.CreateTable(
                 name: "KickVote",
                 schema: "XActBackend",
@@ -176,6 +187,15 @@ namespace XActBackend.Persistence.Migrations
             migrationBuilder.DropTable(
                 name: "KickVote",
                 schema: "XActBackend");
+
+            migrationBuilder.AlterColumn<string>(
+                name: "UserId",
+                schema: "XActBackend",
+                table: "UserAuthIdentity",
+                type: "text",
+                nullable: true,
+                oldClrType: typeof(string),
+                oldType: "text");
         }
     }
 }

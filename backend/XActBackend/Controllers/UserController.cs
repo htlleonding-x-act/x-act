@@ -29,10 +29,10 @@ public sealed class UserController(
     }
 
     [HttpGet]
-    [Route("{userId:int}")]
+    [Route("{userId}")]
     [ProducesResponseType<UserDetailsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async ValueTask<ActionResult<UserDetailsDto>> GetUserById([FromRoute] int userId)
+    public async ValueTask<ActionResult<UserDetailsDto>> GetUserById([FromRoute] string userId)
     {
         OneOf<User, NotFound> userResult = await userService.GetUserByIdAsync(userId, tracking: false);
 
@@ -98,12 +98,12 @@ public sealed class UserController(
     }
 
     [HttpPut]
-    [Route("{userId:int}")]
+    [Route("{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async ValueTask<IActionResult> UpdateUser(
-        [FromRoute] int userId,
+        [FromRoute] string userId,
         [FromBody] UserUpdateRequest updateRequest)
     {
         if (!ValidateRequest<UserUpdateRequest.Validator, UserUpdateRequest>(updateRequest))
@@ -150,10 +150,10 @@ public sealed class UserController(
     }
 
     [HttpDelete]
-    [Route("{userId:int}")]
+    [Route("{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async ValueTask<IActionResult> DeleteUser([FromRoute] int userId)
+    public async ValueTask<IActionResult> DeleteUser([FromRoute] string userId)
     {
         try
         {
@@ -189,7 +189,7 @@ public sealed class UserListResponse
 }
 
 public sealed record UserInformationDto(
-    int Id,
+    string Id,
     string? Username,
     string? Email,
     AccountType AccountType
@@ -205,9 +205,9 @@ public sealed record UserInformationDto(
 }
 
 public sealed record UserDetailsDto(
-    int Id,
-    string? Username,
-    string? Email,
+    string Id,
+    string Username,
+    string Email,
     AccountType AccountType,
     Instant? SubscriptionEndDate,
     int TotalWins,
@@ -217,8 +217,8 @@ public sealed record UserDetailsDto(
     public static UserDetailsDto FromUser(User user) =>
         new(
             user.Id,
-            user.Username,
-            user.Email,
+            user.Username!,
+            user.Email!,
             user.AccountType,
             user.SubscriptionEndDate,
             user.TotalWins,

@@ -9,7 +9,7 @@ public interface IUserService
 {
     public ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync(bool tracking);
 
-    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId, bool tracking);
+    public ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(string userId, bool tracking);
 
     public ValueTask<OneOf<User, NotFound>> GetUserByEmailAsync(string email, bool tracking);
 
@@ -17,10 +17,13 @@ public interface IUserService
 
     public ValueTask<OneOf<User, DomainError, Error>> AddUserAsync(UserData newUser);
 
-    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, UserData userData, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, UserData userData, bool tracking);
 
     /// <summary>soft delete: flags the user and replaces username and email with placeholders</summary>
-    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId, bool tracking);
+    public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking);
+
+    /// <summary>finds the user linked to the keycloak subject, creates user and identity on first login</summary>
+    public ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email);
 
     public sealed record UserData(
         string Username,
@@ -41,7 +44,7 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         return users;
     }
 
-    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(int userId, bool tracking)
+    public async ValueTask<OneOf<User, NotFound>> GetUserByIdAsync(string userId, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 
@@ -60,6 +63,37 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         var user = await uow.UserRepository.GetUserByUsernameAsync(username, tracking);
 
         return user is not null ? user : new NotFound();
+    }
+
+    public async ValueTask<OneOf<User, Error>> GetOrCreateByKeycloakSubjectAsync(string keycloakSubject, string username, string email)
+    {
+        try
+        {
+            var existingIdentity = await uow.UserAuthIdentityRepository.GetBySubjectAsync(keycloakSubject, tracking: false);
+            if (existingIdentity is not null)
+            {
+                var existingUser = await uow.UserRepository.GetUserByIdAsync(existingIdentity.UserId, tracking: false);
+                if (existingUser is not null)
+                {
+                    return existingUser;
+                }
+
+                logger.LogError("UserAuthIdentity for subject {Subject} references missing user {UserId}",
+                                keycloakSubject, existingIdentity.UserId);
+                return new Error();
+            }
+
+            var newUser = uow.UserRepository.AddUser(username, email, AccountType.Free, id: keycloakSubject);
+            uow.UserAuthIdentityRepository.AddAuthIdentity(newUser.Id, keycloakSubject);
+            await uow.SaveChangesAsync();
+
+            return newUser;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to get or create user for Keycloak subject {Subject}", keycloakSubject);
+            return new Error();
+        }
     }
 
     public async ValueTask<OneOf<User, DomainError, Error>> AddUserAsync(IUserService.UserData newUser)
@@ -94,7 +128,7 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         }
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(int userId, IUserService.UserData userData, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, IUserService.UserData userData, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 
@@ -115,7 +149,7 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(int userId, bool tracking)
+    public async ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking);
 

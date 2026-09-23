@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace XActBackend.Persistence.Util;
 
@@ -38,6 +39,26 @@ public static class PersistenceSetup
         {
             optionsBuilder.EnableSensitiveDataLogging()
                           .EnableDetailedErrors();
+        }
+    }
+
+    extension(IServiceProvider serviceProvider)
+    {
+        /// <summary>applies pending migrations so a fresh development database is usable right after startup</summary>
+        public void ApplyMigrations()
+        {
+            using var scope = serviceProvider.CreateScope();
+
+            var context = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<DatabaseContext>>();
+
+            var pendingMigrations = context.Database.GetPendingMigrations().ToList();
+
+            if (pendingMigrations.Count > 0)
+            {
+                logger.LogInformation("Applying {MigrationCount} pending migrations", pendingMigrations.Count);
+                context.Database.Migrate();
+            }
         }
     }
 

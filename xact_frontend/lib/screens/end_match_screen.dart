@@ -132,7 +132,7 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     required int sessionId,
     required String joinCode,
     required String sessionName,
-    required int hostUserId,
+    required String hostUserId,
   }) {
     if (_migrating || !mounted) {
       return;

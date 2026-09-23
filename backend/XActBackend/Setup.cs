@@ -1,4 +1,6 @@
-﻿using Serilog;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Serilog;
 using XActBackend.Core.Realtime;
 using XActBackend.Core.Util;
 using XActBackend.Persistence.Util;
@@ -19,6 +21,39 @@ public static class Setup
         {
             services.ConfigurePersistence(configurationManager, isDev);
             services.ConfigureCore();
+        }
+
+        public void AddKeycloakAuthentication(IConfigurationManager configurationManager)
+        {
+            var settings = Activator.CreateInstance<AuthenticationSettings>();
+            configurationManager.GetSection(AuthenticationSettings.SectionKey).Bind(settings);
+
+            if (string.IsNullOrWhiteSpace(settings.Authority))
+            {
+                throw new InvalidOperationException("Authentication authority has to be configured");
+            }
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                    .AddJwtBearer(options =>
+                    {
+                        options.Authority = settings.Authority;
+                        options.RequireHttpsMetadata = settings.RequireHttpsMetadata;
+
+                        // keeps the raw jwt claim names instead of mapping them to the longer soap claim types
+                        options.MapInboundClaims = false;
+
+                        options.TokenValidationParameters = new TokenValidationParameters
+                        {
+                            ValidateIssuer = true,
+                            ValidIssuer = settings.ValidIssuer ?? settings.Authority,
+                            ValidateAudience = settings.ValidAudience is not null,
+                            ValidAudience = settings.ValidAudience
+                        };
+                    });
+
+            services.AddAuthorization();
+
+            Log.Logger.Debug("Added keycloak authentication with authority {Authority}", settings.Authority);
         }
 
         public Settings LoadAndConfigureSettings(IConfigurationManager configurationManager)

@@ -16,7 +16,7 @@ namespace XActBackend.Test;
 public sealed class GameSessionServiceTests
 {
     private const int DefaultSessionId = 1;
-    private const int DefaultUserId = 1;
+    private const string DefaultUserId = "1";
     private const string DefaultSessionName = "Game 1";
     private const string DefaultJoinCode = "JOIN123";
 
@@ -61,6 +61,7 @@ public sealed class GameSessionServiceTests
         new()
         {
             Id = id,
+            HostUserId = DefaultUserId,
             SessionName = name ?? DefaultSessionName,
             JoinCode = joinCode ?? DefaultJoinCode,
         };
@@ -71,7 +72,7 @@ public sealed class GameSessionServiceTests
             CreateSession(2, "Game 2", "JOIN456"),
         ];
 
-    private static User CreateUser(int id = DefaultUserId, bool isDeleted = false) =>
+    private static User CreateUser(string id = DefaultUserId, bool isDeleted = false) =>
         new()
         {
             Id = id,
@@ -113,7 +114,7 @@ public sealed class GameSessionServiceTests
     private static TeamMember CreateMember(
         int id,
         int teamId,
-        int? userId,
+        string? userId,
         string? guestName,
         bool isTeamLeader
     ) =>
@@ -342,7 +343,7 @@ public sealed class GameSessionServiceTests
         const int finishedSessionId = 5;
         const int rematchSessionId = 6;
         const string newJoinCode = "REM123";
-        const int hostUserId = 7;
+        const string hostUserId = "7";
 
         var finishedSession = new GameSession
         {
@@ -361,7 +362,7 @@ public sealed class GameSessionServiceTests
         var sourceTeams = new List<Team> { mrXTeam, detectiveTeam };
 
         var mrXMember = CreateMember(30, mrXTeam.Id, hostUserId, null, isTeamLeader: true);
-        var detectiveMember = CreateMember(31, detectiveTeam.Id, 8, null, isTeamLeader: true);
+        var detectiveMember = CreateMember(31, detectiveTeam.Id, "8", null, isTeamLeader: true);
         var guestMember = CreateMember(32, detectiveTeam.Id, null, "Guest A", isTeamLeader: false);
         var sourceMembers = new List<TeamMember> { mrXMember, detectiveMember, guestMember };
 
@@ -409,7 +410,7 @@ public sealed class GameSessionServiceTests
         _teamRepository.Received(1).AddTeam(rematchSessionId, detectiveTeam.TeamName, detectiveTeam.Role, detectiveTeam.ColorCode, detectiveTeam.MaxPlayerCount);
 
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newMrXTeam.Id, hostUserId, null, true);
-        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, 8, null, true);
+        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, "8", null, true);
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, null, "Guest A", false);
 
         _geofencePointRepository.Received(1).AddGeofencePoint(rematchSessionId, 48.1, 14.3, 0);
@@ -424,7 +425,7 @@ public sealed class GameSessionServiceTests
         const int finishedSessionId = 5;
         const int rematchSessionId = 6;
         const string newJoinCode = "REM123";
-        const int hostUserId = 7;
+        const string hostUserId = "7";
 
         var finishedSession = new GameSession
         {
@@ -442,7 +443,7 @@ public sealed class GameSessionServiceTests
         var sourceTeams = new List<Team> { mrXTeam, detectiveTeam };
 
         var mrXMember = CreateMember(30, mrXTeam.Id, hostUserId, null, isTeamLeader: true);
-        var detectiveMember = CreateMember(31, detectiveTeam.Id, 8, null, isTeamLeader: true);
+        var detectiveMember = CreateMember(31, detectiveTeam.Id, "8", null, isTeamLeader: true);
         // guest 32 already left the finished session, so it is missing from the connected set below
         var guestMember = CreateMember(32, detectiveTeam.Id, null, "Guest A", isTeamLeader: false);
         var sourceMembers = new List<TeamMember> { mrXMember, detectiveMember, guestMember };
@@ -484,7 +485,7 @@ public sealed class GameSessionServiceTests
         );
 
         _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newMrXTeam.Id, hostUserId, null, true);
-        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, 8, null, true);
+        _teamMemberRepository.Received(1).AddTeamMember(rematchSessionId, newDetectiveTeam.Id, "8", null, true);
 
         _teamMemberRepository.DidNotReceive().AddTeamMember(rematchSessionId, newDetectiveTeam.Id, null, "Guest A", false);
     }

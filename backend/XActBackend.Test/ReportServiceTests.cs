@@ -15,7 +15,7 @@ public sealed class ReportServiceTests
 {
     private const int SessionId = 1;
     private const int TeamId = 2;
-    private const int HostUserId = 5;
+    private const string HostUserId = "5";
     private const int HostMemberId = 100;
     private const int InitiatorId = 10;
     private const int TargetId = 20;

@@ -480,7 +480,7 @@ public sealed record GameSessionInformationDto(
 
 public sealed record GameSessionDetailsDto(
     int Id,
-    int HostUserId,
+    string HostUserId,
     string SessionName,
     string JoinCode,
     SessionStatus Status,
@@ -539,7 +539,7 @@ public sealed record GameSessionDetailsDto(
 }
 
 public sealed record GameSessionAddRequest(
-    int HostUserId,
+    string HostUserId,
     string SessionName,
     string JoinCode,
     SessionStatus Status = SessionStatus.Waiting,
@@ -553,7 +553,7 @@ public sealed record GameSessionAddRequest(
     {
         public Validator()
         {
-            RuleFor(x => x.HostUserId).GreaterThan(0);
+            RuleFor(x => x.HostUserId).NotEmpty();
             RuleFor(x => x.SessionName).NotEmpty().MaximumLength(120);
             RuleFor(x => x.JoinCode).NotEmpty().Length(6);
             RuleFor(x => x.Status).IsInEnum();
@@ -564,7 +564,7 @@ public sealed record GameSessionAddRequest(
 }
 
 public sealed record GameSessionUpdateRequest(
-    int HostUserId,
+    string HostUserId,
     string SessionName,
     string JoinCode,
     SessionStatus Status,
@@ -578,7 +578,7 @@ public sealed record GameSessionUpdateRequest(
     {
         public Validator()
         {
-            RuleFor(x => x.HostUserId).GreaterThan(0);
+            RuleFor(x => x.HostUserId).NotEmpty();
             RuleFor(x => x.SessionName).NotEmpty().MaximumLength(120);
             RuleFor(x => x.JoinCode).NotEmpty().Length(6);
             RuleFor(x => x.Status).IsInEnum();

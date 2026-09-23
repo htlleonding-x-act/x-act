@@ -1,0 +1,38 @@
+name: Backend Build
+
+on:
+  pull_request:
+    branches: [ "dev" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('backend/**/*.csproj', 'backend/Directory.Build.props') }}
+          restore-keys: nuget-
+
+      - name: Build
+        run: dotnet build XActBackend.slnx
+
+      - name: Unit tests
+        run: dotnet test XActBackend.Test/XActBackend.Test.csproj --no-build
+
+      # Testcontainers brings its own postgres, docker is available on the runner
+      - name: Integration tests
+        run: dotnet test XActBackend.TestInt/XActBackend.TestInt.csproj --no-build

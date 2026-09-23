@@ -7,6 +7,7 @@ import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
+import 'package:xact_frontend/screens/settings/profile_screen.dart';
 import 'package:xact_frontend/screens/lobby/map_preview_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
 import 'package:xact_frontend/services/app_session.dart';
@@ -32,7 +33,7 @@ void openRematchLobby(
   required int sessionId,
   required String joinCode,
   required String sessionName,
-  required int hostUserId,
+  required String hostUserId,
 }) {
   final currentUserId = AppSession.instance.currentUserId;
   // the old membership belongs to the finished session. the lobby looks up the
@@ -729,6 +730,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               isLeader: leader,
               onViewMap: _openMapPreview,
               onSettings: leader ? _openSettings : null,
+              onProfile: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ),
             ),
             Expanded(
               child: RefreshIndicator(

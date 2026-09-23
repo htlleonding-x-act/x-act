@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace XActBackend.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class Initial : Migration
+    public partial class UserIdMigration : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -20,15 +20,16 @@ namespace XActBackend.Persistence.Migrations
                 schema: "XActBackend",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Username = table.Column<string>(type: "text", nullable: false),
-                    Email = table.Column<string>(type: "text", nullable: false),
-                    PasswordHash = table.Column<string>(type: "text", nullable: false),
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    Username = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    Email = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     AccountType = table.Column<string>(type: "text", nullable: false),
                     SubscriptionEndDate = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     TotalWins = table.Column<int>(type: "integer", nullable: false),
-                    TotalGamesPlayed = table.Column<int>(type: "integer", nullable: false)
+                    TotalGamesPlayed = table.Column<int>(type: "integer", nullable: false),
+                    IsDeleted = table.Column<bool>(type: "boolean", nullable: false),
+                    DeletedAt = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
+                    CreatedAt = table.Column<Instant>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -42,13 +43,15 @@ namespace XActBackend.Persistence.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    HostUserId = table.Column<int>(type: "integer", nullable: false),
+                    HostUserId = table.Column<string>(type: "text", nullable: false),
+                    SessionName = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
                     JoinCode = table.Column<string>(type: "character varying(6)", maxLength: 6, nullable: false),
                     Status = table.Column<string>(type: "text", nullable: false),
                     StartTime = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     EndTime = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     PlannedDurationMinutes = table.Column<int>(type: "integer", nullable: false),
-                    MrXRevealInterval = table.Column<int>(type: "integer", nullable: false)
+                    MrXRevealInterval = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<Instant>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -56,6 +59,29 @@ namespace XActBackend.Persistence.Migrations
                     table.ForeignKey(
                         name: "FK_GameSession_User_HostUserId",
                         column: x => x.HostUserId,
+                        principalSchema: "XActBackend",
+                        principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserAuthIdentity",
+                schema: "XActBackend",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    UserId = table.Column<string>(type: "text", nullable: true),
+                    ProviderSubject = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    CreatedAt = table.Column<Instant>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserAuthIdentity", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserAuthIdentity_User_UserId",
+                        column: x => x.UserId,
                         principalSchema: "XActBackend",
                         principalTable: "User",
                         principalColumn: "Id",
@@ -97,11 +123,13 @@ namespace XActBackend.Persistence.Migrations
                     TeamName = table.Column<string>(type: "text", nullable: false),
                     Role = table.Column<string>(type: "text", nullable: false),
                     ColorCode = table.Column<string>(type: "character varying(7)", maxLength: 7, nullable: false),
+                    MaxPlayerCount = table.Column<int>(type: "integer", nullable: false, defaultValue: 6),
                     IsCaught = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Team", x => x.Id);
+                    table.CheckConstraint("CK_Team_MaxPlayerCount_Positive", "\"MaxPlayerCount\" > 0");
                     table.ForeignKey(
                         name: "FK_Team_GameSession_SessionId",
                         column: x => x.SessionId,
@@ -118,9 +146,12 @@ namespace XActBackend.Persistence.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    SessionId = table.Column<int>(type: "integer", nullable: false),
                     TeamId = table.Column<int>(type: "integer", nullable: false),
-                    UserId = table.Column<int>(type: "integer", nullable: false),
+                    UserId = table.Column<string>(type: "text", nullable: true),
+                    GuestName = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     IsTeamLeader = table.Column<bool>(type: "boolean", nullable: false),
+                    JoinedAt = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
                     CurrentLatitude = table.Column<double>(type: "double precision", nullable: true),
                     CurrentLongitude = table.Column<double>(type: "double precision", nullable: true),
                     LastUpdated = table.Column<Instant>(type: "timestamp with time zone", nullable: true)
@@ -128,6 +159,14 @@ namespace XActBackend.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_TeamMember", x => x.Id);
+                    table.CheckConstraint("CK_TeamMember_UserOrGuest", "(\"UserId\" IS NOT NULL AND \"GuestName\" IS NULL) OR (\"UserId\" IS NULL AND \"GuestName\" IS NOT NULL)");
+                    table.ForeignKey(
+                        name: "FK_TeamMember_GameSession_SessionId",
+                        column: x => x.SessionId,
+                        principalSchema: "XActBackend",
+                        principalTable: "GameSession",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_TeamMember_Team_TeamId",
                         column: x => x.TeamId,
@@ -140,6 +179,47 @@ namespace XActBackend.Persistence.Migrations
                         column: x => x.UserId,
                         principalSchema: "XActBackend",
                         principalTable: "User",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ChatMessage",
+                schema: "XActBackend",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    SessionId = table.Column<int>(type: "integer", nullable: false),
+                    TeamId = table.Column<int>(type: "integer", nullable: true),
+                    SenderMemberId = table.Column<int>(type: "integer", nullable: true),
+                    SenderTeamId = table.Column<int>(type: "integer", nullable: true),
+                    SenderName = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    Content = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
+                    SentAt = table.Column<Instant>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ChatMessage", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ChatMessage_GameSession_SessionId",
+                        column: x => x.SessionId,
+                        principalSchema: "XActBackend",
+                        principalTable: "GameSession",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ChatMessage_TeamMember_SenderMemberId",
+                        column: x => x.SenderMemberId,
+                        principalSchema: "XActBackend",
+                        principalTable: "TeamMember",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ChatMessage_Team_TeamId",
+                        column: x => x.TeamId,
+                        principalSchema: "XActBackend",
+                        principalTable: "Team",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -195,6 +275,25 @@ namespace XActBackend.Persistence.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_ChatMessage_SenderMemberId",
+                schema: "XActBackend",
+                table: "ChatMessage",
+                column: "SenderMemberId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatMessage_SessionId_TeamId_SentAt_Id",
+                schema: "XActBackend",
+                table: "ChatMessage",
+                columns: new[] { "SessionId", "TeamId", "SentAt", "Id" },
+                descending: new[] { false, false, true, true });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ChatMessage_TeamId",
+                schema: "XActBackend",
+                table: "ChatMessage",
+                column: "TeamId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_GameSession_HostUserId",
                 schema: "XActBackend",
                 table: "GameSession",
@@ -232,10 +331,18 @@ namespace XActBackend.Persistence.Migrations
                 column: "SessionId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_TeamMember_TeamId",
+                name: "IX_TeamMember_SessionId_UserId",
                 schema: "XActBackend",
                 table: "TeamMember",
-                column: "TeamId");
+                columns: new[] { "SessionId", "UserId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TeamMember_TeamId_GuestName",
+                schema: "XActBackend",
+                table: "TeamMember",
+                columns: new[] { "TeamId", "GuestName" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_TeamMember_UserId",
@@ -256,11 +363,29 @@ namespace XActBackend.Persistence.Migrations
                 table: "User",
                 column: "Username",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAuthIdentity_ProviderSubject",
+                schema: "XActBackend",
+                table: "UserAuthIdentity",
+                column: "ProviderSubject",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAuthIdentity_UserId",
+                schema: "XActBackend",
+                table: "UserAuthIdentity",
+                column: "UserId",
+                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "ChatMessage",
+                schema: "XActBackend");
+
             migrationBuilder.DropTable(
                 name: "GeofencePoint",
                 schema: "XActBackend");
@@ -271,6 +396,10 @@ namespace XActBackend.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "PowerUpUsage",
+                schema: "XActBackend");
+
+            migrationBuilder.DropTable(
+                name: "UserAuthIdentity",
                 schema: "XActBackend");
 
             migrationBuilder.DropTable(

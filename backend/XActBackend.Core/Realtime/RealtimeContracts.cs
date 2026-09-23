@@ -104,7 +104,7 @@ public sealed record SnapshotTeamMemberDto(
     int Id,
     int SessionId,
     int TeamId,
-    int? UserId,
+    string? UserId,
     string? GuestName,
     bool IsTeamLeader,
     double? CurrentLatitude,
@@ -128,7 +128,7 @@ public sealed record TeamMemberJoinedPayload(
     int MemberId,
     int SessionId,
     int TeamId,
-    int? UserId,
+    string? UserId,
     string? GuestName,
     bool IsTeamLeader,
     double? CurrentLatitude,
@@ -141,7 +141,7 @@ public sealed record TeamMemberUpdatedPayload(
     int MemberId,
     int SessionId,
     int TeamId,
-    int? UserId,
+    string? UserId,
     string? GuestName,
     bool IsTeamLeader,
     double? CurrentLatitude,
@@ -153,7 +153,7 @@ public sealed record TeamMemberLeftPayload(
     int MemberId,
     int SessionId,
     int TeamId,
-    int? UserId,
+    string? UserId,
     string? GuestName,
     Instant LeftAt
 );
@@ -209,7 +209,7 @@ public sealed record RematchCreatedPayload(
     int NewSessionId,
     string NewJoinCode,
     string SessionName,
-    int HostUserId
+    string HostUserId
 );
 
 /// <summary>
@@ -254,7 +254,7 @@ public sealed record MemberKickedPayload(
     int SessionId,
     int TeamId,
     int MemberId,
-    int? UserId,
+    string? UserId,
     string? GuestName,
     string MemberName,
     string KickType,

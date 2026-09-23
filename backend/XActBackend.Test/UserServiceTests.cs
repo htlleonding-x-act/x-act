@@ -16,10 +16,12 @@ namespace XActBackend.Test;
 
 public sealed class UserServiceTests
 {
-    private const int DefaultUserId = 1;
+    private const string DefaultUserId = "1";
     private const string DefaultUsername = "user1";
     private const string DefaultEmail = "user1@test.com";
+    private const string KeycloakSubject = "4b9c1f4e-0a55-4e3a-9d0b-6c2f0c6b1a77";
 
+    private readonly IUserAuthIdentityRepository _authIdentityRepository;
     private readonly IUserRepository _userRepository;
     private readonly UserService _sut;
     private readonly IUnitOfWork _uow;
@@ -29,6 +31,8 @@ public sealed class UserServiceTests
         _uow = Substitute.For<IUnitOfWork>();
         _userRepository = Substitute.For<IUserRepository>();
         _uow.UserRepository.Returns(_userRepository);
+        _authIdentityRepository = Substitute.For<IUserAuthIdentityRepository>();
+        _uow.UserAuthIdentityRepository.Returns(_authIdentityRepository);
         var clock = Substitute.For<IClock>();
         clock.GetCurrentInstant().Returns(Instant.FromUtc(2026, 1, 1, 12, 0));
         var logger = Substitute.For<ILogger<UserService>>();
@@ -36,7 +40,7 @@ public sealed class UserServiceTests
     }
 
     private static User CreateUser(
-        int id = DefaultUserId,
+        string id = DefaultUserId,
         string? username = null,
         string? email = null
     ) =>
@@ -47,10 +51,17 @@ public sealed class UserServiceTests
             Email = email ?? DefaultEmail,
         };
 
+    private static UserAuthIdentity CreateAuthIdentity(string userId) =>
+        new()
+        {
+            UserId = userId,
+            ProviderSubject = KeycloakSubject,
+        };
+
     private static List<User> CreateUsers() =>
         [
             CreateUser(DefaultUserId, DefaultUsername, DefaultEmail),
-            CreateUser(2, "user2", "user2@test.com"),
+            CreateUser("2", "user2", "user2@test.com"),
         ];
 
     [Fact]
@@ -178,6 +189,61 @@ public sealed class UserServiceTests
             _ => Assert.Fail("Expected a DomainError but got an Error")
         );
         _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default);
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_ReturnsLinkedUser_WhenIdentityExists()
+    {
+        var user = CreateUser(KeycloakSubject, DefaultUsername, DefaultEmail);
+        _authIdentityRepository.GetBySubjectAsync(KeycloakSubject, false)
+                               .Returns(CreateAuthIdentity(KeycloakSubject));
+        _userRepository.GetUserByIdAsync(KeycloakSubject, false).Returns(user);
+
+        OneOf<User, Error> result =
+            await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
+
+        result.Switch(
+            found => found.Should().BeEquivalentTo(user),
+            error => Assert.Fail("Expected a user but got an Error")
+        );
+        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default);
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_CreatesUserAndIdentity_OnFirstLogin()
+    {
+        var user = CreateUser(KeycloakSubject, DefaultUsername, DefaultEmail);
+        _authIdentityRepository.GetBySubjectAsync(KeycloakSubject, false).Returns((UserAuthIdentity?) null);
+        _userRepository.AddUser(DefaultUsername, DefaultEmail, AccountType.Free, KeycloakSubject).Returns(user);
+
+        OneOf<User, Error> result =
+            await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
+
+        result.Switch(
+            found => found.Should().BeEquivalentTo(user),
+            error => Assert.Fail("Expected a user but got an Error")
+        );
+        _authIdentityRepository.Received(1).AddAuthIdentity(KeycloakSubject, KeycloakSubject);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_ReturnsError_WhenLinkedUserIsGone()
+    {
+        _authIdentityRepository.GetBySubjectAsync(KeycloakSubject, false)
+                               .Returns(CreateAuthIdentity(DefaultUserId));
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns((User?) null);
+
+        OneOf<User, Error> result =
+            await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
+
+        result.Switch(
+            user => Assert.Fail("Expected an Error but got a user"),
+            error => { /* expected */ }
+        );
+        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default);
         await _uow.DidNotReceive().SaveChangesAsync();
     }
 

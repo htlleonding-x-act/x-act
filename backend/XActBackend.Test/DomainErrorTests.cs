@@ -9,7 +9,7 @@ public sealed class DomainErrorTests
     [Fact]
     public void HostUserDeleted_ReturnsExpectedCodeAndMessage()
     {
-        var result = DomainError.HostUserDeleted(5);
+        var result = DomainError.HostUserDeleted("5");
 
         result.Code.Should().Be(DomainErrorCodes.HostUserDeleted);
         result.Message.Should().Contain("5");
@@ -18,7 +18,7 @@ public sealed class DomainErrorTests
     [Fact]
     public void HostUserAlreadyHasActiveSession_ReturnsExpectedCodeAndMessage()
     {
-        var result = DomainError.HostUserAlreadyHasActiveSession(5);
+        var result = DomainError.HostUserAlreadyHasActiveSession("5");
 
         result.Code.Should().Be(DomainErrorCodes.HostUserAlreadyHasActiveSession);
         result.Message.Should().Contain("5");
@@ -99,7 +99,7 @@ public sealed class DomainErrorTests
     [Fact]
     public void UserDeleted_ReturnsExpectedCodeAndMessage()
     {
-        var result = DomainError.UserDeleted(9);
+        var result = DomainError.UserDeleted("9");
 
         result.Code.Should().Be(DomainErrorCodes.UserDeleted);
         result.Message.Should().Contain("9");
@@ -108,7 +108,7 @@ public sealed class DomainErrorTests
     [Fact]
     public void UserAlreadyJoined_ReturnsExpectedCodeAndMessage()
     {
-        var result = DomainError.UserAlreadyJoined(9, 2);
+        var result = DomainError.UserAlreadyJoined("9", 2);
 
         result.Code.Should().Be(DomainErrorCodes.UserAlreadyJoined);
         result.Message.Should().Contain("9").And.Contain("2");

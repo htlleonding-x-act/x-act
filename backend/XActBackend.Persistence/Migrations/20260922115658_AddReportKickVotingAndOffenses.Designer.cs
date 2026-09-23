@@ -12,7 +12,7 @@ using XActBackend.Persistence.Util;
 namespace XActBackend.Persistence.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20260608155236_AddReportKickVotingAndOffenses")]
+    [Migration("20260922115658_AddReportKickVotingAndOffenses")]
     partial class AddReportKickVotingAndOffenses
     {
         /// <inheritdoc />
@@ -85,8 +85,9 @@ namespace XActBackend.Persistence.Migrations
                     b.Property<Instant?>("EndTime")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("HostUserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("HostUserId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("JoinCode")
                         .IsRequired()
@@ -397,8 +398,8 @@ namespace XActBackend.Persistence.Migrations
                     b.Property<int>("TeamId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("UserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("UserId")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -418,11 +419,8 @@ namespace XActBackend.Persistence.Migrations
 
             modelBuilder.Entity("XActBackend.Persistence.Model.User", b =>
                 {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
                     b.Property<string>("AccountType")
                         .IsRequired()
@@ -481,8 +479,9 @@ namespace XActBackend.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer");
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

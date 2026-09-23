@@ -75,6 +75,7 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
             .HasOne(e => e.User)
             .WithMany(u => u.AuthIdentities)
             .HasForeignKey(e => e.UserId)
+            .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
 
         authIdentity.HasIndex(e => e.ProviderSubject).IsUnique();

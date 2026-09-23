@@ -55,6 +55,7 @@ public sealed class LocationLogServiceTests
         new()
         {
             Id = DefaultSessionId,
+            HostUserId = "1",
             SessionName = "Active Session",
             JoinCode = "ACTIV1",
             Status = SessionStatus.Active,
@@ -64,6 +65,7 @@ public sealed class LocationLogServiceTests
         new()
         {
             Id = DefaultSessionId,
+            HostUserId = "1",
             SessionName = "Waiting Session",
             JoinCode = "WAIT01",
             Status = SessionStatus.Waiting,

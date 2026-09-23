@@ -10,7 +10,7 @@ import '../widgets/xact_branding.dart';
 class _PlayerRow {
   final int memberId;
   final int teamId;
-  final int? userId;
+  final String? userId;
   final String name;
   final Color teamColor;
   final TeamRole? role;

@@ -11,3 +11,7 @@ dist/
 
 # Ignore log files
 *.log
+
+# Ignore database volume backups
+*.tar.gz
+xact_db_dump.sql
