@@ -282,7 +282,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
           const CircularProgressIndicator(color: XActColors.secondary),
           const SizedBox(height: 20),
           Text(
-            'Preparing your lobby…',
+            'Setting up your game…',
             style: XActText.body.copyWith(color: XActColors.text2),
           ),
         ],

@@ -373,12 +373,13 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     if (_selectedIndex >= 0) {
       return 'Corner ${_selectedIndex + 1} selected · choose action from menu';
     }
-    if (_points.length == 1) return '1 corner placed - add at least 2 more';
-    if (_points.length == 2) return '2 corners placed - add at least 1 more';
+    // the panel shows the corner count below, so this only says what to do next
+    if (_points.length == 1) return 'Add at least 2 more corners';
+    if (_points.length == 2) return 'Add at least 1 more corner';
     if (_points.length >= _maxPoints) {
-      return '$_maxPoints corners placed – maximum reached';
+      return 'Maximum reached – tap a corner to move or delete it';
     }
-    return '${_points.length} corners - tap a corner to select or tap map to add';
+    return 'Tap a corner to select it or tap the map to add one';
   }
 
   @override
