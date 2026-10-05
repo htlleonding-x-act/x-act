@@ -28,6 +28,7 @@ class LobbyBottomButtons extends StatelessWidget {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           XActBranding.buildGhostButton(
             text: 'Randomize Teams',

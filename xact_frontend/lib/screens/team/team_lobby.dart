@@ -961,15 +961,21 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                 ),
               ),
             ),
-            if (leader)
-              LobbyBottomButtons(
+          ],
+        ),
+      ),
+      // as the scaffold's bottom bar, snackbars float above the buttons
+      // instead of covering start game
+      bottomNavigationBar: leader
+          ? SafeArea(
+              top: false,
+              child: LobbyBottomButtons(
                 canStartGame: _canStartGame,
                 onRandomize: _randomizeTeams,
                 onStartGame: _startGame,
               ),
-          ],
-        ),
-      ),
+            )
+          : null,
     );
   }
 
