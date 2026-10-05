@@ -39,6 +39,11 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
     setState(() => _creating = true);
 
     try {
+      // checked first, so a host without location access doesn't draw an area
+      // only to get stuck before the lobby
+      final locationReady = await _ensureLocationReadyBeforeLobby();
+      if (!locationReady || !mounted) return;
+
       final hostUserId = await ApiService.instance.ensureMvpUser(
         preferredName: 'Host',
       );
@@ -88,6 +93,11 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       );
 
       if (areaSaved != true || !mounted) {
+        // without an area the lobby can't be used, so it is deleted instead of
+        // staying behind as an empty waiting session
+        try {
+          await ApiService.instance.closeCurrentSession();
+        } catch (_) {}
         if (mounted) setState(() => _finalizingLobby = false);
         return;
       }
@@ -96,12 +106,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         sessionId: sessionId,
         points: GeofenceStore.instance.points,
       );
-
-      final locationReady = await _ensureLocationReadyBeforeLobby();
-      if (!locationReady || !mounted) {
-        if (mounted) setState(() => _finalizingLobby = false);
-        return;
-      }
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
