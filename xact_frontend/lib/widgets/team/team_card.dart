@@ -52,17 +52,25 @@ class TeamCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  teamName,
-                  style: XActText.subheading.copyWith(fontSize: 15),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              // a Flexible name next to a Spacer splits the free space between
+              // them, which put the count in the middle
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        teamName,
+                        style: XActText.subheading.copyWith(fontSize: 15),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    XActBranding.buildRolePill(role: role),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
-              XActBranding.buildRolePill(role: role),
-              const Spacer(),
               Text(
                 '${members.length}',
                 style: XActText.bodySm.copyWith(
