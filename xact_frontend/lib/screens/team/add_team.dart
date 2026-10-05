@@ -151,6 +151,8 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
                 hintText: 'Enter a team name',
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
+                // the backend limit for team names
+                maxLength: 50,
               ),
               const SizedBox(height: 18),
               Text(

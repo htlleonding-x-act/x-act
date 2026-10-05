@@ -10,28 +10,34 @@ extension ApiServiceSessionMethods on ApiService {
     );
     await _closeOpenSessionsForHost(hostUserId);
 
+    // only a clash of the random join code is worth another attempt, any
+    // other rejection fails the same way again
     for (var attempt = 0; attempt < 3; attempt++) {
-      final response = await _postJsonObject('/api/gamesessions', {
-        'hostUserId': hostUserId,
-        'sessionName': lobbyName,
-        'joinCode': _generateJoinCode(),
-        'status': 'WAITING',
-        'plannedDurationMinutes': 60,
-        'mrXRevealInterval': 5,
-      });
-
-      if (response != null) {
-        final details = GameSessionDetails.fromJson(response);
-        _session.setSession(
-          sessionId: details.sessionId,
-          joinCode: details.joinCode,
-        );
-        try {
-          await _ensureRealtimeSubscription(details.sessionId);
-        } catch (_) {}
-        await _ensureStandardTeams(details.sessionId, hostUserId: hostUserId);
-        return details;
+      final Map<String, dynamic> response;
+      try {
+        response = await _postJsonObjectOrThrow('/api/gamesessions', {
+          'hostUserId': hostUserId,
+          'sessionName': lobbyName,
+          'joinCode': _generateJoinCode(),
+          'status': 'WAITING',
+          'plannedDurationMinutes': 60,
+          'mrXRevealInterval': 5,
+        });
+      } on ApiException catch (e) {
+        if (e.code == 'join_code_in_use') continue;
+        rethrow;
       }
+
+      final details = GameSessionDetails.fromJson(response);
+      _session.setSession(
+        sessionId: details.sessionId,
+        joinCode: details.joinCode,
+      );
+      try {
+        await _ensureRealtimeSubscription(details.sessionId);
+      } catch (_) {}
+      await _ensureStandardTeams(details.sessionId, hostUserId: hostUserId);
+      return details;
     }
 
     throw Exception('Failed to create lobby after retries.');

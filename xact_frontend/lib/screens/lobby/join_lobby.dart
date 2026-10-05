@@ -298,6 +298,8 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                           label: 'Your display name',
                           hintText: 'Enter your name…',
                           controller: _usernameController,
+                          // the backend limit for user and guest names
+                          maxLength: 50,
                         ),
                       const SizedBox(height: XActSpace.s4),
                       _InfoBanner(

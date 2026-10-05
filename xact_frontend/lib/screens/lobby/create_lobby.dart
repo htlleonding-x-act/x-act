@@ -225,6 +225,8 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
                             hintText: "e.g. Sam's Game",
                             controller: _gameNameController,
                             textCapitalization: TextCapitalization.words,
+                            // the backend limit for session names
+                            maxLength: 120,
                           ),
                           const SizedBox(height: XActSpace.s4),
                           _InfoBanner(
