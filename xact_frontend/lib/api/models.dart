@@ -491,32 +491,6 @@ final class GeofencePointInfo {
   }
 }
 
-final class GeofencePointDetails {
-  final int pointId;
-  final int sessionId;
-  final double latitude;
-  final double longitude;
-  final int sequenceOrder;
-
-  const GeofencePointDetails({
-    required this.pointId,
-    required this.sessionId,
-    required this.latitude,
-    required this.longitude,
-    required this.sequenceOrder,
-  });
-
-  factory GeofencePointDetails.fromJson(Map<String, dynamic> json) {
-    return GeofencePointDetails(
-      pointId: _readInt(json, ['id', 'pointId']),
-      sessionId: (json['sessionId'] as num).toInt(),
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      sequenceOrder: (json['sequenceOrder'] as num).toInt(),
-    );
-  }
-}
-
 final class LocationLogInfo {
   final int logId;
   final int memberId;

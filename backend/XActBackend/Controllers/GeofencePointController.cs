@@ -102,6 +102,60 @@ public sealed class GeofencePointController(
     }
 
     [HttpPut]
+    [Route("")]
+    [ProducesResponseType<GeofencePointListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async ValueTask<IActionResult> ReplaceGeofencePoints(
+        [FromRoute] int sessionId,
+        [FromBody] GeofenceAreaReplaceRequest replaceRequest)
+    {
+        if (!ValidateRequest<GeofenceAreaReplaceRequest.Validator, GeofenceAreaReplaceRequest>(replaceRequest))
+        {
+            return BadRequest();
+        }
+
+        try
+        {
+            await transaction.BeginTransactionAsync();
+
+            OneOf<IReadOnlyCollection<GeofencePoint>, NotFound, DomainError> replaceResult =
+                await geofencePointService.ReplaceGeofencePointsAsync(
+                    sessionId,
+                    replaceRequest.Points.Select(p => new IGeofencePointService.Coordinate(p.Latitude, p.Longitude)).ToList());
+
+            return await replaceResult.Match<ValueTask<IActionResult>>(async points =>
+            {
+                await transaction.CommitAsync();
+
+                return Ok(new GeofencePointListResponse
+                {
+                    Items = points.Select(GeofencePointInformationDto.FromGeofencePoint).ToList()
+                });
+            }, async notFound =>
+            {
+                await transaction.RollbackAsync();
+                logger.LogWarning("Rejected geofence replacement because session {SessionId} was not found", sessionId);
+
+                return NotFound();
+            }, async domainError =>
+            {
+                await transaction.RollbackAsync();
+
+                return DomainErrorResult(domainError);
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to replace the geofence of session {SessionId}", sessionId);
+            await transaction.RollbackAsync();
+
+            return Problem();
+        }
+    }
+
+    [HttpPut]
     [Route("{pointId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -240,6 +294,31 @@ public sealed record GeofencePointAddRequest(
             RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
             RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
             RuleFor(x => x.SequenceOrder).GreaterThanOrEqualTo(0);
+        }
+    }
+}
+
+public sealed record GeofenceAreaReplaceRequest(List<GeofenceCoordinateDto> Points)
+{
+    public sealed class Validator : AbstractValidator<GeofenceAreaReplaceRequest>
+    {
+        public Validator()
+        {
+            // fewer than three points enclose no area
+            RuleFor(x => x.Points).Must(points => points is { Count: >= 3 });
+            RuleForEach(x => x.Points).SetValidator(new GeofenceCoordinateDto.Validator());
+        }
+    }
+}
+
+public sealed record GeofenceCoordinateDto(double Latitude, double Longitude)
+{
+    public sealed class Validator : AbstractValidator<GeofenceCoordinateDto>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Latitude).InclusiveBetween(-90, 90);
+            RuleFor(x => x.Longitude).InclusiveBetween(-180, 180);
         }
     }
 }

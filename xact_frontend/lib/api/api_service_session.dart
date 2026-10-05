@@ -624,32 +624,6 @@ extension ApiServiceSessionMethods on ApiService {
     );
   }
 
-  Future<GeofencePointDetails> addGeofencePoint({
-    required int sessionId,
-    required double latitude,
-    required double longitude,
-    required int sequenceOrder,
-  }) async {
-    final json = await _postJsonObjectOrThrow(
-      '/api/gamesessions/$sessionId/geofencepoints',
-      {
-        'latitude': latitude,
-        'longitude': longitude,
-        'sequenceOrder': sequenceOrder,
-      },
-    );
-    return GeofencePointDetails.fromJson(json);
-  }
-
-  Future<void> deleteGeofencePoint({
-    required int sessionId,
-    required int pointId,
-  }) async {
-    await _deleteNoContent(
-      '/api/gamesessions/$sessionId/geofencepoints/$pointId',
-    );
-  }
-
   Future<GameSessionDetails> getGameSession(int sessionId) async =>
       _getGameSession(sessionId);
 
@@ -680,21 +654,13 @@ extension ApiServiceSessionMethods on ApiService {
     required int sessionId,
     required List<LatLng> points,
   }) async {
-    final existing = await loadGeofencePoints(sessionId) ?? const [];
-    await Future.wait(
-      existing.map(
-        (p) => deleteGeofencePoint(sessionId: sessionId, pointId: p.pointId),
-      ),
-    );
-
-    for (var i = 0; i < points.length; i++) {
-      await addGeofencePoint(
-        sessionId: sessionId,
-        latitude: points[i].latitude,
-        longitude: points[i].longitude,
-        sequenceOrder: i,
-      );
-    }
+    // one request, so a dropped connection can't leave half an area behind
+    await _putJsonNoContent('/api/gamesessions/$sessionId/geofencepoints', {
+      'points': [
+        for (final p in points)
+          {'latitude': p.latitude, 'longitude': p.longitude},
+      ],
+    });
   }
 
   Future<int?> getActiveSessionId() async {

@@ -17,6 +17,16 @@ public interface IGeofencePointService
 
     public ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(int sessionId, int pointId, bool tracking);
 
+    /// <summary>
+    ///     replaces all points of the session in one save, so an aborted request can't leave half an area behind.
+    ///     the list order becomes the sequence order
+    /// </summary>
+    public ValueTask<OneOf<IReadOnlyCollection<GeofencePoint>, NotFound, DomainError>> ReplaceGeofencePointsAsync(
+        int sessionId,
+        IReadOnlyList<Coordinate> points);
+
+    public sealed record Coordinate(double Latitude, double Longitude);
+
     public sealed record GeofencePointData(
         int SessionId,
         double Latitude,
@@ -87,6 +97,42 @@ internal sealed class GeoFencePointService(IUnitOfWork uow, ILogger<GeoFencePoin
         await uow.SaveChangesAsync();
 
         return new Success();
+    }
+
+    public async ValueTask<OneOf<IReadOnlyCollection<GeofencePoint>, NotFound, DomainError>> ReplaceGeofencePointsAsync(
+        int sessionId,
+        IReadOnlyList<IGeofencePointService.Coordinate> points)
+    {
+        var session = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking: false);
+        if (session is null)
+        {
+            logger.LogWarning("Rejected geofence replacement because session {SessionId} does not exist", sessionId);
+            return new NotFound();
+        }
+
+        if (points.Count > MaxGeofencePoints)
+        {
+            logger.LogWarning("Rejected geofence replacement because session {SessionId} got {Count} points (max {Max})", sessionId, points.Count, MaxGeofencePoints);
+            return DomainError.GeofencePointLimitReached(sessionId, MaxGeofencePoints);
+        }
+
+        IReadOnlyCollection<GeofencePoint> existing = await uow.GeofencePointRepository.GetPointsBySessionIdAsync(sessionId, tracking: true);
+        foreach (var point in existing)
+        {
+            uow.GeofencePointRepository.RemoveGeofencePoint(point);
+        }
+
+        List<GeofencePoint> added = [];
+        for (var i = 0; i < points.Count; i++)
+        {
+            added.Add(uow.GeofencePointRepository.AddGeofencePoint(sessionId, points[i].Latitude, points[i].Longitude, i));
+        }
+
+        await uow.SaveChangesAsync();
+
+        logger.LogInformation("Replaced the geofence of session {SessionId} with {Count} points", sessionId, added.Count);
+
+        return added;
     }
 
     public async ValueTask<OneOf<Success, NotFound>> DeleteGeofencePointAsync(int sessionId, int pointId, bool tracking)

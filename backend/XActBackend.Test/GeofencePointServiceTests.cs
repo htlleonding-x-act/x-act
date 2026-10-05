@@ -218,4 +218,57 @@ public sealed class GeofencePointServiceTests
             notFound => { /* expected */ }
         );
     }
+
+    private static List<IGeofencePointService.Coordinate> CreateCoordinates(int count) =>
+        Enumerable.Range(0, count).Select(i => new IGeofencePointService.Coordinate(10.0 + i, 20.0 + i)).ToList();
+
+    [Fact]
+    public async ValueTask ReplaceGeofencePointsAsync_ReplacesAllPointsInOneSave()
+    {
+        var oldPoint = CreatePoint(id: 5);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateSession());
+        _geofencePointRepository.GetPointsBySessionIdAsync(DefaultSessionId, true).Returns([oldPoint]);
+
+        var result = await _sut.ReplaceGeofencePointsAsync(DefaultSessionId, CreateCoordinates(3));
+
+        result.Switch(
+            points => points.Should().HaveCount(3),
+            notFound => Assert.Fail("Expected points but got NotFound"),
+            domainError => Assert.Fail($"Expected points but got DomainError: {domainError.Code}")
+        );
+        _geofencePointRepository.Received(1).RemoveGeofencePoint(oldPoint);
+        _geofencePointRepository.Received(1).AddGeofencePoint(DefaultSessionId, 10.0, 20.0, 0);
+        _geofencePointRepository.Received(1).AddGeofencePoint(DefaultSessionId, 12.0, 22.0, 2);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask ReplaceGeofencePointsAsync_ReturnsNotFound_WhenSessionNotFound()
+    {
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns((GameSession?) null);
+
+        var result = await _sut.ReplaceGeofencePointsAsync(DefaultSessionId, CreateCoordinates(3));
+
+        result.Switch(
+            points => Assert.Fail("Expected NotFound but got points"),
+            notFound => { /* expected */ },
+            domainError => Assert.Fail($"Expected NotFound but got DomainError: {domainError.Code}")
+        );
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask ReplaceGeofencePointsAsync_ReturnsDomainError_WhenTooManyPoints()
+    {
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateSession());
+
+        var result = await _sut.ReplaceGeofencePointsAsync(DefaultSessionId, CreateCoordinates(11));
+
+        result.Switch(
+            points => Assert.Fail("Expected DomainError but got points"),
+            notFound => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.GeofencePointLimitReached)
+        );
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
 }
