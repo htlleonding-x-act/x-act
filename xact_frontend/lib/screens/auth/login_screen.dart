@@ -14,7 +14,11 @@ import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.callback});
+
+  /// the login redirect that started the app, finished here instead of starting
+  /// another login
+  final Uri? callback;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -29,15 +33,14 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
 
-    // On web the callback is a fresh load of this app with ?code=... in the URL, so
-    // finishing that login must not start another one.
-    if (kIsWeb && Uri.base.queryParameters.containsKey('code')) {
-      _handleCallback(Uri.base);
-      return;
-    }
-
     _initCallbackListener();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _launchKeycloak());
+
+    final callback = widget.callback;
+    if (callback != null) {
+      _handleCallback(callback);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _launchKeycloak());
+    }
   }
 
   // ── Callback listener setup ───────────────────────────────────────────────
@@ -56,8 +59,20 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Mobile (Android / iOS): the stream also replays the link that cold-started the app.
-    _deepLinkSub = AppLinks().uriLinkStream.listen(_handleCallback, onError: (_) {});
+    // on mobile the stream hands the link that cold-started the app to its first
+    // listener. main already passed that one in as the callback, or it belongs to
+    // an older login
+    Uri? initialLink;
+    try {
+      initialLink = await AppLinks().getInitialLink();
+    } catch (_) {}
+    if (!mounted) return;
+
+    _deepLinkSub = AppLinks().uriLinkStream.listen((uri) {
+      if (uri != initialLink) {
+        _handleCallback(uri);
+      }
+    }, onError: (_) {});
   }
 
   // ── Keycloak browser launch ───────────────────────────────────────────────
