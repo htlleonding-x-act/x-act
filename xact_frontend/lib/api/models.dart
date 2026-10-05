@@ -647,6 +647,7 @@ final class RealtimeEvents {
   static const String teamMemberLeft = 'team_member_left';
   static const String gameSessionStarted = 'game_session_started';
   static const String gameSessionEnded = 'game_session_ended';
+  static const String gameSessionDeleted = 'game_session_deleted';
   static const String locationLogRecorded = 'location_log_recorded';
   static const String mrXCaught = 'mr_x_caught';
   static const String chatMessagePosted = 'chat_message_posted';

@@ -19,6 +19,7 @@ public static class RealtimeEvents
     public const string TeamMemberLeft = "team_member_left";
     public const string GameSessionStarted = "game_session_started";
     public const string GameSessionEnded = "game_session_ended";
+    public const string GameSessionDeleted = "game_session_deleted";
     public const string LocationLogRecorded = "location_log_recorded";
     public const string MrXCaught = "mr_x_caught";
     public const string ChatMessagePosted = "chat_message_posted";
@@ -171,6 +172,8 @@ public sealed record GameSessionEndedPayload(
     Instant? StartTime,
     Instant? EndTime
 );
+
+public sealed record GameSessionDeletedPayload(int SessionId);
 
 public sealed record MrXCaughtPayload(
     int SessionId,

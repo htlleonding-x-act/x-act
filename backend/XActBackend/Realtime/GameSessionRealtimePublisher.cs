@@ -97,6 +97,9 @@ internal sealed class GameSessionRealtimePublisher(
                 gameSession.StartTime,
                 gameSession.EndTime));
 
+    public ValueTask PublishGameSessionDeletedAsync(int sessionId) =>
+        PublishToSessionAsync(sessionId, RealtimeEvents.GameSessionDeleted, new GameSessionDeletedPayload(sessionId));
+
     public ValueTask PublishLocationLogRecordedAsync(Team team, LocationLog log)
     {
         var payload = new LocationLogRecordedPayload(

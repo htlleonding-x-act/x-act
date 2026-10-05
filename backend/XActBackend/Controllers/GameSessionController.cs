@@ -202,6 +202,8 @@ public sealed class GameSessionController(
             {
                 await transaction.CommitAsync();
                 logger.LogInformation("Deleted game session {SessionId}", sessionId);
+                // players still in the lobby only learn through this event that it is gone
+                await realtimePublisher.PublishGameSessionDeletedAsync(sessionId);
 
                 return NoContent();
             }, async notFound =>

@@ -6,6 +6,7 @@ class GameLobbyHeader extends StatelessWidget {
   final String gameName;
   final int totalPlayers;
   final bool isLeader;
+  final VoidCallback onBack;
   final VoidCallback? onClose;
   final VoidCallback? onViewMap;
   final VoidCallback? onSettings;
@@ -16,6 +17,7 @@ class GameLobbyHeader extends StatelessWidget {
     required this.gameName,
     required this.totalPlayers,
     required this.isLeader,
+    required this.onBack,
     this.onClose,
     this.onViewMap,
     this.onSettings,
@@ -34,7 +36,7 @@ class GameLobbyHeader extends StatelessWidget {
         children: [
           XActBranding.circleIconButton(
             icon: Icons.arrow_back_rounded,
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: onBack,
           ),
           const SizedBox(width: 12),
           Expanded(
