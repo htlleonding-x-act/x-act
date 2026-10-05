@@ -212,6 +212,7 @@ class _MapAreaState extends State<MapArea> {
                 position: p.position,
                 color: p.color,
                 isMisterX: p.teamRole == TeamRole.mrX,
+                revealedAt: p.revealedAt,
               ),
             )
             .toList(growable: false);
@@ -538,6 +539,7 @@ class PlayerMarker {
   final Color color;
   final bool isCurrentUser;
   final bool isMisterX;
+  final DateTime? revealedAt;
 
   PlayerMarker({
     required this.id,
@@ -546,6 +548,7 @@ class PlayerMarker {
     required this.color,
     this.isCurrentUser = false,
     this.isMisterX = false,
+    this.revealedAt,
   });
 }
 
@@ -559,7 +562,7 @@ class _PlayerMarkerWidget extends StatelessWidget {
     final size = player.isCurrentUser || player.isMisterX ? 50.0 : 40.0;
     final iconSize = player.isCurrentUser || player.isMisterX ? 28.0 : 22.0;
 
-    return Container(
+    final marker = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -582,6 +585,43 @@ class _PlayerMarkerWidget extends StatelessWidget {
         size: iconSize,
       ),
     );
+
+    final revealedAt = player.revealedAt;
+    if (revealedAt == null) {
+      return marker;
+    }
+
+    // a reveal stays on the map until the next one, so the age tells the
+    // detectives how fresh it is
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        marker,
+        Positioned(
+          top: size + 2,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: XActColors.bg.withValues(alpha: .85),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _revealAgeText(revealedAt),
+              style: XActText.caption.copyWith(
+                fontSize: 11,
+                color: XActColors.text1,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _revealAgeText(DateTime revealedAt) {
+    final minutes = DateTime.now().difference(revealedAt).inMinutes;
+    return minutes < 1 ? 'just now' : '$minutes min ago';
   }
 }
 

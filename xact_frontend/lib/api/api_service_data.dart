@@ -162,6 +162,7 @@ extension ApiServiceDataMethods on ApiService {
       for (final member in members) {
         double? lat;
         double? lon;
+        DateTime? revealedAt;
 
         if (isMrXTeam) {
           final revealed = latestLocationByMemberId[member.memberId];
@@ -170,6 +171,7 @@ extension ApiServiceDataMethods on ApiService {
           }
           lat = revealed.latitude;
           lon = revealed.longitude;
+          revealedAt = revealed.timestamp;
         } else {
           lat = member.currentLatitude;
           lon = member.currentLongitude;
@@ -192,6 +194,7 @@ extension ApiServiceDataMethods on ApiService {
             teamRole: team.role,
             color: color,
             position: LatLng(lat, lon),
+            revealedAt: revealedAt,
           ),
         );
       }

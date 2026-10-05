@@ -97,6 +97,8 @@ final class PlayerPositionData {
   final TeamRole? teamRole;
   final Color color;
   final LatLng position;
+  /// when mister x was revealed at [position], null for detectives
+  final DateTime? revealedAt;
 
   const PlayerPositionData({
     required this.memberId,
@@ -105,6 +107,7 @@ final class PlayerPositionData {
     required this.teamRole,
     required this.color,
     required this.position,
+    this.revealedAt,
   });
 }
 
