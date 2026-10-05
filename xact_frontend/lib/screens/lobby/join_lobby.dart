@@ -52,7 +52,8 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
       offset: scanned.length,
     );
 
-    if (_usernameController.text.trim().isEmpty) {
+    if (!ApiService.instance.isAuthenticated &&
+        _usernameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Game code scanned. Enter a name to join.'),
@@ -68,7 +69,9 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
     final gameCode = _codeController.text.trim().toUpperCase();
     final username = _usernameController.text.trim();
 
-    if (gameCode.isEmpty || username.isEmpty) {
+    // logged-in players always play under their keycloak username
+    if (gameCode.isEmpty ||
+        (!ApiService.instance.isAuthenticated && username.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
       );
@@ -92,7 +95,6 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
       final userId = await ApiService.instance.ensureMvpUser(
         preferredName: username,
       );
-      AppSession.instance.setIdentity(userId: userId, username: username);
 
       final session = await ApiService.instance.joinLobbyByCode(gameCode);
       final snapshot = await ApiService.instance.loadLobbySnapshot(
@@ -153,9 +155,15 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      final message = error.toString().contains('HTTP 404')
-          ? 'No game found with code "$gameCode". Ask the host to share a current code.'
-          : 'Could not join game: $error';
+      final message = switch (error) {
+        ApiException(code: 'name_taken_in_session') =>
+          'Someone in this game already uses that name. Pick another one.',
+        ApiException(code: 'username_taken') =>
+          'That name belongs to a registered player. Pick another one.',
+        _ when error.toString().contains('HTTP 404') =>
+          'No game found with code "$gameCode". Ask the host to share a current code.',
+        _ => 'Could not join game: $error',
+      };
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -282,11 +290,12 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                         onPressed: _joining ? null : _onScan,
                       ),
                       const SizedBox(height: XActSpace.s6),
-                      XActBranding.buildTextField(
-                        label: 'Your display name',
-                        hintText: 'Enter your name…',
-                        controller: _usernameController,
-                      ),
+                      if (!ApiService.instance.isAuthenticated)
+                        XActBranding.buildTextField(
+                          label: 'Your display name',
+                          hintText: 'Enter your name…',
+                          controller: _usernameController,
+                        ),
                       const SizedBox(height: XActSpace.s4),
                       _InfoBanner(
                         text:

@@ -1,5 +1,16 @@
 part of 'api_service.dart';
 
+final class ApiException implements Exception {
+  ApiException(this.statusCode, this.code);
+
+  final int statusCode;
+  /// the `code` of a backend domain error, e.g. `name_taken_in_session`
+  final String? code;
+
+  @override
+  String toString() => 'HTTP $statusCode${code == null ? '' : ' ($code)'}';
+}
+
 final class TeamCardData {
   final int teamId;
   final String teamName;
