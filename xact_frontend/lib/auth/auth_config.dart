@@ -1,12 +1,28 @@
 import 'package:flutter/foundation.dart';
 
+import '../api/api_config.dart';
 import 'auth_challenge.dart';
 
 class AuthConfig {
-  static const String authority = String.fromEnvironment(
+  static const String _configuredAuthority = String.fromEnvironment(
     'KEYCLOAK_AUTHORITY',
-    defaultValue: 'http://localhost:8080/realms/xact',
   );
+
+  /// keycloak runs next to the backend in the docker stack, so a phone that reaches
+  /// the backend under a lan address reaches keycloak under the same one
+  static String get authority {
+    if (_configuredAuthority.isNotEmpty) {
+      return _configuredAuthority;
+    }
+
+    final api = Uri.parse(ApiConfig.baseUrl);
+    return Uri(
+      scheme: api.scheme,
+      host: api.host,
+      port: 8080,
+      path: '/realms/xact',
+    ).toString();
+  }
 
   static const String clientId = String.fromEnvironment(
     'KEYCLOAK_CLIENT_ID',

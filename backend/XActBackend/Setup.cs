@@ -45,7 +45,7 @@ public static class Setup
                         options.TokenValidationParameters = new TokenValidationParameters
                         {
                             ValidateIssuer = true,
-                            ValidIssuer = settings.ValidIssuer ?? settings.Authority,
+                            ValidIssuers = settings.ValidIssuers is { Length: > 0 } ? settings.ValidIssuers : [settings.Authority],
                             ValidateAudience = settings.ValidAudience is not null,
                             ValidAudience = settings.ValidAudience
                         };
