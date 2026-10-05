@@ -13,8 +13,7 @@ public interface IUserService
 
     public ValueTask<OneOf<User, NotFound>> GetUserByEmailAsync(string email, bool tracking);
 
-    public ValueTask<OneOf<User, NotFound>> GetUserByUsernameAsync(string username, bool tracking);
-
+    /// <summary>creates a guest, whose name only has to differ from the registered usernames</summary>
     public ValueTask<OneOf<User, DomainError, Error>> AddUserAsync(UserData newUser);
 
     public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, UserData userData, bool tracking);
@@ -27,7 +26,7 @@ public interface IUserService
 
     public sealed record UserData(
         string Username,
-        string Email,
+        string? Email,
         AccountType AccountType = AccountType.Free,
         Instant? SubscriptionEndDate = null,
         int TotalWins = 0,
@@ -37,8 +36,7 @@ public interface IUserService
 
 internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserService> logger) : IUserService
 {
-    // column lengths of User.Username and User.Email in DatabaseContext
-    private const int MaxUsernameLength = 50;
+    // column length of User.Email in DatabaseContext
     private const int MaxEmailLength = 100;
 
     public async ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync(bool tracking)
@@ -58,13 +56,6 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
     public async ValueTask<OneOf<User, NotFound>> GetUserByEmailAsync(string email, bool tracking)
     {
         var user = await uow.UserRepository.GetUserByEmailAsync(email, tracking);
-
-        return user is not null ? user : new NotFound();
-    }
-
-    public async ValueTask<OneOf<User, NotFound>> GetUserByUsernameAsync(string username, bool tracking)
-    {
-        var user = await uow.UserRepository.GetUserByUsernameAsync(username, tracking);
 
         return user is not null ? user : new NotFound();
     }
@@ -89,7 +80,7 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
                 {
                     existingUser.IsDeleted = false;
                     existingUser.DeletedAt = null;
-                    existingUser.Username = await FindFreeUsernameAsync(username);
+                    existingUser.Username = username;
                     existingUser.Email = await FreeEmailOrNullAsync(email);
                     await uow.SaveChangesAsync();
                 }
@@ -98,9 +89,10 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
             }
 
             var newUser = uow.UserRepository.AddUser(
-                await FindFreeUsernameAsync(username),
+                username,
                 await FreeEmailOrNullAsync(email),
                 AccountType.Free,
+                isGuest: false,
                 id: keycloakSubject
             );
             uow.UserAuthIdentityRepository.AddAuthIdentity(newUser.Id, keycloakSubject);
@@ -113,20 +105,6 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
             logger.LogError(ex, "Failed to get or create user for Keycloak subject {Subject}", keycloakSubject);
             return new Error();
         }
-    }
-
-    /// <summary>guests can take any free username, so a clashing keycloak username gets a number appended like guest names do</summary>
-    private async ValueTask<string> FindFreeUsernameAsync(string username)
-    {
-        string candidate = Truncate(username, MaxUsernameLength);
-
-        for (int suffix = 2; await uow.UserRepository.GetUserByUsernameAsync(candidate, tracking: false) is not null; suffix++)
-        {
-            string suffixText = $" {suffix}";
-            candidate = Truncate(username, MaxUsernameLength - suffixText.Length) + suffixText;
-        }
-
-        return candidate;
     }
 
     /// <summary>the email is optional, so a missing, too long or already used one is dropped instead of failing the login</summary>
@@ -142,15 +120,12 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         return userWithEmail is null ? email : null;
     }
 
-    private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength];
-
     public async ValueTask<OneOf<User, DomainError, Error>> AddUserAsync(IUserService.UserData newUser)
     {
         try
         {
-            var userWithUsername = await uow.UserRepository.GetUserByUsernameAsync(newUser.Username, tracking: false);
-            if (userWithUsername is not null)
+            var registeredUser = await uow.UserRepository.GetRegisteredUserByUsernameAsync(newUser.Username, tracking: false);
+            if (registeredUser is not null)
             {
                 logger.LogWarning("Rejected user creation because username {Username} is already taken", newUser.Username);
                 return DomainError.UsernameTaken(newUser.Username);
@@ -159,7 +134,8 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
             var user = uow.UserRepository.AddUser(
                 newUser.Username,
                 newUser.Email,
-                newUser.AccountType
+                newUser.AccountType,
+                isGuest: true
             );
 
             user.SubscriptionEndDate = newUser.SubscriptionEndDate;

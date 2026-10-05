@@ -270,6 +270,25 @@ public sealed class TeamMemberServiceTests
     }
 
     [Fact]
+    internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenNameTakenInSession()
+    {
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, null, "Bob");
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        _teamMemberRepository.IsNameTakenInSessionAsync(DefaultSessionId, "Bob", null).Returns(true);
+
+        OneOf<TeamMember, NotFound, DomainError> result = await _sut.AddTeamMemberAsync(data);
+
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got TeamMember"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.NameTakenInSession)
+        );
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
     internal async ValueTask AddTeamMemberAsync_ReturnsDomainError_WhenLeaderAlreadyExists()
     {
         var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, DefaultUserId, null, IsTeamLeader: true);
@@ -356,6 +375,30 @@ public sealed class TeamMemberServiceTests
         );
         member.GuestName.Should().Be("New Guest");
         member.LastUpdated.Should().Be(now);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    internal async ValueTask UpdateTeamMemberAsync_ReturnsSuccess_WhenKeepingOwnName()
+    {
+        var member = CreateMember(DefaultMemberId, DefaultSessionId, DefaultTeamId, null);
+        member.GuestName = "Bob";
+        var data = new ITeamMemberService.TeamMemberData(DefaultSessionId, DefaultTeamId, null, "Bob");
+
+        _teamMemberRepository.GetMemberBySessionAndTeamIdAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, true).Returns(member);
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(CreateWaitingSession());
+        _teamRepository.GetTeamByIdAsync(DefaultTeamId, false).Returns(CreateTeam());
+        // the member itself goes by the name, so the check only finds it when the member is not excluded
+        _teamMemberRepository.IsNameTakenInSessionAsync(DefaultSessionId, "Bob", null).Returns(true);
+        _teamMemberRepository.IsNameTakenInSessionAsync(DefaultSessionId, "Bob", DefaultMemberId).Returns(false);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateTeamMemberAsync(DefaultSessionId, DefaultTeamId, DefaultMemberId, data, true);
+
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound"),
+            _ => Assert.Fail("Expected Success but got DomainError")
+        );
         await _uow.Received(1).SaveChangesAsync();
     }
 

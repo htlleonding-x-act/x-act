@@ -130,40 +130,13 @@ public sealed class UserServiceTests
     }
 
     [Fact]
-    public async ValueTask GetUserByUsernameAsync_ReturnsUser_WhenFound()
-    {
-        var user = CreateUser(DefaultUserId, "test", DefaultEmail);
-        _userRepository.GetUserByUsernameAsync("test", false).Returns(user);
-
-        OneOf<User, NotFound> result = await _sut.GetUserByUsernameAsync("test", false);
-
-        result.Switch(
-            found => found.Should().BeEquivalentTo(user),
-            notFound => Assert.Fail("Expected a user but got NotFound")
-        );
-    }
-
-    [Fact]
-    public async ValueTask GetUserByUsernameAsync_ReturnsNotFound_WhenUnknown()
-    {
-        _userRepository.GetUserByUsernameAsync("test", false).Returns((User?) null);
-
-        OneOf<User, NotFound> result = await _sut.GetUserByUsernameAsync("test", false);
-
-        result.Switch(
-            user => Assert.Fail("Expected NotFound but got a user"),
-            notFound => { /* expected */ }
-        );
-    }
-
-    [Fact]
     public async ValueTask AddUserAsync_ReturnsAddedUser()
     {
         var data = new IUserService.UserData("new_user", "new@test.com");
         var user = CreateUser(DefaultUserId, data.Username, data.Email);
 
-        _userRepository.GetUserByUsernameAsync(data.Username, false).Returns((User?) null);
-        _userRepository.AddUser(data.Username, data.Email, data.AccountType).Returns(user);
+        _userRepository.GetRegisteredUserByUsernameAsync(data.Username, false).Returns((User?) null);
+        _userRepository.AddUser(data.Username, data.Email, data.AccountType, true).Returns(user);
 
         OneOf<User, DomainError, Error> result = await _sut.AddUserAsync(data);
 
@@ -179,7 +152,7 @@ public sealed class UserServiceTests
     public async ValueTask AddUserAsync_ReturnsDomainError_WhenUsernameTaken()
     {
         var data = new IUserService.UserData(DefaultUsername, "other@test.com");
-        _userRepository.GetUserByUsernameAsync(DefaultUsername, false).Returns(CreateUser());
+        _userRepository.GetRegisteredUserByUsernameAsync(DefaultUsername, false).Returns(CreateUser());
 
         OneOf<User, DomainError, Error> result = await _sut.AddUserAsync(data);
 
@@ -188,8 +161,27 @@ public sealed class UserServiceTests
             domainError => domainError.Code.Should().Be(DomainErrorCodes.UsernameTaken),
             _ => Assert.Fail("Expected a DomainError but got an Error")
         );
-        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default);
+        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default, default);
         await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask AddUserAsync_CreatesGuest_WhenOnlyAnotherGuestHasTheName()
+    {
+        var data = new IUserService.UserData(DefaultUsername, null);
+        var user = CreateUser(DefaultUserId, data.Username);
+        _userRepository.GetRegisteredUserByUsernameAsync(DefaultUsername, false).Returns((User?) null);
+        _userRepository.AddUser(DefaultUsername, null, AccountType.Free, true).Returns(user);
+
+        OneOf<User, DomainError, Error> result = await _sut.AddUserAsync(data);
+
+        result.Switch(
+            created => created.Should().BeEquivalentTo(user),
+            _ => Assert.Fail("Expected a user but got a DomainError"),
+            _ => Assert.Fail("Expected a user but got an Error")
+        );
+        _userRepository.Received(1).AddUser(DefaultUsername, null, AccountType.Free, true);
+        await _uow.Received(1).SaveChangesAsync();
     }
 
     [Fact]
@@ -207,7 +199,7 @@ public sealed class UserServiceTests
             found => found.Should().BeEquivalentTo(user),
             error => Assert.Fail("Expected a user but got an Error")
         );
-        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default);
+        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default, default);
         await _uow.DidNotReceive().SaveChangesAsync();
     }
 
@@ -216,7 +208,7 @@ public sealed class UserServiceTests
     {
         var user = CreateUser(KeycloakSubject, DefaultUsername, DefaultEmail);
         _authIdentityRepository.GetBySubjectAsync(KeycloakSubject, false).Returns((UserAuthIdentity?) null);
-        _userRepository.AddUser(DefaultUsername, DefaultEmail, AccountType.Free, KeycloakSubject).Returns(user);
+        _userRepository.AddUser(DefaultUsername, DefaultEmail, AccountType.Free, false, KeycloakSubject).Returns(user);
 
         OneOf<User, Error> result =
             await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
@@ -243,30 +235,18 @@ public sealed class UserServiceTests
             user => Assert.Fail("Expected an Error but got a user"),
             error => { /* expected */ }
         );
-        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default);
+        _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default, default);
         await _uow.DidNotReceive().SaveChangesAsync();
     }
 
     [Fact]
-    public async ValueTask GetOrCreateByKeycloakSubjectAsync_NumbersUsername_WhenUsernameTaken()
-    {
-        _userRepository.GetUserByUsernameAsync(DefaultUsername, false).Returns(CreateUser());
-        _userRepository.GetUserByUsernameAsync($"{DefaultUsername} 2", false).Returns(CreateUser("2"));
-
-        await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
-
-        _userRepository.Received(1).AddUser($"{DefaultUsername} 3", DefaultEmail, AccountType.Free, KeycloakSubject);
-    }
-
-    [Fact]
-    public async ValueTask GetOrCreateByKeycloakSubjectAsync_TruncatesUsername_ToColumnLength()
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_StoresKeycloakUsernameUnchanged()
     {
         string longUsername = new('a', 60);
-        _userRepository.GetUserByUsernameAsync(new string('a', 50), false).Returns(CreateUser());
 
         await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, longUsername, DefaultEmail);
 
-        _userRepository.Received(1).AddUser($"{new string('a', 48)} 2", DefaultEmail, AccountType.Free, KeycloakSubject);
+        _userRepository.Received(1).AddUser(longUsername, DefaultEmail, AccountType.Free, false, KeycloakSubject);
     }
 
     [Theory]
@@ -279,7 +259,7 @@ public sealed class UserServiceTests
 
         await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, email);
 
-        _userRepository.Received(1).AddUser(DefaultUsername, null, AccountType.Free, KeycloakSubject);
+        _userRepository.Received(1).AddUser(DefaultUsername, null, AccountType.Free, false, KeycloakSubject);
     }
 
     [Fact]

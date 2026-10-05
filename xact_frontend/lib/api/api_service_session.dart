@@ -78,29 +78,17 @@ extension ApiServiceSessionMethods on ApiService {
     } catch (_) {}
   }
 
+  /// guest names only have to be unique within a session, so a new name just
+  /// creates a new guest instead of renaming the current one
   Future<String> _createGuestUser({required String preferredName}) async {
-    final users = await _listUsers();
+    final name = preferredName.trim().isEmpty ? 'Player' : preferredName.trim();
 
-    if (_session.currentUserId != null &&
-        users.any((u) => u.userId == _session.currentUserId)) {
+    if (_session.currentUserId != null && _session.currentUsername == name) {
       return _session.currentUserId!;
     }
 
-    final desired = preferredName.trim().isEmpty
-        ? 'Player'
-        : preferredName.trim();
-    final takenUsernames = users
-        .map((u) => u.username.toLowerCase())
-        .toSet();
-    var candidate = desired;
-    for (var i = 2; takenUsernames.contains(candidate.toLowerCase()); i++) {
-      candidate = '$desired $i';
-    }
-
-    final emailLocal = candidate.toLowerCase().replaceAll(RegExp(r'\s+'), '.');
     final created = await _postJsonObjectOrThrow('/api/users', {
-      'username': candidate,
-      'email': '$emailLocal@xact.local',
+      'username': name,
       'accountType': 'FREE',
       'subscriptionEndDate': null,
       'totalWins': 0,

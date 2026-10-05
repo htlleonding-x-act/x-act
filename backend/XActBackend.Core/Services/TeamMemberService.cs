@@ -190,6 +190,8 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock, ILogger<T
             return DomainError.TeamNotInSession(teamId, sessionId);
         }
 
+        // hasUser != hasGuest was checked above, so a member without a user has a guest name
+        string displayName = guestName!;
         if (!string.IsNullOrWhiteSpace(userId))
         {
             var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking: false);
@@ -211,6 +213,14 @@ internal sealed class TeamMemberService(IUnitOfWork uow, IClock clock, ILogger<T
                 logger.LogWarning("Rejected team member mutation because user {UserId} is already part of session {SessionId}", userId, sessionId);
                 return DomainError.UserAlreadyJoined(userId, sessionId);
             }
+
+            displayName = user.Username!;
+        }
+
+        if (await uow.TeamMemberRepository.IsNameTakenInSessionAsync(sessionId, displayName, currentMemberId))
+        {
+            logger.LogWarning("Rejected team member mutation because name {Name} is already used in session {SessionId}", displayName, sessionId);
+            return DomainError.NameTakenInSession(displayName, sessionId);
         }
 
         if (isTeamLeader)

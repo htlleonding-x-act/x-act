@@ -109,11 +109,34 @@ extension ApiServiceHttpMethods on ApiService {
     String path,
     Map<String, dynamic> payload,
   ) async {
-    final json = await _postJsonObject(path, payload);
-    if (json == null) {
-      throw Exception('POST $path failed');
+    final uri = _baseUri.resolve(path);
+    final response = await _send(
+      () => _http.post(uri, headers: _headers(jsonBody: true), body: jsonEncode(payload)),
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
-    return json;
+
+    if (response.body.isEmpty) {
+      return <String, dynamic>{};
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+    throw const FormatException('Expected JSON object response.');
+  }
+
+  /// reads the `code` extension of a backend ProblemDetails body
+  String? _errorCode(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic> && decoded['code'] is String) {
+        return decoded['code'] as String;
+      }
+    } on FormatException catch (_) {}
+    return null;
   }
 
   Future<void> _postNoContent(String path) async {

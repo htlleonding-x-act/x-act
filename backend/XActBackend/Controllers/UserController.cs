@@ -225,7 +225,7 @@ public sealed record UserDetailsDto(
 
 public sealed record UserAddRequest(
     string Username,
-    string Email,
+    string? Email = null,
     AccountType AccountType = AccountType.Free,
     Instant? SubscriptionEndDate = null,
     int TotalWins = 0,
@@ -237,7 +237,7 @@ public sealed record UserAddRequest(
         public Validator()
         {
             RuleFor(x => x.Username).NotEmpty().MaximumLength(50);
-            RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(100);
+            RuleFor(x => x.Email).EmailAddress().MaximumLength(100).When(x => x.Email is not null);
             RuleFor(x => x.AccountType).IsInEnum();
             RuleFor(x => x.TotalWins).GreaterThanOrEqualTo(0);
             RuleFor(x => x.TotalGamesPlayed).GreaterThanOrEqualTo(0);

@@ -19,6 +19,9 @@ public interface ITeamMemberRepository
 
     public ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, string userId, bool tracking);
 
+    /// <summary>whether a member of the session other than <paramref name="excludedMemberId"/> goes by the name, ignoring case</summary>
+    public ValueTask<bool> IsNameTakenInSessionAsync(int sessionId, string name, int? excludedMemberId);
+
     public void RemoveTeamMember(TeamMember member);
 }
 
@@ -96,6 +99,16 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet, IClock c
         IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
 
         return await source.FirstOrDefaultAsync(m => m.SessionId == sessionId && m.UserId == userId);
+    }
+
+    public async ValueTask<bool> IsNameTakenInSessionAsync(int sessionId, string name, int? excludedMemberId)
+    {
+        string lowered = name.ToLower();
+
+        // a member goes by the username of its user, or by its guest name when it has no user
+        return await MembersNoTracking
+            .Where(m => m.SessionId == sessionId && m.Id != excludedMemberId)
+            .AnyAsync(m => (m.UserId != null ? m.User!.Username : m.GuestName)!.ToLower() == lowered);
     }
 
     public void RemoveTeamMember(TeamMember member)
