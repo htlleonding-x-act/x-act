@@ -26,9 +26,10 @@ class LobbyTeamCard extends StatelessWidget {
     final roleColor = XActColors.roleColor(team.role);
 
     return DragTarget<LobbyPlayer>(
+      // a full team still accepts the drop so the lobby can tell the host why
+      // the player didn't move
       onWillAcceptWithDetails: (details) {
-        return team.players.length < team.maxPlayers &&
-            !team.players.any((p) => p.memberId == details.data.memberId);
+        return !team.players.any((p) => p.memberId == details.data.memberId);
       },
       onAcceptWithDetails: (details) => onPlayerDropped(details.data),
       builder: (context, candidateData, rejectedData) {

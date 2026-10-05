@@ -511,6 +511,17 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
 
   Future<void> _movePlayerToTeam(LobbyPlayer player, TeamData team) async {
+    if (team.players.length >= team.maxPlayers) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${team.name} is full (${team.maxPlayers}/${team.maxPlayers}).',
+          ),
+        ),
+      );
+      return;
+    }
+
     await _movePlayer(player: player, targetTeamId: team.teamId);
   }
 
