@@ -34,7 +34,7 @@ public sealed class AuthController(
         }
 
         string username = User.FindFirst(JwtRegisteredClaimNames.PreferredUsername)?.Value ?? FallbackUsername;
-        string email = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value ?? string.Empty;
+        string? email = User.FindFirst(JwtRegisteredClaimNames.Email)?.Value;
 
         OneOf<User, Error> userResult =
             await userService.GetOrCreateByKeycloakSubjectAsync(keycloakSubject, username, email);
