@@ -87,6 +87,21 @@ public sealed class TeamMemberControllerTests(WebApiTestFixture fixture) : Seede
     }
 
     [Fact]
+    public async ValueTask AddTeamMember_EmptyUserId_BadRequest()
+    {
+        var request = new TeamMemberAddRequest("", "Guest B", false);
+
+        var response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members",
+            request,
+            JsonOptions,
+            TestCancellationToken
+        );
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async ValueTask UpdateTeamMember_NoContent()
     {
         var request = new TeamMemberUpdateRequest(SeedData.SpectatorUserId, null, false, 48.1, 16.2, Instant.FromUtc(2026, 1, 1, 10, 30));

@@ -272,7 +272,7 @@ public sealed record TeamMemberAddRequest(
     {
         public Validator()
         {
-            RuleFor(x => x.UserId).NotEmpty().When(x => !string.IsNullOrWhiteSpace(x.UserId));
+            RuleFor(x => x.UserId).NotEmpty().When(x => x.UserId is not null);
             RuleFor(x => x.GuestName).MaximumLength(50).When(x => !string.IsNullOrWhiteSpace(x.GuestName));
             RuleFor(x => x).Must(x => (!string.IsNullOrWhiteSpace(x.UserId) && string.IsNullOrWhiteSpace(x.GuestName))
                                   || (string.IsNullOrWhiteSpace(x.UserId) && !string.IsNullOrWhiteSpace(x.GuestName)))
@@ -297,7 +297,7 @@ public sealed record TeamMemberUpdateRequest(
     {
         public Validator()
         {
-            RuleFor(x => x.UserId).NotEmpty().When(x => !string.IsNullOrWhiteSpace(x.UserId));
+            RuleFor(x => x.UserId).NotEmpty().When(x => x.UserId is not null);
             RuleFor(x => x.TeamId).GreaterThan(0).When(x => x.TeamId.HasValue);
             RuleFor(x => x.GuestName).MaximumLength(50).When(x => !string.IsNullOrWhiteSpace(x.GuestName));
             RuleFor(x => x).Must(x => (!string.IsNullOrWhiteSpace(x.UserId) && string.IsNullOrWhiteSpace(x.GuestName))
