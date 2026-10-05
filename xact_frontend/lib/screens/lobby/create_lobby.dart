@@ -17,21 +17,34 @@ class CreateGameScreen extends StatefulWidget {
 
 class _CreateGameScreenState extends State<CreateGameScreen> {
   final _gameNameController = TextEditingController();
+  final _hostNameController = TextEditingController(
+    text: AppSession.instance.currentUsername ?? '',
+  );
   bool _creating = false;
   bool _finalizingLobby = false;
 
   @override
   void dispose() {
     _gameNameController.dispose();
+    _hostNameController.dispose();
     super.dispose();
   }
 
   void _onCreate() async {
     final gameName = _gameNameController.text.trim();
+    final hostName = _hostNameController.text.trim();
 
     if (gameName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a game name')),
+      );
+      return;
+    }
+
+    // logged-in hosts always play under their keycloak username
+    if (!ApiService.instance.isAuthenticated && hostName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
       );
       return;
     }
@@ -45,7 +58,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       if (!locationReady || !mounted) return;
 
       final hostUserId = await ApiService.instance.ensureMvpUser(
-        preferredName: 'Host',
+        preferredName: hostName,
       );
 
       final session = await ApiService.instance.createLobby(
@@ -228,6 +241,16 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
                             // the backend limit for session names
                             maxLength: 120,
                           ),
+                          if (!ApiService.instance.isAuthenticated) ...[
+                            const SizedBox(height: XActSpace.s2),
+                            XActBranding.buildTextField(
+                              label: 'Your display name',
+                              hintText: 'Enter your name…',
+                              controller: _hostNameController,
+                              // the backend limit for user and guest names
+                              maxLength: 50,
+                            ),
+                          ],
                           const SizedBox(height: XActSpace.s4),
                           _InfoBanner(
                             icon: Icons.info_outline_rounded,
