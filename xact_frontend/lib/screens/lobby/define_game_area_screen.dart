@@ -96,16 +96,6 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
         _isLocating = false;
         _usedFallback = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Could not detect your location – using default area. '
-            'Enable location permission to center the map on you.',
-          ),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 4),
-        ),
-      );
     }
   }
 
@@ -477,8 +467,12 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
                   horizontal: 14,
                   vertical: 10,
                 ),
+                // opaque, a see-through banner is unreadable over map tiles
                 decoration: BoxDecoration(
-                  color: XActColors.warning.withValues(alpha: .18),
+                  color: Color.alphaBlend(
+                    XActColors.warning.withValues(alpha: .18),
+                    XActColors.surface,
+                  ),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: XActColors.warning.withValues(alpha: .35),
