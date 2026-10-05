@@ -19,6 +19,7 @@ public static class DomainErrorCodes
     public const string UserDeleted = "user_deleted";
     public const string UserAlreadyJoined = "user_already_joined";
     public const string UsernameTaken = "username_taken";
+    public const string NameTakenInSession = "name_taken_in_session";
     public const string TeamLeaderAlreadyExists = "team_leader_already_exists";
     public const string PowerUpNotAllowedForTeamRole = "power_up_not_allowed_for_team_role";
     public const string GeofencePointLimitReached = "geofence_point_limit_reached";
@@ -84,6 +85,9 @@ public sealed record DomainError(string Code, string Message)
 
     public static DomainError UsernameTaken(string username) =>
         new(DomainErrorCodes.UsernameTaken, $"Username '{username}' is already taken.");
+
+    public static DomainError NameTakenInSession(string name, int sessionId) =>
+        new(DomainErrorCodes.NameTakenInSession, $"Name '{name}' is already used in session {sessionId}.");
 
     public static DomainError TeamLeaderAlreadyExists(int teamId) =>
         new(DomainErrorCodes.TeamLeaderAlreadyExists, $"Team {teamId} already has a team leader.");

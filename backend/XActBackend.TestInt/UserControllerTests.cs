@@ -75,6 +75,18 @@ public sealed class UserControllerTests(WebApiTestFixture fixture) : SeededWebAp
     }
 
     [Fact]
+    public async ValueTask AddUser_ReturnsCreated_WhenGuestNameTakenByGuest()
+    {
+        var request = new UserAddRequest("guest_bob");
+
+        var first = await ApiClient.PostAsJsonAsync(BaseUrl, request, JsonOptions, TestCancellationToken);
+        var second = await ApiClient.PostAsJsonAsync(BaseUrl, request, JsonOptions, TestCancellationToken);
+
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+        second.StatusCode.Should().Be(HttpStatusCode.Created);
+    }
+
+    [Fact]
     public async ValueTask AddUser_BadRequest()
     {
         var request = new UserAddRequest("dup_user", "host@example.com");

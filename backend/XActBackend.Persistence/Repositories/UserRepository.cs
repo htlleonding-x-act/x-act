@@ -5,7 +5,7 @@ namespace XActBackend.Persistence.Repositories;
 
 public interface IUserRepository
 {
-    public User AddUser(string username, string? email, AccountType accountType, string? id = null);
+    public User AddUser(string username, string? email, AccountType accountType, bool isGuest, string? id = null);
 
     public ValueTask<IReadOnlyCollection<User>> GetAllUsersAsync(bool tracking);
 
@@ -13,7 +13,8 @@ public interface IUserRepository
 
     public ValueTask<User?> GetUserByEmailAsync(string email, bool tracking);
 
-    public ValueTask<User?> GetUserByUsernameAsync(string username, bool tracking);
+    /// <summary>ignores guests and the case of the username</summary>
+    public ValueTask<User?> GetRegisteredUserByUsernameAsync(string username, bool tracking);
 
     public void RemoveUser(User user);
 }
@@ -23,7 +24,7 @@ internal sealed class UserRepository(DbSet<User> userSet, IClock clock) : IUserR
     private IQueryable<User> Users => userSet;
     private IQueryable<User> UsersNoTracking => Users.AsNoTracking();
 
-    public User AddUser(string username, string? email, AccountType accountType, string? id = null)
+    public User AddUser(string username, string? email, AccountType accountType, bool isGuest, string? id = null)
     {
         var user = new User
         {
@@ -31,6 +32,7 @@ internal sealed class UserRepository(DbSet<User> userSet, IClock clock) : IUserR
             Username = username,
             Email = email,
             AccountType = accountType,
+            IsGuest = isGuest,
             CreatedAt = clock.GetCurrentInstant(),
         };
 
@@ -62,11 +64,13 @@ internal sealed class UserRepository(DbSet<User> userSet, IClock clock) : IUserR
         return await source.FirstOrDefaultAsync(u => u.Email == email);
     }
 
-    public async ValueTask<User?> GetUserByUsernameAsync(string username, bool tracking)
+    public async ValueTask<User?> GetRegisteredUserByUsernameAsync(string username, bool tracking)
     {
         IQueryable<User> source = tracking ? Users : UsersNoTracking;
 
-        return await source.FirstOrDefaultAsync(u => u.Username == username);
+        string lowered = username.ToLower();
+
+        return await source.FirstOrDefaultAsync(u => !u.IsGuest && u.Username!.ToLower() == lowered);
     }
 
     public void RemoveUser(User user)

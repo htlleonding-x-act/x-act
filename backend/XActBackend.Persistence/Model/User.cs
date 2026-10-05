@@ -16,6 +16,8 @@ public sealed class User
 
     public int TotalGamesPlayed { get; set; }
 
+    public bool IsGuest { get; set; }
+
     public bool IsDeleted { get; set; }
 
     public Instant? DeletedAt { get; set; }

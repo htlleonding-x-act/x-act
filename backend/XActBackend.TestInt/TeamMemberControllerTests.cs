@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using NodaTime;
 using XActBackend.Controllers;
 using XActBackend.Importer;
+using XActBackend.Persistence.Model;
 using XActBackend.TestInt.Util;
 
 namespace XActBackend.TestInt;
@@ -69,6 +70,44 @@ public sealed class TeamMemberControllerTests(WebApiTestFixture fixture) : Seede
         var content = await response.Content.ReadFromJsonAsync<TeamMemberDetailsDto>(JsonOptions, TestCancellationToken);
         content.Should().NotBeNull();
         content.GuestName.Should().Be("Guest B");
+    }
+
+    [Fact]
+    public async ValueTask AddTeamMember_Conflict_WhenNameUsedInSession()
+    {
+        // detective_user is a registered member of the session, and the check ignores case
+        var request = new TeamMemberAddRequest(null, "Detective_User");
+
+        var response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}/teams/{SeedData.DetectiveTeamId}/members",
+            request,
+            JsonOptions,
+            TestCancellationToken
+        );
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async ValueTask AddTeamMember_ReturnsCreated_WhenNameUsedInOtherSession()
+    {
+        // the seeded second session is active, which would reject any new member
+        await ModifyDatabaseContentAsync(context =>
+        {
+            context.GameSessions.Single(s => s.Id == SeedData.SessionTwoId).Status = SessionStatus.Waiting;
+
+            return new ValueTask(context.SaveChangesAsync());
+        });
+        var request = new TeamMemberAddRequest(null, "Guest A");
+
+        var response = await ApiClient.PostAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionTwoId}/teams/{SeedData.SessionTwoTeamId}/members",
+            request,
+            JsonOptions,
+            TestCancellationToken
+        );
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
     }
 
     [Fact]
