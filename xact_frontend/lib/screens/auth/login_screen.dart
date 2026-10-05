@@ -119,8 +119,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      Navigator.of(context).pushReplacement(
+      // the start screen that opened this one still shows the signed-out buttons
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const StartScreen()),
+        (_) => false,
       );
     } else {
       _showError('Login failed. Please try again.');
