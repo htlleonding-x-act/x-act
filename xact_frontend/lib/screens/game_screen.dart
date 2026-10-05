@@ -30,6 +30,7 @@ class _GameScreenState extends State<GameScreen> {
   bool _endMatchNavigationStarted = false;
   bool _rematchNavigationStarted = false;
   bool _endingGame = false;
+  bool _offeredEndForEmptySide = false;
   Timer? _trackingRetryTimer;
   Timer? _sessionStatusPollTimer;
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
@@ -113,6 +114,11 @@ class _GameScreenState extends State<GameScreen> {
           _onRematchCreated(RematchCreatedPayload.fromJson(event.payload));
         } else if (event.type == RealtimeEvents.memberKicked) {
           _onMemberKicked(MemberKickedPayload.fromJson(event.payload));
+        }
+
+        if (event.type == RealtimeEvents.memberKicked ||
+            event.type == RealtimeEvents.teamMemberLeft) {
+          unawaited(_offerEndWhenOneSideIsEmpty());
         }
       });
     } catch (_) {
@@ -466,6 +472,40 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  /// the game can't go on once kicks or leaving players empty one side, so the
+  /// host gets asked once whether to end it
+  Future<void> _offerEndWhenOneSideIsEmpty() async {
+    if (!_isHost || _offeredEndForEmptySide || _endMatchNavigationStarted) {
+      return;
+    }
+
+    final List<TeamCardData> teams;
+    try {
+      teams = await ApiService.instance.loadTeamCards();
+    } catch (_) {
+      return;
+    }
+
+    final hasMisterX = teams.any(
+      (t) => t.role == TeamRole.mrX && t.members.isNotEmpty,
+    );
+    final hasDetectives = teams.any(
+      (t) => t.role == TeamRole.detective && t.members.isNotEmpty,
+    );
+    if ((hasMisterX && hasDetectives) ||
+        !mounted ||
+        _offeredEndForEmptySide) {
+      return;
+    }
+
+    _offeredEndForEmptySide = true;
+    await _endGameAsHost(
+      title: hasMisterX ? 'No detectives left' : 'No Mister X left',
+      message: 'The other side has no players anymore. End the match?',
+      cancelLabel: 'Keep playing',
+    );
+  }
+
   bool get _isHost {
     final details = _sessionDetails;
     final currentUserId = AppSession.instance.currentUserId;
@@ -474,7 +514,11 @@ class _GameScreenState extends State<GameScreen> {
         details.hostUserId == currentUserId;
   }
 
-  Future<void> _endGameAsHost() async {
+  Future<void> _endGameAsHost({
+    String title = 'End the game?',
+    String message = 'The match ends for every player.',
+    String cancelLabel = 'Cancel',
+  }) async {
     final sessionId = AppSession.instance.currentSessionId;
     if (sessionId == null || _endingGame) {
       return;
@@ -483,12 +527,12 @@ class _GameScreenState extends State<GameScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('End the game?'),
-        content: const Text('The match ends for every player.'),
+        title: Text(title),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(cancelLabel),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
