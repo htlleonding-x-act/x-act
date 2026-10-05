@@ -92,6 +92,11 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
     setState(() => _joining = true);
 
     try {
+      // checked before joining, otherwise a player who can't share their
+      // location shows up in the host's lobby without ever entering it
+      final locationReady = await _ensureLocationReadyBeforeLobby();
+      if (!locationReady || !mounted) return;
+
       final userId = await ApiService.instance.ensureMvpUser(
         preferredName: username,
       );
@@ -138,9 +143,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         memberId: member.memberId,
         teamLeader: member.isTeamLeader,
       );
-
-      final locationReady = await _ensureLocationReadyBeforeLobby();
-      if (!locationReady || !mounted) return;
+      if (!mounted) return;
 
       Navigator.push(
         context,
