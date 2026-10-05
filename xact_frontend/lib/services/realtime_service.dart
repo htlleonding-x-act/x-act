@@ -24,8 +24,15 @@ final class RealtimeService {
   final StreamController<GameSessionSnapshot> _snapshotController =
       StreamController<GameSessionSnapshot>.broadcast();
 
+  final StreamController<bool> _connectionController =
+      StreamController<bool>.broadcast();
+
   Stream<RealtimeEventEnvelope> get eventStream => _eventController.stream;
   Stream<GameSessionSnapshot> get snapshotStream => _snapshotController.stream;
+
+  /// false when the connection drops, true once it is back and the groups and
+  /// presence are restored
+  Stream<bool> get connectionChanges => _connectionController.stream;
 
   GameSessionSnapshot? get latestSnapshot => _latestSnapshot;
 
@@ -66,8 +73,16 @@ final class RealtimeService {
         .withAutomaticReconnect(reconnectPolicy: const _RetryForeverPolicy())
         .build();
 
+    connection.onreconnecting(({error}) {
+      _connectionController.add(false);
+    });
+
     connection.onreconnected(({connectionId}) {
-      unawaited(_restoreAfterReconnect());
+      unawaited(
+        _restoreAfterReconnect().whenComplete(
+          () => _connectionController.add(true),
+        ),
+      );
     });
 
     connection.on(RealtimeMethods.event, (arguments) {

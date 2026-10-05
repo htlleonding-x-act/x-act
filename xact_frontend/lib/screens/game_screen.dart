@@ -36,6 +36,8 @@ class _GameScreenState extends State<GameScreen> {
   GameSessionDetails? _sessionDetails;
   StreamSubscription<void>? _chatNotificationSub;
   StreamSubscription<void>? _ownRevealSub;
+  StreamSubscription<bool>? _connectionSub;
+  bool _connectionLost = false;
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -59,6 +61,11 @@ class _GameScreenState extends State<GameScreen> {
     _ownRevealSub = LocationService.instance.ownPositionRevealed.listen(
       (_) => _onOwnPositionRevealed(),
     );
+    _connectionSub = ApiService.instance.realtimeConnectionChanges.listen((
+      connected,
+    ) {
+      if (mounted) setState(() => _connectionLost = !connected);
+    });
     _sessionStatusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _endMatchNavigationStarted) {
         return;
@@ -208,6 +215,7 @@ class _GameScreenState extends State<GameScreen> {
     _realtimeEventSub?.cancel();
     _chatNotificationSub?.cancel();
     _ownRevealSub?.cancel();
+    _connectionSub?.cancel();
     LocationService.instance.stopTracking();
     super.dispose();
   }
@@ -523,6 +531,7 @@ class _GameScreenState extends State<GameScreen> {
                 bottom: false,
                 child: Column(
                   children: [
+                    if (_connectionLost) _buildConnectionLostBanner(),
                     Expanded(
                       flex: 5,
                       child: MapArea(onFullscreenToggle: _toggleFullscreen),
@@ -532,6 +541,34 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
         bottomNavigationBar: _isMapFullscreen ? null : _buildBottomBar(),
+      ),
+    );
+  }
+
+  /// while this shows, positions, pings and chat are not up to date
+  Widget _buildConnectionLostBanner() {
+    return Container(
+      width: double.infinity,
+      color: XActColors.warning.withValues(alpha: .18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: XActColors.warning,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Connection lost. Reconnecting…',
+              style: XActText.bodySm.copyWith(color: XActColors.text1),
+            ),
+          ),
+        ],
       ),
     );
   }

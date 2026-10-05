@@ -153,4 +153,6 @@ final class ApiService {
   Stream<RealtimeEventEnvelope> get realtimeEvents => _realtime.eventStream;
 
   Stream<GameSessionSnapshot> get realtimeSnapshots => _realtime.snapshotStream;
+
+  Stream<bool> get realtimeConnectionChanges => _realtime.connectionChanges;
 }
