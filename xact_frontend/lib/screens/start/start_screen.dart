@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/screens/auth/login_screen.dart';
+import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/settings/profile_screen.dart';
 import 'package:xact_frontend/screens/start/playnow_screen.dart';
+import 'package:xact_frontend/services/active_game_storage.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
@@ -15,9 +17,36 @@ class StartScreen extends StatefulWidget {
 
 class _StartScreenState extends State<StartScreen> {
   bool _showHowTo = false;
+  ({ActiveGame game, String sessionName})? _resumable;
+  bool _resuming = false;
 
   // guests get a user id too, so only a keycloak token means signed in
   bool get _isLoggedIn => ApiService.instance.isAuthenticated;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadResumableGame();
+  }
+
+  Future<void> _loadResumableGame() async {
+    final resumable = await ApiService.instance.loadResumableGame();
+    if (mounted) setState(() => _resumable = resumable);
+  }
+
+  Future<void> _rejoinGame() async {
+    final resumable = _resumable;
+    if (resumable == null || _resuming) return;
+
+    setState(() => _resuming = true);
+    await ApiService.instance.resumeGame(resumable.game);
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const GameScreen()),
+      (_) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +101,16 @@ class _StartScreenState extends State<StartScreen> {
                             setState(() => _showHowTo = !_showHowTo),
                       ),
                       const SizedBox(height: XActSpace.s3),
+                      if (_resumable != null) ...[
+                        XActBranding.buildSuccessButton(
+                          text: _resuming
+                              ? 'Rejoining…'
+                              : 'Rejoin ${_resumable!.sessionName}',
+                          icon: Icons.replay_rounded,
+                          onPressed: _resuming ? null : _rejoinGame,
+                        ),
+                        const SizedBox(height: XActSpace.s3),
+                      ],
                       if (_isLoggedIn) ...[
                         XActBranding.buildPrimaryButton(
                           text: 'Play Now',

@@ -353,6 +353,96 @@ extension ApiServiceSessionMethods on ApiService {
     throw StateError('Unsupported session state transition for ending.');
   }
 
+  /// remembers the running match so the player can get back in after the app
+  /// was closed or killed
+  Future<void> rememberActiveGame() async {
+    final sessionId = _session.currentSessionId;
+    final joinCode = _session.currentJoinCode;
+    final teamId = _session.currentTeamId;
+    final memberId = _session.currentMemberId;
+    final userId = _session.currentUserId;
+    final username = _session.currentUsername;
+    if (sessionId == null ||
+        joinCode == null ||
+        teamId == null ||
+        memberId == null ||
+        userId == null ||
+        username == null) {
+      return;
+    }
+
+    try {
+      await ActiveGameStorage.save((
+        sessionId: sessionId,
+        joinCode: joinCode,
+        teamId: teamId,
+        memberId: memberId,
+        isTeamLeader: _session.isTeamLeader,
+        userId: userId,
+        username: username,
+      ));
+    } catch (_) {}
+  }
+
+  /// the remembered match, if it still runs and this player is still in it
+  Future<({ActiveGame game, String sessionName})?> loadResumableGame() async {
+    final ActiveGame? game;
+    try {
+      game = await ActiveGameStorage.load();
+    } catch (_) {
+      return null;
+    }
+    if (game == null) return null;
+
+    // a different account signed in since then
+    if (isAuthenticated && _session.currentUserId != game.userId) {
+      await _forgetActiveGame();
+      return null;
+    }
+
+    try {
+      final details = await _getGameSession(game.sessionId);
+      final members = await _listTeamMembersByTeam(game.sessionId, game.teamId);
+      if (details.status != SessionStatus.active ||
+          !members.any((m) => m.memberId == game!.memberId)) {
+        await _forgetActiveGame();
+        return null;
+      }
+      return (game: game, sessionName: details.sessionName);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) await _forgetActiveGame();
+      return null;
+    } catch (_) {
+      // offline, keep it for the next try
+      return null;
+    }
+  }
+
+  Future<void> resumeGame(ActiveGame game) async {
+    if (!isAuthenticated) {
+      _session.setIdentity(userId: game.userId, username: game.username);
+    }
+    _session.setSession(sessionId: game.sessionId, joinCode: game.joinCode);
+    _session.setMembership(
+      teamId: game.teamId,
+      memberId: game.memberId,
+      teamLeader: game.isTeamLeader,
+    );
+
+    try {
+      await _ensureRealtimeSubscription(game.sessionId);
+      await registerCurrentMemberPresence();
+    } catch (_) {
+      // the game screen retries realtime on its own
+    }
+  }
+
+  Future<void> _forgetActiveGame() async {
+    try {
+      await ActiveGameStorage.clear();
+    } catch (_) {}
+  }
+
   Future<void> closeCurrentSession() async {
     final sessionId = _session.currentSessionId;
     if (sessionId == null) return;
@@ -389,6 +479,7 @@ extension ApiServiceSessionMethods on ApiService {
       await _realtime.unregisterMemberPresence();
     } catch (_) {}
     await _realtime.unsubscribeSession(sessionId);
+    await _forgetActiveGame();
 
     _session.currentSessionId = null;
     _session.currentJoinCode = null;
@@ -410,6 +501,7 @@ extension ApiServiceSessionMethods on ApiService {
     try {
       await _realtime.unsubscribeSession(sessionId);
     } catch (_) {}
+    await _forgetActiveGame();
 
     _session.currentSessionId = null;
     _session.currentJoinCode = null;

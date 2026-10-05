@@ -50,6 +50,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     unawaited(_startLocationTrackingSafely());
+    unawaited(ApiService.instance.rememberActiveGame());
     unawaited(_initRealtimeAnnouncements());
     unawaited(_joinTeamChannel());
     unawaited(_loadSessionDetails());
