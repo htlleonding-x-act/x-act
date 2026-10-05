@@ -119,7 +119,7 @@ class LobbyTeamCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 4, top: 2, bottom: 2),
                   child: Text(
-                    'No players yet — drag someone in.',
+                    isLeader ? 'No players yet — drag someone in.' : 'No players yet.',
                     style: XActText.caption.copyWith(
                       color: XActColors.text4,
                       fontSize: 13,
@@ -128,7 +128,11 @@ class LobbyTeamCard extends StatelessWidget {
                 )
               else
                 ...team.players.map(
-                  (p) => DraggablePlayerTile(player: p, dotColor: roleColor),
+                  (p) => DraggablePlayerTile(
+                    player: p,
+                    dotColor: roleColor,
+                    canDrag: isLeader,
+                  ),
                 ),
             ],
           ),

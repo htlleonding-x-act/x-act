@@ -870,13 +870,17 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.touch_app_outlined,
+                              leader
+                                  ? Icons.touch_app_outlined
+                                  : Icons.hourglass_empty_rounded,
                               size: 14,
                               color: XActColors.text4,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Long-press a player to drag them between teams',
+                              leader
+                                  ? 'Long-press a player to drag them between teams'
+                                  : 'Waiting for the host to set up the teams',
                               style: XActText.caption.copyWith(
                                 color: XActColors.text4,
                                 fontSize: 12,
@@ -888,6 +892,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                       const SizedBox(height: 16),
                       SpectatorsCard(
                         spectators: _spectators,
+                        isLeader: leader,
                         onPlayerDropped: _movePlayerToSpectators,
                       ),
                       const SizedBox(height: 12),

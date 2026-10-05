@@ -7,11 +7,13 @@ import 'team_data.dart';
 class PlayerTileContent extends StatelessWidget {
   final LobbyPlayer player;
   final Color dotColor;
+  final bool showDragHandle;
 
   const PlayerTileContent({
     super.key,
     required this.player,
     required this.dotColor,
+    this.showDragHandle = true,
   });
 
   @override
@@ -31,8 +33,10 @@ class PlayerTileContent extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.drag_indicator, color: XActColors.text5, size: 18),
-          const SizedBox(width: 6),
+          if (showDragHandle) ...[
+            Icon(Icons.drag_indicator, color: XActColors.text5, size: 18),
+            const SizedBox(width: 6),
+          ],
           Container(
             width: 30,
             height: 30,
@@ -108,19 +112,33 @@ class PlayerTileContent extends StatelessWidget {
   }
 }
 
-/// long press drag it onto any team or the spectators
+/// long press drag it onto any team or the spectators. only the host can
+/// drag, everyone else sees the plain tile
 class DraggablePlayerTile extends StatelessWidget {
   final LobbyPlayer player;
   final Color dotColor;
+  final bool canDrag;
 
   const DraggablePlayerTile({
     super.key,
     required this.player,
     required this.dotColor,
+    required this.canDrag,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (!canDrag) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: PlayerTileContent(
+          player: player,
+          dotColor: dotColor,
+          showDragHandle: false,
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: LongPressDraggable<LobbyPlayer>(
