@@ -48,7 +48,9 @@ class ProfileScreen extends StatelessWidget {
                             _buildInfoRow(
                               icon: Icons.badge_outlined,
                               title: 'Account type',
-                              value: 'Free',
+                              value: ApiService.instance.isAuthenticated
+                                  ? 'Free'
+                                  : 'Guest',
                             ),
                           ],
                         ),
@@ -285,7 +287,10 @@ class ProfileScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: Text('Log out?', style: XActText.heading),
         content: Text(
-          'You\'ll need to sign in again to play.',
+          // a guest can't sign back in, the guest identity is gone for good
+          ApiService.instance.isAuthenticated
+              ? 'You\'ll need to sign in again to play.'
+              : 'You\'ll leave the current game and lose your guest name.',
           style: XActText.body.copyWith(color: XActColors.text3, fontSize: 14),
         ),
         actions: [
