@@ -794,7 +794,8 @@ public sealed class GameSessionServiceTests
     private Team ArrangeActiveCatchScenario(
         out Team mrXTeam,
         TeamRole catchingRole = TeamRole.Detective,
-        int catchingTeamSessionId = DefaultSessionId)
+        int catchingTeamSessionId = DefaultSessionId,
+        bool catchingTeamHasMembers = true)
     {
         var session = CreateSession();
         session.Status = SessionStatus.Active;
@@ -807,6 +808,12 @@ public sealed class GameSessionServiceTests
         var catchingTeam = CreateTeam(DefaultCatchingTeamId, "Detective Team", catchingRole, "#2563EB");
         catchingTeam.SessionId = catchingTeamSessionId;
         _teamRepository.GetTeamByIdAsync(DefaultCatchingTeamId, true).Returns(catchingTeam);
+
+        IReadOnlyCollection<TeamMember> catchingMembers = catchingTeamHasMembers
+            ? [CreateMember(40, DefaultCatchingTeamId, null, "Guest A", isTeamLeader: false)]
+            : [];
+        _teamMemberRepository.GetMembersBySessionAndTeamIdAsync(DefaultSessionId, DefaultCatchingTeamId, false)
+            .Returns(catchingMembers);
 
         return catchingTeam;
     }
@@ -887,6 +894,21 @@ public sealed class GameSessionServiceTests
             _ => Assert.Fail("Expected DomainError but got NotFound"),
             domainError => domainError.Code.Should().Be(DomainErrorCodes.CatchingTeamNotEligible)
         );
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsDomainError_WhenCatchingTeamEmpty()
+    {
+        ArrangeActiveCatchScenario(out var mrXTeam, catchingTeamHasMembers: false);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got MrXCaughtResult"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.CatchingTeamEmpty)
+        );
+
+        mrXTeam.Role.Should().Be(TeamRole.MrX);
+        await _uow.DidNotReceive().SaveChangesAsync();
     }
 
     [Fact]

@@ -331,6 +331,15 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             return DomainError.CatchingTeamNotEligible(catchingTeamId, catchingTeam.Role);
         }
 
+        // handing the role to an empty team would leave the game without a mr.x
+        IReadOnlyCollection<TeamMember> catchingMembers =
+            await uow.TeamMemberRepository.GetMembersBySessionAndTeamIdAsync(sessionId, catchingTeamId, tracking: false);
+        if (catchingMembers.Count == 0)
+        {
+            logger.LogWarning("Rejected catch for session {SessionId} because catching team {TeamId} has no members", sessionId, catchingTeamId);
+            return DomainError.CatchingTeamEmpty(catchingTeamId);
+        }
+
         mrXTeam.Role = TeamRole.Detective;
         mrXTeam.IsCaught = false;
         catchingTeam.Role = TeamRole.MrX;
