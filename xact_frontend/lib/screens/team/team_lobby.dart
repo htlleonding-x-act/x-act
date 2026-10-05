@@ -373,6 +373,35 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   Future<void> _deleteTeam(int index) async {
     final team = _teams[index];
 
+    // the backend refuses to delete a team that still has members
+    if (team.players.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Move the players out of ${team.name} first.'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete ${team.name}?'),
+        content: const Text('The team will be removed from the lobby.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _working = true);
     try {
       await ApiService.instance.deleteTeam(
