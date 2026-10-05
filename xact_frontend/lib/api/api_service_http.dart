@@ -200,7 +200,8 @@ extension ApiServiceHttpMethods on ApiService {
     };
   }
 
-  Future<void> addLocationLog({
+  /// returns whether the server made this ping the reveal of mister x
+  Future<bool> addLocationLog({
     required int sessionId,
     required int teamId,
     required int memberId,
@@ -211,7 +212,7 @@ extension ApiServiceHttpMethods on ApiService {
     required String transportMode,
     bool isRevealedPosition = false,
   }) async {
-    await _postJsonObjectOrThrow(
+    final json = await _postJsonObjectOrThrow(
       '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId/locationlogs',
       {
         'timestamp': timestamp.toIso8601String(),
@@ -222,5 +223,6 @@ extension ApiServiceHttpMethods on ApiService {
         'isRevealedPosition': isRevealedPosition,
       },
     );
+    return json['isRevealedPosition'] == true;
   }
 }

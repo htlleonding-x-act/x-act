@@ -35,6 +35,7 @@ class _GameScreenState extends State<GameScreen> {
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   GameSessionDetails? _sessionDetails;
   StreamSubscription<void>? _chatNotificationSub;
+  StreamSubscription<void>? _ownRevealSub;
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -55,6 +56,9 @@ class _GameScreenState extends State<GameScreen> {
         ChatNotificationService.instance.onChange.listen((_) {
       if (mounted) setState(() {});
     });
+    _ownRevealSub = LocationService.instance.ownPositionRevealed.listen(
+      (_) => _onOwnPositionRevealed(),
+    );
     _sessionStatusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _endMatchNavigationStarted) {
         return;
@@ -144,6 +148,21 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  void _onOwnPositionRevealed() {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Ping! The detectives can now see your position.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
+  }
+
   void _onMrXCaught(MrXCaughtPayload payload) {
     if (!mounted) {
       return;
@@ -188,6 +207,7 @@ class _GameScreenState extends State<GameScreen> {
     _sessionStatusPollTimer?.cancel();
     _realtimeEventSub?.cancel();
     _chatNotificationSub?.cancel();
+    _ownRevealSub?.cancel();
     LocationService.instance.stopTracking();
     super.dispose();
   }
