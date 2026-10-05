@@ -116,6 +116,13 @@ final class ApiService {
   }
 
   Future<void> logout() async {
+    // leave while the identity still tells whether this user hosts the session
+    try {
+      await closeCurrentSession();
+    } catch (_) {
+      await leaveCurrentSessionLocally();
+    }
+
     // Back-channel logout: tell Keycloak to end the SSO session server-side.
     // This requires the refresh token and does not need a browser redirect.
     try {

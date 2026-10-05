@@ -372,12 +372,13 @@ extension ApiServiceSessionMethods on ApiService {
     final memberId = _session.currentMemberId;
     if (isHost && details.status != SessionStatus.finished) {
       await _finishSession(details);
-    } else if (details.status == SessionStatus.active &&
+    } else if (details.status != SessionStatus.finished &&
         teamId != null &&
         memberId != null) {
-      // delete the member like a kick does, otherwise they stay on everyone's
-      // map and still count in kick votes. errors are ignored so leaving also
-      // works offline
+      // delete the member like a kick does, otherwise they stay in the lobby or
+      // on everyone's map and still count in kick votes. the presence is dropped
+      // below, so the lobby disconnect cleanup won't remove them either. errors
+      // are ignored so leaving also works offline
       try {
         await removeMember(
           sessionId: sessionId,
