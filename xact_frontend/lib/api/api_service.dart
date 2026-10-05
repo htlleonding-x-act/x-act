@@ -48,7 +48,12 @@ final class ApiService {
 
     try {
       await _syncUserWithBackend();
-    } catch (_) {}
+    } catch (_) {
+      // tokens without a backend user would show the player as signed in with no
+      // identity, so the login counts as failed
+      await _clearTokens();
+      return false;
+    }
 
     return true;
   }

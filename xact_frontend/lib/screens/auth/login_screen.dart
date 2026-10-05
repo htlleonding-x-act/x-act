@@ -66,21 +66,25 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_isLoading) return;
     _setLoading(true);
 
-    final challenge = AuthChallenge.generate();
-    await AuthStorage.savePendingChallenge(challenge);
+    var launched = false;
+    try {
+      final challenge = AuthChallenge.generate();
+      await AuthStorage.savePendingChallenge(challenge);
 
-    // On web, open in a new tab — Keycloak will redirect back to this origin.
-    // On desktop/mobile, open in an external application.
-    final launched = await launchUrl(
-      AuthConfig.loginUri(challenge),
-      mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
-    );
+      // On web, open in a new tab — Keycloak will redirect back to this origin.
+      // On desktop/mobile, open in an external application.
+      launched = await launchUrl(
+        AuthConfig.loginUri(challenge),
+        mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+      );
+    } catch (_) {
+    } finally {
+      _setLoading(false);
+    }
 
     if (!launched) {
       _showError('Could not open the login page. Please try again.');
     }
-
-    _setLoading(false);
   }
 
   // ── Code-exchange handler ─────────────────────────────────────────────────
@@ -91,29 +95,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
     _setLoading(true);
 
-    final pending = await AuthStorage.loadPendingChallenge();
-    await AuthStorage.clearPendingChallenge();
+    var success = false;
+    try {
+      final pending = await AuthStorage.loadPendingChallenge();
+      await AuthStorage.clearPendingChallenge();
 
-    // A callback carrying someone else's state was not started by this app, and the
-    // code is worthless without the verifier that belongs to it.
-    if (pending == null || pending.state != uri.queryParameters['state']) {
-      cleanBrowserUrl();
+      // A callback carrying someone else's state was not started by this app, and the
+      // code is worthless without the verifier that belongs to it.
+      if (pending != null && pending.state == uri.queryParameters['state']) {
+        success = await ApiService.instance.exchangeAuthCode(
+          code,
+          pending.verifier,
+        );
+      }
+    } catch (_) {
+      // keycloak or secure storage failed, which is reported like any failed login
+    } finally {
       _setLoading(false);
-      _showError('Login failed. Please try again.');
-      return;
     }
 
-    final success = await ApiService.instance.exchangeAuthCode(
-      code,
-      pending.verifier,
-    );
-
-    _setLoading(false);
+    cleanBrowserUrl();
 
     if (!mounted) return;
 
     if (success) {
-      cleanBrowserUrl();
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const StartScreen()),
       );
