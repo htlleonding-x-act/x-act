@@ -196,13 +196,11 @@ OffenseStatus? tryParseOffenseStatus(String value) {
 final class UserInfo {
   final String userId;
   final String username;
-  final String email;
   final AccountType? accountType;
 
   const UserInfo({
     required this.userId,
     required this.username,
-    required this.email,
     required this.accountType,
   });
 
@@ -210,7 +208,6 @@ final class UserInfo {
     return UserInfo(
       userId: json['id'] as String,
       username: json['username'] as String,
-      email: json['email'] as String,
       accountType: switch (json['accountType']) {
         final String s => tryParseAccountType(s),
         _ => null,
@@ -222,7 +219,6 @@ final class UserInfo {
 final class UserDetails {
   final String userId;
   final String username;
-  final String email;
   final AccountType? accountType;
   final DateTime? subscriptionEndDate;
   final int totalWins;
@@ -231,7 +227,6 @@ final class UserDetails {
   const UserDetails({
     required this.userId,
     required this.username,
-    required this.email,
     required this.accountType,
     required this.subscriptionEndDate,
     required this.totalWins,
@@ -242,7 +237,6 @@ final class UserDetails {
     return UserDetails(
       userId: json['id'] as String,
       username: json['username'] as String,
-      email: json['email'] as String,
       accountType: switch (json['accountType']) {
         final String s => tryParseAccountType(s),
         _ => null,

@@ -31,7 +31,7 @@ public sealed class UserControllerTests(WebApiTestFixture fixture) : SeededWebAp
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var content = await response.Content.ReadFromJsonAsync<UserDetailsDto>(JsonOptions, TestCancellationToken);
         content.Should().NotBeNull();
-        content.Email.Should().Be("host@example.com");
+        content.Id.Should().Be(SeedData.HostUserId);
     }
 
     [Fact]
