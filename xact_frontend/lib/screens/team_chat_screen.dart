@@ -19,6 +19,7 @@ class TeamChatScreen extends StatefulWidget {
 class _TeamChatScreenState extends State<TeamChatScreen> {
   final List<ChatMessage> _messages = [];
   StreamSubscription<RealtimeEventEnvelope>? _eventSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
 
   int? _teamId;
   TeamChatHeaderData? _header;
@@ -30,12 +31,17 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
     super.initState();
     _teamId = AppSession.instance.currentTeamId;
     _eventSubscription = ApiService.instance.realtimeEvents.listen(_onEvent);
+    // messages posted while offline never arrived as events
+    _connectionSubscription = ApiService.instance.realtimeConnectionChanges
+        .where((connected) => connected)
+        .listen((_) => unawaited(_reload()));
     unawaited(_init());
   }
 
   @override
   void dispose() {
     _eventSubscription?.cancel();
+    _connectionSubscription?.cancel();
     super.dispose();
   }
 
@@ -66,6 +72,13 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
     }
 
     await _loadHistory(teamId);
+  }
+
+  Future<void> _reload() async {
+    final teamId = _teamId;
+    if (teamId != null) {
+      await _loadHistory(teamId);
+    }
   }
 
   Future<void> _loadHistory(int teamId) async {
@@ -112,14 +125,10 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
     setState(() => _messages.add(message));
   }
 
-  void _handleSend(String text) {
-    unawaited(_send(text));
-  }
-
-  Future<void> _send(String text) async {
+  Future<bool> _send(String text) async {
     final teamId = _teamId;
     if (teamId == null) {
-      return;
+      return false;
     }
 
     try {
@@ -130,12 +139,18 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
       if (mounted && !_messages.any((m) => m.id == message.id)) {
         setState(() => _messages.add(message));
       }
-    } catch (_) {
+      return true;
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send message.')),
+          SnackBar(
+            content: Text(
+              'Message not sent. ${describeApiError(error)}',
+            ),
+          ),
         );
       }
+      return false;
     }
   }
 
@@ -202,7 +217,7 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
           Expanded(child: _buildBody()),
           ChatInputBar(
             hintText: 'Message your team…',
-            onSend: _teamId == null ? null : _handleSend,
+            onSend: _teamId == null ? null : _send,
           ),
         ],
       ),
@@ -228,15 +243,12 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
     }
 
     if (_failed && _messages.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Could not load team chat. Reopen this tab to retry.',
-            style: XActText.bodySm.copyWith(color: XActColors.text3),
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return ChatLoadFailedView(
+        message: 'Could not load team chat.',
+        onRetry: () {
+          setState(() => _loading = true);
+          unawaited(_reload());
+        },
       );
     }
 

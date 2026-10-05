@@ -185,3 +185,36 @@ class _ChatBubble extends StatelessWidget {
     return '$hh:$mm';
   }
 }
+
+/// shown when the chat history could not be loaded
+class ChatLoadFailedView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const ChatLoadFailedView({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: XActText.bodySm.copyWith(color: XActColors.text3),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
