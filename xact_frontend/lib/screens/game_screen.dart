@@ -458,6 +458,25 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('End the game?'),
+        content: const Text('The match ends for every player.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('End game'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _endingGame = true);
     try {
       await ApiService.instance.endGameSession(sessionId);
@@ -520,7 +539,9 @@ class _GameScreenState extends State<GameScreen> {
           if (_isHost && !_endMatchNavigationStarted) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: XActBranding.buildPrimaryButton(
+              // a ghost button, so it doesn't look like the red "I've been
+              // caught" button of the team tab
+              child: XActBranding.buildGhostButton(
                 text: _endingGame ? 'Ending game…' : 'End Game',
                 icon: Icons.stop_circle_rounded,
                 height: 52,
