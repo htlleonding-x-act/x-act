@@ -702,6 +702,33 @@ public sealed class GameSessionServiceTests
     }
 
     [Fact]
+    public async ValueTask GetOpenGameSessionByHostAsync_ReturnsSession_WhenHostHasOne()
+    {
+        var session = CreateSession();
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns(session);
+
+        OneOf<GameSession, NotFound> result = await _sut.GetOpenGameSessionByHostAsync(DefaultUserId);
+
+        result.Switch(
+            found => found.Should().BeSameAs(session),
+            _ => Assert.Fail("Expected GameSession but got NotFound")
+        );
+    }
+
+    [Fact]
+    public async ValueTask GetOpenGameSessionByHostAsync_ReturnsNotFound_WhenHostHasNone()
+    {
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
+
+        OneOf<GameSession, NotFound> result = await _sut.GetOpenGameSessionByHostAsync(DefaultUserId);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got GameSession"),
+            _ => { /* expected */ }
+        );
+    }
+
+    [Fact]
     public async ValueTask StartGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
     {
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns((GameSession?) null);

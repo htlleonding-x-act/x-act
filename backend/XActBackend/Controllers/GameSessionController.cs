@@ -61,6 +61,20 @@ public sealed class GameSessionController(
         );
     }
 
+    [HttpGet]
+    [Route("hosted-by/{hostUserId}")]
+    [ProducesResponseType<GameSessionDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async ValueTask<ActionResult<GameSessionDetailsDto>> GetOpenGameSessionByHost([FromRoute] string hostUserId)
+    {
+        OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetOpenGameSessionByHostAsync(hostUserId);
+
+        return sessionResult.Match<ActionResult<GameSessionDetailsDto>>(
+            gameSession => Ok(GameSessionDetailsDto.FromGameSession(gameSession, clock.GetCurrentInstant())),
+            notFound => NotFound()
+        );
+    }
+
     [HttpPost]
     [Route("")]
     [ProducesResponseType<GameSessionDetailsDto>(StatusCodes.Status201Created)]

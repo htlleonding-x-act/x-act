@@ -6,16 +6,6 @@ extension ApiServiceHttpMethods on ApiService {
     return ApiListResponse.fromJson(json, GeofencePointInfo.fromJson).items;
   }
 
-  Future<List<UserInfo>> _listUsers() async {
-    final json = await _getJsonObject('/api/users');
-    return ApiListResponse.fromJson(json, UserInfo.fromJson).items;
-  }
-
-  Future<List<GameSessionInfo>> _listGameSessions() async {
-    final json = await _getJsonObject('/api/gamesessions');
-    return ApiListResponse.fromJson(json, GameSessionInfo.fromJson).items;
-  }
-
   Future<GameSessionDetails> _getGameSession(int sessionId) async {
     final json = await _getJsonObject('/api/gamesessions/$sessionId');
     return GameSessionDetails.fromJson(json);

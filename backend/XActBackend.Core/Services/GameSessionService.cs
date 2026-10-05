@@ -19,6 +19,9 @@ public interface IGameSessionService
 
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByJoinCodeAsync(string joinCode, bool tracking);
 
+    /// <summary>the waiting or running session of a host, a host can only have one</summary>
+    public ValueTask<OneOf<GameSession, NotFound>> GetOpenGameSessionByHostAsync(string hostUserId);
+
     public ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId);
 
     public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId);
@@ -259,6 +262,13 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
     public async ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByJoinCodeAsync(string joinCode, bool tracking)
     {
         var gameSession = await uow.GameSessionRepository.GetSessionByJoinCodeAsync(joinCode, tracking);
+
+        return gameSession is not null ? gameSession : new NotFound();
+    }
+
+    public async ValueTask<OneOf<GameSession, NotFound>> GetOpenGameSessionByHostAsync(string hostUserId)
+    {
+        var gameSession = await uow.GameSessionRepository.GetActiveSessionByHostUserIdAsync(hostUserId, tracking: false);
 
         return gameSession is not null ? gameSession : new NotFound();
     }

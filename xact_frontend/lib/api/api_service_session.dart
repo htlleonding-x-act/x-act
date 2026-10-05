@@ -173,8 +173,6 @@ extension ApiServiceSessionMethods on ApiService {
     }
 
     final teams = await _listTeams(sessionId);
-    final users = await _listUsers();
-    final usersById = {for (final user in users) user.userId: user};
 
     final membersByTeamId = <int, List<TeamMemberDetails>>{};
     for (final team in teams) {
@@ -195,6 +193,11 @@ extension ApiServiceSessionMethods on ApiService {
           )
           .toList(growable: false);
     }
+
+    await _loadUnknownUsers(
+      membersByTeamId.values.expand((m) => m).map((m) => m.userId),
+    );
+    final usersById = Map.of(_usersById);
 
     return LobbySnapshot(
       teams: teams,
@@ -507,28 +510,45 @@ extension ApiServiceSessionMethods on ApiService {
     _session.clearMembership();
   }
 
-  Future<void> _closeOpenSessionsForHost(String hostUserId) async {
-    final sessions = await _listGameSessions();
-
-    for (final session in sessions) {
-      if (session.status == SessionStatus.finished) continue;
-
+  /// usernames don't change during a session and snapshots arrive with every
+  /// location ping, so only users not seen before get fetched, one by one
+  /// instead of the whole user list
+  Future<void> _loadUnknownUsers(Iterable<String?> userIds) async {
+    final unknown = userIds
+        .whereType<String>()
+        .where((id) => !_usersById.containsKey(id))
+        .toSet();
+    for (final userId in unknown) {
       try {
-        final details = await _getGameSession(session.sessionId);
-        if (details.hostUserId != hostUserId ||
-            details.status == SessionStatus.finished) {
-          continue;
-        }
-
-        await _finishSession(details);
-
-        if (_session.currentSessionId == details.sessionId) {
-          _session.currentSessionId = null;
-          _session.currentJoinCode = null;
-          _session.clearMembership();
-        }
-      } catch (_) {}
+        final json = await _getJsonObject('/api/users/$userId');
+        _usersById[userId] = UserInfo.fromJson(json);
+      } catch (_) {
+        // the name falls back to a placeholder until the next snapshot
+      }
     }
+  }
+
+  /// a host can only have one open session, so an old one left behind by a
+  /// crash would block the new lobby
+  Future<void> _closeOpenSessionsForHost(String hostUserId) async {
+    final GameSessionDetails details;
+    try {
+      details = GameSessionDetails.fromJson(
+        await _getJsonObject('/api/gamesessions/hosted-by/$hostUserId'),
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return;
+      rethrow;
+    }
+
+    try {
+      await _finishSession(details);
+      if (_session.currentSessionId == details.sessionId) {
+        _session.currentSessionId = null;
+        _session.currentJoinCode = null;
+        _session.clearMembership();
+      }
+    } catch (_) {}
   }
 
   Future<void> _finishSession(GameSessionDetails details) async {
@@ -600,21 +620,7 @@ extension ApiServiceSessionMethods on ApiService {
       membersByTeamId[member.teamId]!.add(details);
     }
 
-    // usernames don't change during a session and this runs on every location
-    // ping, so only refetch users when an unknown user id shows up
-    final hasUnknownUser = snapshot.members.any(
-      (member) =>
-          member.userId != null && !_usersById.containsKey(member.userId),
-    );
-    if (hasUnknownUser) {
-      try {
-        final users = await _listUsers();
-        _usersById
-          ..clear()
-          ..addAll({for (final user in users) user.userId: user});
-      } catch (_) {
-      }
-    }
+    await _loadUnknownUsers(snapshot.members.map((m) => m.userId));
 
     return LobbySnapshot(
       teams: teams,
@@ -663,21 +669,7 @@ extension ApiServiceSessionMethods on ApiService {
     });
   }
 
-  Future<int?> getActiveSessionId() async {
-    if (_session.currentSessionId != null) return _session.currentSessionId;
-
-    final sessions = await _listGameSessions();
-    final active = sessions.where((s) => s.status == SessionStatus.active).toList();
-    if (active.isNotEmpty) {
-      _session.currentSessionId = active.first.sessionId;
-      _session.currentJoinCode = active.first.joinCode;
-      return active.first.sessionId;
-    }
-
-    if (sessions.isEmpty) return null;
-
-    _session.currentSessionId = sessions.first.sessionId;
-    _session.currentJoinCode = sessions.first.joinCode;
-    return sessions.first.sessionId;
-  }
+  /// only the session this player is in. picking any other open session would
+  /// show a stranger's game
+  Future<int?> getActiveSessionId() async => _session.currentSessionId;
 }

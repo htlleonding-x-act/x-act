@@ -248,38 +248,6 @@ final class UserDetails {
   }
 }
 
-final class GameSessionInfo {
-  final int sessionId;
-  final String sessionName;
-  final String joinCode;
-  final SessionStatus? status;
-  final DateTime? startTime;
-  final DateTime? endTime;
-
-  const GameSessionInfo({
-    required this.sessionId,
-    required this.sessionName,
-    required this.joinCode,
-    required this.status,
-    required this.startTime,
-    required this.endTime,
-  });
-
-  factory GameSessionInfo.fromJson(Map<String, dynamic> json) {
-    return GameSessionInfo(
-      sessionId: _readInt(json, ['id', 'sessionId']),
-      sessionName: (json['sessionName'] as String?) ?? 'Session',
-      joinCode: json['joinCode'] as String,
-      status: switch (json['status']) {
-        final String s => tryParseSessionStatus(s),
-        _ => null,
-      },
-      startTime: tryParseIsoDateTime(json['startTime']),
-      endTime: tryParseIsoDateTime(json['endTime']),
-    );
-  }
-}
-
 final class GameSessionDetails {
   final int sessionId;
   final String hostUserId;
