@@ -22,6 +22,11 @@ class AddTeamDialog extends StatefulWidget {
   final Color initialColor;
   /// the team can't get smaller than the players already in it
   final int minMaxPlayers;
+  /// colors of the other teams, which this team can't pick so every team
+  /// stays recognizable on the map
+  final List<Color> takenColors;
+  /// mister x is always shown in red, so its team gets no color to pick
+  final bool isMisterX;
 
   const AddTeamDialog.edit({
     super.key,
@@ -29,18 +34,39 @@ class AddTeamDialog extends StatefulWidget {
     required this.initialMaxPlayers,
     required this.initialColor,
     required int playerCount,
+    required this.takenColors,
+    required this.isMisterX,
   })  : title = 'Edit team',
         submitLabel = 'Save',
         minMaxPlayers = playerCount < 1 ? 1 : playerCount;
 
-  const AddTeamDialog.create({
+  AddTeamDialog.create({
     super.key,
     this.initialName = 'Team 3',
+    required this.takenColors,
   })  : title = 'Add new team',
         submitLabel = 'Create',
         minMaxPlayers = 1,
         initialMaxPlayers = 3,
-        initialColor = const Color(0xFF5B7CFA);
+        isMisterX = false,
+        initialColor = paletteColors.firstWhere(
+          (c) => !_containsColor(takenColors, c),
+          orElse: () => paletteColors.first,
+        );
+
+  /// red is left out because it marks mister x
+  static const List<Color> paletteColors = [
+    Color(0xFF5B7CFA), // detective blue
+    Color(0xFF34D399), // success green
+    Color(0xFFF6B05B), // warning amber
+    Color(0xFFA78BFA), // violet
+    Color(0xFF06B6D4), // cyan
+    Color(0xFFF472B6), // pink
+    Color(0xFF94A3B8), // slate
+  ];
+
+  static bool _containsColor(List<Color> colors, Color color) =>
+      colors.any((c) => c.toARGB32() == color.toARGB32());
 
   @override
   State<AddTeamDialog> createState() => _AddTeamDialogState();
@@ -53,17 +79,6 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
   late Color _selectedColor;
   late final List<Color> _colorOptions;
 
-  static const List<Color> _paletteColors = [
-    Color(0xFF5B7CFA), // detective blue
-    Color(0xFF34D399), // success green
-    Color(0xFFF6B05B), // warning amber
-    Color(0xFFFF4D5E), // primary red
-    Color(0xFFA78BFA), // violet
-    Color(0xFF06B6D4), // cyan
-    Color(0xFFF472B6), // pink
-    Color(0xFF94A3B8), // slate
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -74,12 +89,13 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
     _selectedColor = widget.initialColor;
     // teams created with a color outside the palette, like the default teams,
     // still get their current color shown as selected
-    final inPalette = _paletteColors.any(
-      (c) => c.toARGB32() == widget.initialColor.toARGB32(),
+    final inPalette = AddTeamDialog._containsColor(
+      AddTeamDialog.paletteColors,
+      widget.initialColor,
     );
     _colorOptions = [
       if (!inPalette) widget.initialColor,
-      ..._paletteColors,
+      ...AddTeamDialog.paletteColors,
     ];
   }
 
@@ -220,38 +236,55 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
                 ),
               ),
               const SizedBox(height: 10),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: _colorOptions.map((c) {
-                  final isSelected = c.toARGB32() == _selectedColor.toARGB32();
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedColor = c),
-                    child: Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: c,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isSelected
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: .06),
-                          width: isSelected ? 3 : 1,
+              if (widget.isMisterX)
+                Text(
+                  'Mister X is always shown in red.',
+                  style: XActText.caption.copyWith(color: XActColors.text4),
+                )
+              else
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: _colorOptions.map((c) {
+                    final isSelected = c.toARGB32() == _selectedColor.toARGB32();
+                    final isTaken = !isSelected &&
+                        AddTeamDialog._containsColor(widget.takenColors, c);
+                    return GestureDetector(
+                      onTap: isTaken
+                          ? null
+                          : () => setState(() => _selectedColor = c),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isTaken ? c.withValues(alpha: .25) : c,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: .06),
+                            width: isSelected ? 3 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: c.withValues(alpha: .5),
+                                    blurRadius: 12,
+                                  ),
+                                ]
+                              : null,
                         ),
-                        boxShadow: isSelected
-                            ? [
-                                BoxShadow(
-                                  color: c.withValues(alpha: .5),
-                                  blurRadius: 12,
-                                ),
-                              ]
+                        child: isTaken
+                            ? Icon(
+                                Icons.block_rounded,
+                                size: 16,
+                                color: XActColors.text4,
+                              )
                             : null,
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
+                    );
+                  }).toList(),
+                ),
               const SizedBox(height: 22),
               Row(
                 children: [

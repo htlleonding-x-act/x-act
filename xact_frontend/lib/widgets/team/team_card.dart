@@ -22,13 +22,11 @@ class TeamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roleColor = role != null ? XActColors.roleColor(role) : color;
-
     return Container(
       decoration: BoxDecoration(
         color: XActColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: roleColor.withValues(alpha: .25)),
+        border: Border.all(color: color.withValues(alpha: .25)),
         boxShadow: XActElevation.e1,
       ),
       padding: const EdgeInsets.all(16),
@@ -42,10 +40,10 @@ class TeamCard extends StatelessWidget {
                 height: 10,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: roleColor,
+                  color: color,
                   boxShadow: [
                     BoxShadow(
-                      color: roleColor.withValues(alpha: .7),
+                      color: color.withValues(alpha: .7),
                       blurRadius: 12,
                     ),
                   ],
@@ -74,7 +72,7 @@ class TeamCard extends StatelessWidget {
               Text(
                 '${members.length}',
                 style: XActText.bodySm.copyWith(
-                  color: roleColor,
+                  color: color,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -107,8 +105,8 @@ class TeamCard extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            roleColor,
-                            roleColor.withValues(alpha: .6),
+                            color,
+                            color.withValues(alpha: .6),
                           ],
                         ),
                       ),

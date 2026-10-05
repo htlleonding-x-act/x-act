@@ -147,7 +147,7 @@ extension ApiServiceSessionMethods on ApiService {
       sessionId: sessionId,
       teamName: _defaultDetectiveTeamName,
       role: TeamRole.detective,
-      colorCode: '#2563EB',
+      colorCode: '#5B7CFA',
     );
 
     if (hostUserId != null) {

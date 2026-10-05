@@ -160,7 +160,7 @@ class _TeamChatScreenState extends State<TeamChatScreen> {
     final teamName = header?.teamName ?? (_failed ? 'Team Chat' : 'Loading…');
     final teamColor = header == null
         ? XActColors.roleDetective
-        : XActColors.roleColor(header.role);
+        : header.teamColor;
     final subtitle = header == null
         ? (_failed ? 'Team info unavailable' : 'Loading team info…')
         : '${header.memberCount} teammates · private';

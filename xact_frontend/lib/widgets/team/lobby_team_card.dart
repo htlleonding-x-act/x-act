@@ -23,7 +23,7 @@ class LobbyTeamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roleColor = XActColors.roleColor(team.role);
+    final teamColor = team.color;
 
     return DragTarget<LobbyPlayer>(
       // a full team still accepts the drop so the lobby can tell the host why
@@ -40,13 +40,13 @@ class LobbyTeamCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isHovering
-                ? roleColor.withValues(alpha: .10)
+                ? teamColor.withValues(alpha: .10)
                 : XActColors.surface,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: isHovering
-                  ? roleColor
-                  : roleColor.withValues(alpha: .25),
+                  ? teamColor
+                  : teamColor.withValues(alpha: .25),
               width: isHovering ? 2 : 1,
             ),
             boxShadow: XActElevation.e1,
@@ -64,10 +64,10 @@ class LobbyTeamCard extends StatelessWidget {
                           height: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: roleColor,
+                            color: teamColor,
                             boxShadow: [
                               BoxShadow(
-                                color: roleColor.withValues(alpha: .7),
+                                color: teamColor.withValues(alpha: .7),
                                 blurRadius: 12,
                               ),
                             ],
@@ -93,7 +93,7 @@ class LobbyTeamCard extends StatelessWidget {
                   Text(
                     '${team.players.length}/${team.maxPlayers}',
                     style: XActText.bodySm.copyWith(
-                      color: roleColor,
+                      color: teamColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -101,7 +101,7 @@ class LobbyTeamCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     _IconAction(
                       icon: Icons.edit_rounded,
-                      color: roleColor,
+                      color: teamColor,
                       onTap: onRename,
                     ),
                     if (team.isDeletable) ...[
@@ -131,7 +131,7 @@ class LobbyTeamCard extends StatelessWidget {
                 ...team.players.map(
                   (p) => DraggablePlayerTile(
                     player: p,
-                    dotColor: roleColor,
+                    dotColor: teamColor,
                     canDrag: isLeader,
                   ),
                 ),

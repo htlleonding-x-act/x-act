@@ -139,9 +139,10 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
       for (final team in snapshot.teams) {
         final configuredUi = _teamUiConfigById[team.teamId];
-        final teamColor =
-            configuredUi?.color ??
-            (tryParseHexColor(team.colorCode) ?? Colors.blueGrey);
+        final teamColor = team.role == TeamRole.mrX
+            ? XActColors.roleMrX
+            : configuredUi?.color ??
+                  (tryParseHexColor(team.colorCode) ?? Colors.blueGrey);
         final maxPlayers = configuredUi?.maxPlayers ?? team.maxPlayerCount;
         final members = (snapshot.membersByTeamId[team.teamId] ?? const [])
             .map((m) {
@@ -339,6 +340,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       context: context,
       builder: (_) => AddTeamDialog.create(
         initialName: _nextAvailableTeamName(),
+        takenColors: _teamColorsExcept(null),
       ),
     );
 
@@ -422,6 +424,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     }
   }
 
+  List<Color> _teamColorsExcept(int? teamId) => _teams
+      .where((t) => t.teamId != teamId)
+      .map((t) => t.color)
+      .toList(growable: false);
+
   Future<void> _renameTeam(int index) async {
     final team = _teams[index];
     final edited = await showDialog<AddTeamResult>(
@@ -431,6 +438,8 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         initialMaxPlayers: team.maxPlayers,
         initialColor: team.color,
         playerCount: team.players.length,
+        takenColors: _teamColorsExcept(team.teamId),
+        isMisterX: team.role == TeamRole.mrX,
       ),
     );
 

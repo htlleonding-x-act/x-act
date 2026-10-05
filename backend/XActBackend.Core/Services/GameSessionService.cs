@@ -67,7 +67,7 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
     private const string HostTeamColor = "#EF4444";
     private const string DefaultMrXTeamName = "Team 1";
     private const string DefaultDetectiveTeamName = "Team 2";
-    private const string DefaultDetectiveTeamColor = "#2563EB";
+    private const string DefaultDetectiveTeamColor = "#5B7CFA";
     private const string SpectatorTeamName = "Unassigned";
     private const string SpectatorTeamColor = "#64748B";
 
