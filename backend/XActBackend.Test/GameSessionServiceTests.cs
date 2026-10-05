@@ -202,13 +202,13 @@ public sealed class GameSessionServiceTests
         var data = new IGameSessionService.GameSessionData(DefaultUserId, DefaultSessionName, DefaultJoinCode);
         var user = CreateUser();
         var session = CreateSession(10, data.SessionName, data.JoinCode);
-        var team = CreateTeam(20, "Team 1", TeamRole.MrX, "#000000");
+        var team = CreateTeam(20, "Team 1", TeamRole.MrX, "#EF4444");
 
         _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(user);
         _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
         _gameSessionRepository.GetSessionByJoinCodeAsync(DefaultJoinCode, false).Returns((GameSession?) null);
         _gameSessionRepository.AddGameSession(DefaultUserId, DefaultSessionName, DefaultJoinCode, 60, 5).Returns(session);
-        _teamRepository.AddTeam(session.Id, "Team 1", TeamRole.MrX, "#000000", Team.DefaultMaxPlayerCount).Returns(team);
+        _teamRepository.AddTeam(session.Id, "Team 1", TeamRole.MrX, "#EF4444", Team.DefaultMaxPlayerCount).Returns(team);
 
         OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
 
@@ -906,6 +906,8 @@ public sealed class GameSessionServiceTests
 
         catchingTeam.Role.Should().Be(TeamRole.MrX);
         mrXTeam.Role.Should().Be(TeamRole.Detective);
+        catchingTeam.ColorCode.Should().Be("#000000");
+        mrXTeam.ColorCode.Should().Be("#2563EB");
         catchingTeam.IsCaught.Should().BeFalse();
         mrXTeam.IsCaught.Should().BeFalse();
         await _uow.Received(1).SaveChangesAsync();

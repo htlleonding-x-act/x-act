@@ -9,6 +9,7 @@ import '../auth/auth_config.dart';
 import '../auth/auth_storage.dart';
 import '../services/app_session.dart';
 import '../services/realtime_service.dart';
+import '../widgets/xact_branding.dart';
 import 'api_config.dart';
 import 'models.dart';
 

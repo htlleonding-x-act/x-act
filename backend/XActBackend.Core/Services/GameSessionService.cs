@@ -53,7 +53,7 @@ public interface IGameSessionService
 
 internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<GameSessionService> logger) : IGameSessionService
 {
-    private const string HostTeamColor = "#000000";
+    private const string HostTeamColor = "#EF4444";
     private const string DefaultMrXTeamName = "Team 1";
 
 
@@ -335,6 +335,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         mrXTeam.IsCaught = false;
         catchingTeam.Role = TeamRole.MrX;
         catchingTeam.IsCaught = false;
+        // the colors swap with the roles, otherwise the former mr.x team stays red on every map
+        (mrXTeam.ColorCode, catchingTeam.ColorCode) = (catchingTeam.ColorCode, mrXTeam.ColorCode);
 
         await uow.SaveChangesAsync();
 

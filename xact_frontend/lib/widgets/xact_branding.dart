@@ -55,6 +55,14 @@ class XActColors {
   static final Color hairlineFaint = Colors.white.withValues(alpha: .06);
   static final Color hairlineHi = Colors.white.withValues(alpha: .18);
 
+  /// mister x always uses the mister x color, so after a catch swaps the roles
+  /// the map and report follow the new mister x. other teams keep the color the
+  /// host picked
+  static Color teamColor(TeamRole? role, String colorCode) =>
+      role == TeamRole.mrX
+          ? roleMrX
+          : (tryParseHexColor(colorCode) ?? roleColor(role));
+
   static Color roleColor(TeamRole? role) => switch (role) {
         TeamRole.mrX => roleMrX,
         TeamRole.detective => roleDetective,

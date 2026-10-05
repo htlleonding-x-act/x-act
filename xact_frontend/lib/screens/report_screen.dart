@@ -134,7 +134,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
     final rows = <_PlayerRow>[];
     for (final team in snapshot.teams) {
-      final color = tryParseHexColor(team.colorCode) ?? XActColors.roleSpectator;
+      final color = XActColors.teamColor(team.role, team.colorCode);
       final members = snapshot.membersByTeamId[team.teamId] ?? const [];
       for (final member in members) {
         final name = member.userId != null
