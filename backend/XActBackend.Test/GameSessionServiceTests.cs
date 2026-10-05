@@ -702,6 +702,40 @@ public sealed class GameSessionServiceTests
     }
 
     [Fact]
+    public async ValueTask CleanUpAbandonedSessionsAsync_DeletesWaitingAndFinishesActiveSessions()
+    {
+        var now = Instant.FromUtc(2026, 10, 5, 12, 0);
+        _clock.GetCurrentInstant().Returns(now);
+        var waiting = CreateSession(1);
+        waiting.Status = SessionStatus.Waiting;
+        var active = CreateSession(2);
+        active.Status = SessionStatus.Active;
+        _gameSessionRepository.GetAbandonedSessionsAsync(now - Duration.FromMinutes(10)).Returns([waiting, active]);
+
+        IGameSessionService.AbandonedSessions result = await _sut.CleanUpAbandonedSessionsAsync(Duration.FromMinutes(10));
+
+        result.DeletedSessionIds.Should().Equal(1);
+        result.FinishedSessions.Should().ContainSingle().Which.Should().BeSameAs(active);
+        active.Status.Should().Be(SessionStatus.Finished);
+        active.EndTime.Should().Be(now);
+        _gameSessionRepository.Received(1).RemoveSession(waiting);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask CleanUpAbandonedSessionsAsync_SavesNothing_WhenNothingIsAbandoned()
+    {
+        _clock.GetCurrentInstant().Returns(Instant.FromUtc(2026, 10, 5, 12, 0));
+        _gameSessionRepository.GetAbandonedSessionsAsync(Arg.Any<Instant>()).Returns([]);
+
+        IGameSessionService.AbandonedSessions result = await _sut.CleanUpAbandonedSessionsAsync(Duration.FromMinutes(10));
+
+        result.DeletedSessionIds.Should().BeEmpty();
+        result.FinishedSessions.Should().BeEmpty();
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
     public async ValueTask GetOpenGameSessionByHostAsync_ReturnsSession_WhenHostHasOne()
     {
         var session = CreateSession();

@@ -51,7 +51,15 @@ public interface IGameSessionService
         int MrXRevealInterval = 5
     );
 
+    /// <summary>
+    ///     deletes waiting sessions whose host left and finishes running sessions without players. both are left
+    ///     behind when apps crash or get killed, and an open session blocks its host from creating a new one
+    /// </summary>
+    public ValueTask<AbandonedSessions> CleanUpAbandonedSessionsAsync(Duration minimumAge);
+
     public sealed record MrXCaughtResult(Team NewMrXTeam, Team FormerMrXTeam);
+
+    public sealed record AbandonedSessions(IReadOnlyCollection<int> DeletedSessionIds, IReadOnlyCollection<GameSession> FinishedSessions);
 }
 
 internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<GameSessionService> logger) : IGameSessionService
@@ -264,6 +272,38 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         var gameSession = await uow.GameSessionRepository.GetSessionByJoinCodeAsync(joinCode, tracking);
 
         return gameSession is not null ? gameSession : new NotFound();
+    }
+
+    public async ValueTask<IGameSessionService.AbandonedSessions> CleanUpAbandonedSessionsAsync(Duration minimumAge)
+    {
+        Instant now = clock.GetCurrentInstant();
+        IReadOnlyCollection<GameSession> abandoned = await uow.GameSessionRepository.GetAbandonedSessionsAsync(now - minimumAge);
+
+        List<int> deleted = [];
+        List<GameSession> finished = [];
+        foreach (var session in abandoned)
+        {
+            if (session.Status == SessionStatus.Waiting)
+            {
+                uow.GameSessionRepository.RemoveSession(session);
+                deleted.Add(session.Id);
+            }
+            else
+            {
+                session.Status = SessionStatus.Finished;
+                session.EndTime = now;
+                finished.Add(session);
+            }
+        }
+
+        if (abandoned.Count > 0)
+        {
+            await uow.SaveChangesAsync();
+            logger.LogInformation("Cleaned up abandoned sessions: deleted {DeletedCount} lobbies, finished {FinishedCount} games",
+                                  deleted.Count, finished.Count);
+        }
+
+        return new IGameSessionService.AbandonedSessions(deleted, finished);
     }
 
     public async ValueTask<OneOf<GameSession, NotFound>> GetOpenGameSessionByHostAsync(string hostUserId)
