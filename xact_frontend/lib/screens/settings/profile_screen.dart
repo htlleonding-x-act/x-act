@@ -327,10 +327,13 @@ class ProfileScreen extends StatelessWidget {
   }
 
   static String _initials(String name) {
+    // characters, not code units, so a name starting with an emoji keeps it
+    // whole instead of showing half of it
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length >= 2) {
-      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+      return '${parts.first.characters.first}${parts.last.characters.first}'
+          .toUpperCase();
     }
-    return name.substring(0, name.length.clamp(1, 2)).toUpperCase();
+    return name.characters.take(2).toString().toUpperCase();
   }
 }

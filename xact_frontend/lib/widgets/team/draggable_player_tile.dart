@@ -20,7 +20,7 @@ class PlayerTileContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final initial = player.name.trim().isEmpty
         ? '?'
-        : player.name.trim()[0].toUpperCase();
+        : player.name.trim().characters.first.toUpperCase();
     final isYou = player.isCurrentUser;
 
     return Container(

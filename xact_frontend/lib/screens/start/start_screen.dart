@@ -125,7 +125,7 @@ class _StartScreenState extends State<StartScreen> {
 
     final initial = username.trim().isEmpty
         ? 'P'
-        : username.trim().substring(0, 1).toUpperCase();
+        : username.trim().characters.first.toUpperCase();
 
     return Align(
       alignment: Alignment.topRight,

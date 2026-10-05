@@ -106,7 +106,7 @@ class TeamCard extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       child: Text(
-                        member.isEmpty ? '?' : member[0].toUpperCase(),
+                        member.isEmpty ? '?' : member.characters.first.toUpperCase(),
                         style: XActText.bodySm.copyWith(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
