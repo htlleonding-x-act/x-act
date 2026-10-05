@@ -553,13 +553,17 @@ class XActBranding {
                     ),
                     const SizedBox(width: 10),
                   ],
-                  Text(
-                    text,
-                    style: GoogleFonts.inter(
-                      fontSize: fontSize,
-                      fontWeight: fontWeight,
-                      color: enabled ? Colors.white : XActColors.text4,
-                      letterSpacing: -.1,
+                  Flexible(
+                    child: Text(
+                      text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        fontSize: fontSize,
+                        fontWeight: fontWeight,
+                        color: enabled ? Colors.white : XActColors.text4,
+                        letterSpacing: -.1,
+                      ),
                     ),
                   ),
                 ],

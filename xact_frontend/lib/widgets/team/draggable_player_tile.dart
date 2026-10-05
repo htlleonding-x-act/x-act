@@ -68,9 +68,13 @@ class PlayerTileContent extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            player.name,
-            style: XActText.bodySm.copyWith(fontWeight: FontWeight.w500),
+          Flexible(
+            child: Text(
+              player.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: XActText.bodySm.copyWith(fontWeight: FontWeight.w500),
+            ),
           ),
           if (player.isTeamLeader) ...[
             const SizedBox(width: 8),

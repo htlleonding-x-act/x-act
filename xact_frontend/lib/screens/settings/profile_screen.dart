@@ -193,10 +193,16 @@ class ProfileScreen extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: XActColors.text3),
           const SizedBox(width: 14),
-          Expanded(child: Text(title, style: XActText.bodySm)),
-          Text(
-            value,
-            style: XActText.bodySm.copyWith(color: XActColors.text3),
+          Text(title, style: XActText.bodySm),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: XActText.bodySm.copyWith(color: XActColors.text3),
+            ),
           ),
         ],
       ),
