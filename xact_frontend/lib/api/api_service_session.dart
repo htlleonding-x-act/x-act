@@ -70,6 +70,12 @@ extension ApiServiceSessionMethods on ApiService {
     final json = await _postJsonObjectOrThrow('/api/auth/register', {});
     final user = UserDetails.fromJson(json);
     _session.setIdentity(userId: user.userId, username: user.username);
+    try {
+      await AuthStorage.saveIdentity(
+        userId: user.userId,
+        username: user.username,
+      );
+    } catch (_) {}
   }
 
   Future<String> _createGuestUser({required String preferredName}) async {

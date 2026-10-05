@@ -11,7 +11,7 @@ import 'package:xact_frontend/widgets/xact_branding.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ChatNotificationService.instance.init();
-  await ApiService.instance.loadStoredToken();
+  await ApiService.instance.restoreLogin();
   runApp(const MainApp());
 }
 
