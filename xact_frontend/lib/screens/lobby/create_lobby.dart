@@ -123,7 +123,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not create game: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not create game. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _creating = false);

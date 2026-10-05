@@ -11,6 +11,26 @@ final class ApiException implements Exception {
   String toString() => 'HTTP $statusCode${code == null ? '' : ' ($code)'}';
 }
 
+/// turns a failed request into a sentence a player can act on, instead of
+/// showing the raw exception
+String describeApiError(Object error) => switch (error) {
+  ApiException(code: 'session_not_joinable') =>
+    'This game has already started or is over.',
+  ApiException(code: 'session_not_active') => 'This game is not running.',
+  ApiException(code: 'name_taken_in_session') =>
+    'Someone in this game already uses that name. Pick another one.',
+  ApiException(code: 'username_taken') =>
+    'That name belongs to a registered player. Pick another one.',
+  ApiException(code: 'team_has_members') =>
+    'Move the players out of the team first.',
+  ApiException(statusCode: 404) => 'This game no longer exists.',
+  ApiException(statusCode: 400) => 'Please check your input and try again.',
+  ApiException() => 'The server could not handle that. Please try again.',
+  http.ClientException() =>
+    'Could not reach the server. Check your connection.',
+  _ => 'Something went wrong. Please try again.',
+};
+
 final class TeamCardData {
   final int teamId;
   final String teamName;

@@ -159,13 +159,9 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
     } catch (error) {
       if (!mounted) return;
       final message = switch (error) {
-        ApiException(code: 'name_taken_in_session') =>
-          'Someone in this game already uses that name. Pick another one.',
-        ApiException(code: 'username_taken') =>
-          'That name belongs to a registered player. Pick another one.',
-        _ when error.toString().contains('HTTP 404') =>
+        ApiException(statusCode: 404) =>
           'No game found with code "$gameCode". Ask the host to share a current code.',
-        _ => 'Could not join game: $error',
+        _ => 'Could not join game. ${describeApiError(error)}',
       };
       ScaffoldMessenger.of(
         context,

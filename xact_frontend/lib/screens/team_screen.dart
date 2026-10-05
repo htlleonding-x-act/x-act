@@ -172,7 +172,7 @@ class _TeamScreenState extends State<TeamScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to hand over Mister X: $error')),
+          SnackBar(content: Text('Failed to hand over Mister X. ${describeApiError(error)}')),
         );
       }
     } finally {

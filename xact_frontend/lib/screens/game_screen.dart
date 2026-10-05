@@ -488,7 +488,7 @@ class _GameScreenState extends State<GameScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not end game: $error')));
+        ).showSnackBar(SnackBar(content: Text('Could not end game. ${describeApiError(error)}')));
       }
     } finally {
       if (mounted) {

@@ -211,7 +211,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load game lobby: $error')),
+        SnackBar(content: Text('Failed to load game lobby. ${describeApiError(error)}')),
       );
     } finally {
       _refreshesInFlight--;
@@ -362,7 +362,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not create team: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not create team. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -414,7 +414,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not delete team: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not delete team. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -462,7 +462,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not save team: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not save team. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -490,7 +490,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not start game: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not start game. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -555,7 +555,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not move player: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not move player. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -666,7 +666,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not randomize teams: $error')),
+        SnackBar(content: Text('Could not randomize teams. ${describeApiError(error)}')),
       );
     } finally {
       if (mounted) {
@@ -753,7 +753,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not save map area: $e')));
+      ).showSnackBar(SnackBar(content: Text('Could not save map area. ${describeApiError(e)}')));
     } finally {
       if (mounted) setState(() => _working = false);
     }

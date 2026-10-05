@@ -123,7 +123,7 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
       }
       setState(() => _working = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start a new lobby: $error')),
+        SnackBar(content: Text('Could not start a new lobby. ${describeApiError(error)}')),
       );
     }
   }
@@ -252,7 +252,7 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not leave lobby cleanly: $error')),
+          SnackBar(content: Text('Could not leave lobby cleanly. ${describeApiError(error)}')),
         );
       }
     }

@@ -71,7 +71,7 @@ extension ApiServiceHttpMethods on ApiService {
     final response = await _send(() => _http.get(uri, headers: _headers()));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for GET $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
 
     final decoded = jsonDecode(response.body);
@@ -143,7 +143,7 @@ extension ApiServiceHttpMethods on ApiService {
     final uri = _baseUri.resolve(path);
     final response = await _send(() => _http.post(uri, headers: _headers()));
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for POST $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
@@ -157,7 +157,7 @@ extension ApiServiceHttpMethods on ApiService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for POST $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
@@ -171,7 +171,7 @@ extension ApiServiceHttpMethods on ApiService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for PUT $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
@@ -179,7 +179,7 @@ extension ApiServiceHttpMethods on ApiService {
     final uri = _baseUri.resolve(path);
     final response = await _send(() => _http.delete(uri, headers: _headers()));
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for DELETE $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
