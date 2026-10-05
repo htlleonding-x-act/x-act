@@ -329,19 +329,12 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
-      return;
-    }
-
-    if (mounted) {
-      setState(() => _allowDirectPop = false);
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const StartScreen()),
-        (route) => false,
-      );
-    }
+    // popping would land on whatever screen led into the lobby, e.g. the
+    // join form, so quitting goes to the start screen like a kick does
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const StartScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _openEndMatchScreen() async {
@@ -442,25 +435,25 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    final how = payload.byHost ? 'the host' : 'a vote';
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('You were removed from the game by $how.'),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-
     setState(() => _allowDirectPop = true);
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) {
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const StartScreen()),
       (route) => false,
+    );
+
+    // shown after the navigation, which clears the snackbars of the old screen
+    final how = payload.byHost ? 'the host' : 'a vote';
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('You were removed from the game by $how.'),
+        duration: const Duration(seconds: 4),
+      ),
     );
   }
 
