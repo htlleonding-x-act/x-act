@@ -71,11 +71,6 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Game created! Share code: ${session.joinCode}'),
-        ),
-      );
 
       // the create form stays mounted under the area screen. setting this flag
       // now shows a loading view the moment the area screen pops, instead of
