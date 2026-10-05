@@ -34,6 +34,11 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   // the corners the host placed, they form the polygon
   final List<LatLng> _points = [];
 
+  // the same corners in the order they were placed. new corners get inserted
+  // next to the closest edge, so the last one in [_points] isn't always the
+  // one undo should remove
+  final List<LatLng> _placementOrder = [];
+
   // -1 when no corner is selected
   int _selectedIndex = -1;
 
@@ -56,6 +61,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
     super.initState();
     if (widget.initialPoints != null && widget.initialPoints!.isNotEmpty) {
       _points.addAll(widget.initialPoints!);
+      _placementOrder.addAll(widget.initialPoints!);
     }
     _resolveInitialCenter();
   }
@@ -108,8 +114,11 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   void _onMapTap(TapPosition _, LatLng point) {
     if (_isMoveMode && _selectedIndex >= 0 && _selectedIndex < _points.length) {
       setState(() {
+        final orderIndex = _placementOrder.indexOf(_points[_selectedIndex]);
+        if (orderIndex >= 0) _placementOrder[orderIndex] = point;
         _points[_selectedIndex] = point;
         _isMoveMode = false;
+        _selectedIndex = -1;
       });
       return;
     }
@@ -126,6 +135,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
 
     setState(() {
       _points.insert(_bestInsertIndex(point), point);
+      _placementOrder.add(point);
       _selectedIndex = -1;
       _isMoveMode = false;
     });
@@ -164,7 +174,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   void _deletePointAt(int index) {
     if (index < 0 || index >= _points.length) return;
     setState(() {
-      _points.removeAt(index);
+      _placementOrder.remove(_points.removeAt(index));
 
       if (_selectedIndex == index) {
         _selectedIndex = -1;
@@ -225,13 +235,13 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
         setState(() => _isMoveMode = true);
       case _PointAction.delete:
         _showDeleteDialog(index);
-      case _PointAction.deselect:
+      // closing the menu without a choice also deselects, otherwise the status
+      // still asks to choose from a menu that is gone
+      case _PointAction.deselect || null:
         setState(() {
           _selectedIndex = -1;
           _isMoveMode = false;
         });
-      case null:
-        break;
     }
   }
 
@@ -266,8 +276,8 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
   }
 
   void _undoLast() {
-    if (_points.isEmpty) return;
-    _deletePointAt(_points.length - 1);
+    if (_placementOrder.isEmpty) return;
+    _deletePointAt(_points.indexOf(_placementOrder.last));
   }
 
   void _clearAll() {
@@ -299,6 +309,7 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
       if (confirmed == true) {
         setState(() {
           _points.clear();
+          _placementOrder.clear();
           _selectedIndex = -1;
           _isMoveMode = false;
         });
@@ -317,8 +328,41 @@ class _DefineGameAreaScreenState extends State<DefineGameAreaScreen> {
       return;
     }
 
+    if (_enclosedAreaSquareMeters() < _minAreaSquareMeters) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The corners must enclose an area. Move them further apart.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     GeofenceStore.instance.setPoints(List.of(_points));
     Navigator.of(context).pop(true); // true tells the caller the area was saved
+  }
+
+  // corners on one line or on top of each other enclose no playable area
+  static const double _minAreaSquareMeters = 100;
+
+  /// shoelace formula on an equirectangular projection, which is exact enough
+  /// for an area a few kilometers wide
+  double _enclosedAreaSquareMeters() {
+    const metersPerDegree = 111320.0;
+    final latScale = math.cos(_points.first.latitude * math.pi / 180);
+    var twiceArea = 0.0;
+    for (var i = 0; i < _points.length; i++) {
+      final a = _points[i];
+      final b = _points[(i + 1) % _points.length];
+      final ax = a.longitude * metersPerDegree * latScale;
+      final ay = a.latitude * metersPerDegree;
+      final bx = b.longitude * metersPerDegree * latScale;
+      final by = b.latitude * metersPerDegree;
+      twiceArea += ax * by - bx * ay;
+    }
+    return twiceArea.abs() / 2;
   }
 
   String get _statusText {
