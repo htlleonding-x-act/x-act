@@ -43,8 +43,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ── Callback listener setup ───────────────────────────────────────────────
-
   Future<void> _initCallbackListener() async {
     if (kIsWeb) {
       return;
@@ -75,8 +73,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }, onError: (_) {});
   }
 
-  // ── Keycloak browser launch ───────────────────────────────────────────────
-
   Future<void> _launchKeycloak() async {
     if (_isLoading) return;
     _setLoading(true);
@@ -101,8 +97,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _showError('Could not open the login page. Please try again.');
     }
   }
-
-  // ── Code-exchange handler ─────────────────────────────────────────────────
 
   Future<void> _handleCallback(Uri uri) async {
     final code = uri.queryParameters['code'];
@@ -155,8 +149,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void _setLoading(bool value) {
     if (mounted) setState(() => _isLoading = value);
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -227,8 +219,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-  // ── Cleanup ───────────────────────────────────────────────────────────────
 
   @override
   void dispose() {
