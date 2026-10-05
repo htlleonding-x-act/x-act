@@ -55,6 +55,10 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
 {
     private const string HostTeamColor = "#EF4444";
     private const string DefaultMrXTeamName = "Team 1";
+    private const string DefaultDetectiveTeamName = "Team 2";
+    private const string DefaultDetectiveTeamColor = "#2563EB";
+    private const string SpectatorTeamName = "Unassigned";
+    private const string SpectatorTeamColor = "#64748B";
 
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking)
@@ -126,9 +130,26 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
                 Team.DefaultMaxPlayerCount
             );
 
+            // created here so joining players never have to create teams themselves, which raced when several
+            // joined at once
+            uow.TeamRepository.AddTeam(
+                gameSession.Id,
+                DefaultDetectiveTeamName,
+                TeamRole.Detective,
+                DefaultDetectiveTeamColor,
+                Team.DefaultMaxPlayerCount
+            );
+            uow.TeamRepository.AddTeam(
+                gameSession.Id,
+                SpectatorTeamName,
+                TeamRole.Spectator,
+                SpectatorTeamColor,
+                Team.DefaultMaxPlayerCount
+            );
+
             await uow.SaveChangesAsync();
 
-            logger.LogInformation("Created default host team {TeamId} for session {SessionId}", hostTeam.Id, gameSession.Id);
+            logger.LogInformation("Created default teams for session {SessionId}", gameSession.Id);
 
             uow.TeamMemberRepository.AddTeamMember(
                 gameSession.Id,

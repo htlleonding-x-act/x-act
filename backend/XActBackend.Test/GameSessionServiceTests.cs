@@ -218,6 +218,8 @@ public sealed class GameSessionServiceTests
             domainError => Assert.Fail("Expected GameSession but got DomainError")
         );
         _teamMemberRepository.Received(1).AddTeamMember(session.Id, team.Id, user.Id, null, true);
+        _teamRepository.Received(1).AddTeam(session.Id, "Team 2", TeamRole.Detective, "#2563EB", Team.DefaultMaxPlayerCount);
+        _teamRepository.Received(1).AddTeam(session.Id, "Unassigned", TeamRole.Spectator, "#64748B", Team.DefaultMaxPlayerCount);
         await _uow.Received(3).SaveChangesAsync();
     }
 

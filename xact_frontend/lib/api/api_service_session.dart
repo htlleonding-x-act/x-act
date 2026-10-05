@@ -116,7 +116,6 @@ extension ApiServiceSessionMethods on ApiService {
     try {
       await _ensureRealtimeSubscription(session.sessionId);
     } catch (_) {}
-    await _ensureStandardTeams(session.sessionId);
     return session;
   }
 

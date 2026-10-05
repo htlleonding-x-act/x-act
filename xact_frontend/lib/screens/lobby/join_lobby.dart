@@ -124,12 +124,11 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         }
       }
 
-      spectatorTeam ??= await ApiService.instance.addTeam(
-        sessionId: session.sessionId,
-        teamName: 'Unassigned',
-        role: TeamRole.spectator,
-        colorCode: '#64748B',
-      );
+      // the backend creates it with the session, so joining players never
+      // create teams themselves
+      if (spectatorTeam == null) {
+        throw StateError('Session ${session.sessionId} has no Unassigned team.');
+      }
 
       final member = existingMembership ??
           await ApiService.instance.addUserMember(
