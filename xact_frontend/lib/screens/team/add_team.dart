@@ -20,20 +20,25 @@ class AddTeamDialog extends StatefulWidget {
   final String initialName;
   final int initialMaxPlayers;
   final Color initialColor;
+  /// the team can't get smaller than the players already in it
+  final int minMaxPlayers;
 
   const AddTeamDialog.edit({
     super.key,
     required this.initialName,
     required this.initialMaxPlayers,
     required this.initialColor,
+    required int playerCount,
   })  : title = 'Edit team',
-        submitLabel = 'Save';
+        submitLabel = 'Save',
+        minMaxPlayers = playerCount < 1 ? 1 : playerCount;
 
   const AddTeamDialog.create({
     super.key,
     this.initialName = 'Team 3',
   })  : title = 'Add new team',
         submitLabel = 'Create',
+        minMaxPlayers = 1,
         initialMaxPlayers = 3,
         initialColor = const Color(0xFF5B7CFA);
 
@@ -44,9 +49,11 @@ class AddTeamDialog extends StatefulWidget {
 class _AddTeamDialogState extends State<AddTeamDialog> {
   late final TextEditingController _nameController;
   late int _maxPlayers;
+  static const int _maxMaxPlayers = 10;
   late Color _selectedColor;
+  late final List<Color> _colorOptions;
 
-  static const List<Color> _colorOptions = [
+  static const List<Color> _paletteColors = [
     Color(0xFF5B7CFA), // detective blue
     Color(0xFF34D399), // success green
     Color(0xFFF6B05B), // warning amber
@@ -61,8 +68,19 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
-    _maxPlayers = widget.initialMaxPlayers;
+    _maxPlayers = widget.initialMaxPlayers < widget.minMaxPlayers
+        ? widget.minMaxPlayers
+        : widget.initialMaxPlayers;
     _selectedColor = widget.initialColor;
+    // teams created with a color outside the palette, like the default teams,
+    // still get their current color shown as selected
+    final inPalette = _paletteColors.any(
+      (c) => c.toARGB32() == widget.initialColor.toARGB32(),
+    );
+    _colorOptions = [
+      if (!inPalette) widget.initialColor,
+      ..._paletteColors,
+    ];
   }
 
   @override
@@ -130,7 +148,7 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
               const SizedBox(height: 18),
               XActBranding.buildTextField(
                 label: 'Team name',
-                hintText: 'e.g. Team 3',
+                hintText: 'Enter a team name',
                 controller: _nameController,
                 textCapitalization: TextCapitalization.words,
               ),
@@ -158,8 +176,15 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(
-                      onPressed: _maxPlayers > 1
-                          ? () => setState(() => _maxPlayers--)
+                      // clamped in the callback too: quick taps can land
+                      // before the rebuild that disables the button
+                      onPressed: _maxPlayers > widget.minMaxPlayers
+                          ? () => setState(
+                              () => _maxPlayers = (_maxPlayers - 1).clamp(
+                                widget.minMaxPlayers,
+                                _maxMaxPlayers,
+                              ),
+                            )
                           : null,
                       icon: const Icon(Icons.remove_rounded),
                       color: XActColors.text2,
@@ -169,8 +194,13 @@ class _AddTeamDialogState extends State<AddTeamDialog> {
                       style: XActText.heading.copyWith(fontSize: 20),
                     ),
                     IconButton(
-                      onPressed: _maxPlayers < 10
-                          ? () => setState(() => _maxPlayers++)
+                      onPressed: _maxPlayers < _maxMaxPlayers
+                          ? () => setState(
+                              () => _maxPlayers = (_maxPlayers + 1).clamp(
+                                widget.minMaxPlayers,
+                                _maxMaxPlayers,
+                              ),
+                            )
                           : null,
                       icon: const Icon(Icons.add_rounded),
                       color: XActColors.text2,

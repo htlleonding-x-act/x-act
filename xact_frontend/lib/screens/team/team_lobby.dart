@@ -430,6 +430,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         initialName: team.name,
         initialMaxPlayers: team.maxPlayers,
         initialColor: team.color,
+        playerCount: team.players.length,
       ),
     );
 
@@ -461,7 +462,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not rename team: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not save team: $error')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
