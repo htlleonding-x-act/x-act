@@ -209,7 +209,7 @@ final class RealtimeService {
       sessionId,
       teamId,
       memberId,
-      userId ?? 0,
+      userId ?? '',
       guestName ?? '',
     ];
     await connection.invoke('RegisterMemberPresence', args: args);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/screens/auth/login_screen.dart';
 import 'package:xact_frontend/screens/settings/profile_screen.dart';
 import 'package:xact_frontend/screens/start/playnow_screen.dart';
@@ -15,7 +16,8 @@ class StartScreen extends StatefulWidget {
 class _StartScreenState extends State<StartScreen> {
   bool _showHowTo = false;
 
-  bool get _isLoggedIn => AppSession.instance.currentUserId != null;
+  // guests get a user id too, so only a keycloak token means signed in
+  bool get _isLoggedIn => ApiService.instance.isAuthenticated;
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +121,7 @@ class _StartScreenState extends State<StartScreen> {
 
   Widget _buildTopBar() {
     final username = AppSession.instance.currentUsername;
-    if (username == null) return const SizedBox.shrink();
+    if (!_isLoggedIn || username == null) return const SizedBox.shrink();
 
     final initial = username.trim().isEmpty
         ? 'P'

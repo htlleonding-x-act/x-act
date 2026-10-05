@@ -12,6 +12,8 @@ class AuthStorage {
   static const _keyId = 'xact_id_token';
   static const _keyVerifier = 'xact_pkce_verifier';
   static const _keyState = 'xact_auth_state';
+  static const _keyUserId = 'xact_user_id';
+  static const _keyUsername = 'xact_username';
 
   static Future<void> saveTokens({
     required String accessToken,
@@ -37,6 +39,25 @@ class AuthStorage {
 
   static Future<String?> loadIdToken() async {
     return await _storage.read(key: _keyId);
+  }
+
+  static Future<void> saveIdentity({
+    required String userId,
+    required String username,
+  }) async {
+    await _storage.write(key: _keyUserId, value: userId);
+    await _storage.write(key: _keyUsername, value: username);
+  }
+
+  static Future<({String userId, String username})?> loadIdentity() async {
+    final userId = await _storage.read(key: _keyUserId);
+    final username = await _storage.read(key: _keyUsername);
+
+    if (userId == null || username == null) {
+      return null;
+    }
+
+    return (userId: userId, username: username);
   }
 
   /// The challenge has to outlive the browser redirect, which on web reloads the
@@ -66,6 +87,8 @@ class AuthStorage {
     await _storage.delete(key: _keyAccess);
     await _storage.delete(key: _keyRefresh);
     await _storage.delete(key: _keyId);
+    await _storage.delete(key: _keyUserId);
+    await _storage.delete(key: _keyUsername);
     await clearPendingChallenge();
   }
 }

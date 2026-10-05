@@ -14,7 +14,11 @@ import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.callback});
+
+  /// the login redirect that started the app, finished here instead of starting
+  /// another login
+  final Uri? callback;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -29,18 +33,15 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
 
-    // On web the callback is a fresh load of this app with ?code=... in the URL, so
-    // finishing that login must not start another one.
-    if (kIsWeb && Uri.base.queryParameters.containsKey('code')) {
-      _handleCallback(Uri.base);
-      return;
-    }
-
     _initCallbackListener();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _launchKeycloak());
-  }
 
-  // ── Callback listener setup ───────────────────────────────────────────────
+    final callback = widget.callback;
+    if (callback != null) {
+      _handleCallback(callback);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _launchKeycloak());
+    }
+  }
 
   Future<void> _initCallbackListener() async {
     if (kIsWeb) {
@@ -56,34 +57,46 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Mobile (Android / iOS): the stream also replays the link that cold-started the app.
-    _deepLinkSub = AppLinks().uriLinkStream.listen(_handleCallback, onError: (_) {});
-  }
+    // on mobile the stream hands the link that cold-started the app to its first
+    // listener. main already passed that one in as the callback, or it belongs to
+    // an older login
+    Uri? initialLink;
+    try {
+      initialLink = await AppLinks().getInitialLink();
+    } catch (_) {}
+    if (!mounted) return;
 
-  // ── Keycloak browser launch ───────────────────────────────────────────────
+    _deepLinkSub = AppLinks().uriLinkStream.listen((uri) {
+      if (uri != initialLink) {
+        _handleCallback(uri);
+      }
+    }, onError: (_) {});
+  }
 
   Future<void> _launchKeycloak() async {
     if (_isLoading) return;
     _setLoading(true);
 
-    final challenge = AuthChallenge.generate();
-    await AuthStorage.savePendingChallenge(challenge);
+    var launched = false;
+    try {
+      final challenge = AuthChallenge.generate();
+      await AuthStorage.savePendingChallenge(challenge);
 
-    // On web, open in a new tab — Keycloak will redirect back to this origin.
-    // On desktop/mobile, open in an external application.
-    final launched = await launchUrl(
-      AuthConfig.loginUri(challenge),
-      mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
-    );
+      // On web, open in a new tab — Keycloak will redirect back to this origin.
+      // On desktop/mobile, open in an external application.
+      launched = await launchUrl(
+        AuthConfig.loginUri(challenge),
+        mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+      );
+    } catch (_) {
+    } finally {
+      _setLoading(false);
+    }
 
     if (!launched) {
       _showError('Could not open the login page. Please try again.');
     }
-
-    _setLoading(false);
   }
-
-  // ── Code-exchange handler ─────────────────────────────────────────────────
 
   Future<void> _handleCallback(Uri uri) async {
     final code = uri.queryParameters['code'];
@@ -91,31 +104,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
     _setLoading(true);
 
-    final pending = await AuthStorage.loadPendingChallenge();
-    await AuthStorage.clearPendingChallenge();
+    var success = false;
+    try {
+      final pending = await AuthStorage.loadPendingChallenge();
+      await AuthStorage.clearPendingChallenge();
 
-    // A callback carrying someone else's state was not started by this app, and the
-    // code is worthless without the verifier that belongs to it.
-    if (pending == null || pending.state != uri.queryParameters['state']) {
-      cleanBrowserUrl();
+      // A callback carrying someone else's state was not started by this app, and the
+      // code is worthless without the verifier that belongs to it.
+      if (pending != null && pending.state == uri.queryParameters['state']) {
+        success = await ApiService.instance.exchangeAuthCode(
+          code,
+          pending.verifier,
+        );
+      }
+    } catch (_) {
+      // keycloak or secure storage failed, which is reported like any failed login
+    } finally {
       _setLoading(false);
-      _showError('Login failed. Please try again.');
-      return;
     }
 
-    final success = await ApiService.instance.exchangeAuthCode(
-      code,
-      pending.verifier,
-    );
-
-    _setLoading(false);
+    cleanBrowserUrl();
 
     if (!mounted) return;
 
     if (success) {
-      cleanBrowserUrl();
-      Navigator.of(context).pushReplacement(
+      // the start screen that opened this one still shows the signed-out buttons
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const StartScreen()),
+        (_) => false,
       );
     } else {
       _showError('Login failed. Please try again.');
@@ -133,8 +149,6 @@ class _LoginScreenState extends State<LoginScreen> {
   void _setLoading(bool value) {
     if (mounted) setState(() => _isLoading = value);
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -205,8 +219,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
-  // ── Cleanup ───────────────────────────────────────────────────────────────
 
   @override
   void dispose() {

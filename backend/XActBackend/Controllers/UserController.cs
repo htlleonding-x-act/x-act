@@ -188,10 +188,10 @@ public sealed class UserListResponse
     public required List<UserInformationDto> Items { get; init; }
 }
 
+// the user endpoints are public, so the dtos leave out the email
 public sealed record UserInformationDto(
     string Id,
     string? Username,
-    string? Email,
     AccountType AccountType
 )
 {
@@ -199,7 +199,6 @@ public sealed record UserInformationDto(
         new(
             user.Id,
             user.Username,
-            user.Email,
             user.AccountType
         );
 }
@@ -207,7 +206,6 @@ public sealed record UserInformationDto(
 public sealed record UserDetailsDto(
     string Id,
     string Username,
-    string Email,
     AccountType AccountType,
     Instant? SubscriptionEndDate,
     int TotalWins,
@@ -218,7 +216,6 @@ public sealed record UserDetailsDto(
         new(
             user.Id,
             user.Username!,
-            user.Email!,
             user.AccountType,
             user.SubscriptionEndDate,
             user.TotalWins,

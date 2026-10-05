@@ -198,7 +198,7 @@ public sealed class UserServiceTests
         var user = CreateUser(KeycloakSubject, DefaultUsername, DefaultEmail);
         _authIdentityRepository.GetBySubjectAsync(KeycloakSubject, false)
                                .Returns(CreateAuthIdentity(KeycloakSubject));
-        _userRepository.GetUserByIdAsync(KeycloakSubject, false).Returns(user);
+        _userRepository.GetUserByIdAsync(KeycloakSubject, true).Returns(user);
 
         OneOf<User, Error> result =
             await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
@@ -234,7 +234,7 @@ public sealed class UserServiceTests
     {
         _authIdentityRepository.GetBySubjectAsync(KeycloakSubject, false)
                                .Returns(CreateAuthIdentity(DefaultUserId));
-        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns((User?) null);
+        _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns((User?) null);
 
         OneOf<User, Error> result =
             await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
@@ -245,6 +245,67 @@ public sealed class UserServiceTests
         );
         _userRepository.DidNotReceiveWithAnyArgs().AddUser(default!, default!, default, default);
         await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_NumbersUsername_WhenUsernameTaken()
+    {
+        _userRepository.GetUserByUsernameAsync(DefaultUsername, false).Returns(CreateUser());
+        _userRepository.GetUserByUsernameAsync($"{DefaultUsername} 2", false).Returns(CreateUser("2"));
+
+        await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
+
+        _userRepository.Received(1).AddUser($"{DefaultUsername} 3", DefaultEmail, AccountType.Free, KeycloakSubject);
+    }
+
+    [Fact]
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_TruncatesUsername_ToColumnLength()
+    {
+        string longUsername = new('a', 60);
+        _userRepository.GetUserByUsernameAsync(new string('a', 50), false).Returns(CreateUser());
+
+        await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, longUsername, DefaultEmail);
+
+        _userRepository.Received(1).AddUser($"{new string('a', 48)} 2", DefaultEmail, AccountType.Free, KeycloakSubject);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(DefaultEmail)]
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_DropsEmail_WhenMissingOrTaken(string? email)
+    {
+        _userRepository.GetUserByEmailAsync(DefaultEmail, false).Returns(CreateUser());
+
+        await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, email);
+
+        _userRepository.Received(1).AddUser(DefaultUsername, null, AccountType.Free, KeycloakSubject);
+    }
+
+    [Fact]
+    public async ValueTask GetOrCreateByKeycloakSubjectAsync_RestoresDeletedUser()
+    {
+        var user = CreateUser(KeycloakSubject, $"deleted_user_{KeycloakSubject}", $"deleted_user_{KeycloakSubject}@deleted.local");
+        user.IsDeleted = true;
+        user.DeletedAt = Instant.FromUtc(2026, 1, 1, 10, 0);
+        _authIdentityRepository.GetBySubjectAsync(KeycloakSubject, false)
+                               .Returns(CreateAuthIdentity(KeycloakSubject));
+        _userRepository.GetUserByIdAsync(KeycloakSubject, true).Returns(user);
+
+        OneOf<User, Error> result =
+            await _sut.GetOrCreateByKeycloakSubjectAsync(KeycloakSubject, DefaultUsername, DefaultEmail);
+
+        result.Switch(
+            restored =>
+            {
+                restored.IsDeleted.Should().BeFalse();
+                restored.DeletedAt.Should().BeNull();
+                restored.Username.Should().Be(DefaultUsername);
+                restored.Email.Should().Be(DefaultEmail);
+            },
+            error => Assert.Fail("Expected a user but got an Error")
+        );
+        await _uow.Received(1).SaveChangesAsync();
     }
 
     [Fact]

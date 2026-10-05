@@ -48,7 +48,12 @@ final class ApiService {
 
     try {
       await _syncUserWithBackend();
-    } catch (_) {}
+    } catch (_) {
+      // tokens without a backend user would show the player as signed in with no
+      // identity, so the login counts as failed
+      await _clearTokens();
+      return false;
+    }
 
     return true;
   }
@@ -94,14 +99,30 @@ final class ApiService {
     return true;
   }
 
-  Future<void> loadStoredToken() async {
-    final stored = await AuthStorage.loadAccessToken();
-    if (stored != null) {
-      _accessToken = stored;
-    }
+  /// restores the login of the previous run. secure storage can fail to read, e.g.
+  /// on linux without a keyring, and that must not keep the app from starting
+  Future<void> restoreLogin() async {
+    try {
+      final token = await AuthStorage.loadAccessToken();
+      final identity = await AuthStorage.loadIdentity();
+      if (token == null || identity == null) return;
+
+      _accessToken = token;
+      _session.setIdentity(
+        userId: identity.userId,
+        username: identity.username,
+      );
+    } catch (_) {}
   }
 
   Future<void> logout() async {
+    // leave while the identity still tells whether this user hosts the session
+    try {
+      await closeCurrentSession();
+    } catch (_) {
+      await leaveCurrentSessionLocally();
+    }
+
     // Back-channel logout: tell Keycloak to end the SSO session server-side.
     // This requires the refresh token and does not need a browser redirect.
     try {

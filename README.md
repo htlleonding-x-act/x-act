@@ -61,12 +61,28 @@ cd xact_frontend && flutter run -d chrome --web-port=8088 --dart-define=API_BASE
 Desktop builds use a local callback server on port 9482, Android and iOS use the
 `xact://login-callback` deep link. Both are registered in the realm export as well.
 
+### Running on a phone
+
+The client looks for Keycloak on port 8080 of the `API_BASE_URL` host unless
+`KEYCLOAK_AUTHORITY` is set, so the Android emulator (`10.0.2.2`) works with the Docker
+stack as is. A physical phone reaches the stack under the machine's LAN address, which
+then ends up in the token issuer, so add it to the backend's issuers in
+`docker-compose.yaml` before building:
+
+```yaml
+      - Authentication__ValidIssuers__2=http://192.168.1.20:8080/realms/xact
+```
+
+```bash
+just apk http://192.168.1.20:5200
+```
+
 ### Backend configuration
 
 | Key | Required | Notes |
 | --- | --- | --- |
 | `Authentication:Authority` | yes | Realm URL the backend fetches signing keys from. Startup fails without it. |
-| `Authentication:ValidIssuer` | no | Issuer expected in the token. Needed when the backend reaches Keycloak under a different host name than the browser does (`keycloak:8080` inside Docker, `localhost:8080` outside). Falls back to the authority. |
+| `Authentication:ValidIssuers` | no | Issuers accepted in the token. Keycloak puts the host name the client used into the issuer, so list every host clients reach it under when the backend uses another one (`keycloak:8080` inside Docker). Falls back to the authority. |
 | `Authentication:ValidAudience` | no | Audience expected in the token. Only validated when set, since Keycloak issues a usable audience only once the client has an audience mapper. |
 | `Authentication:RequireHttpsMetadata` | no | Defaults to `true`; the development and Docker configs set it to `false`. |
 | `General:ClientOrigin` | yes | Allowed CORS origin. An origin ending in `:*` allows any loopback port. |

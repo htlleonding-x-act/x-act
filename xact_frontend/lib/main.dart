@@ -1,8 +1,10 @@
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/services/chat_notification_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:xact_frontend/api/api_service.dart';
+import 'package:xact_frontend/auth/auth_config.dart';
 import 'package:xact_frontend/screens/auth/login_screen.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/widgets/game_start_overlay.dart';
@@ -11,12 +13,31 @@ import 'package:xact_frontend/widgets/xact_branding.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ChatNotificationService.instance.init();
-  await ApiService.instance.loadStoredToken();
-  runApp(const MainApp());
+  await ApiService.instance.restoreLogin();
+  runApp(MainApp(loginCallback: await _loginCallbackThatStartedApp()));
+}
+
+/// on web the login redirect is a fresh load of the app. on mobile the os can kill
+/// the app while the user is in the browser, so the redirect cold-starts it
+Future<Uri?> _loginCallbackThatStartedApp() async {
+  Uri? link;
+  if (kIsWeb) {
+    link = Uri.base;
+  } else if (!AuthConfig.isDesktop) {
+    try {
+      link = await AppLinks().getInitialLink();
+    } catch (_) {}
+  }
+
+  return link != null && link.queryParameters.containsKey('code')
+      ? link
+      : null;
 }
 
 class MainApp extends StatefulWidget {
-  const MainApp({super.key});
+  const MainApp({super.key, this.loginCallback});
+
+  final Uri? loginCallback;
 
   @override
   State<MainApp> createState() => _MainAppState();
@@ -98,8 +119,8 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
           ],
         );
       },
-      home: kIsWeb && Uri.base.queryParameters.containsKey('code')
-          ? const LoginScreen()
+      home: widget.loginCallback != null
+          ? LoginScreen(callback: widget.loginCallback)
           : const StartScreen(),
     );
   }
