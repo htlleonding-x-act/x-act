@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../../../widgets/xact_branding.dart';
@@ -69,7 +71,12 @@ class StatTileGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= _wideBreakpoint ? 4 : 2;
-        final width = (constraints.maxWidth - _gap * (columns - 1)) / columns;
+        // a squeezed window can leave less room than the gaps, a negative
+        // width would throw
+        final width = max(
+          0.0,
+          (constraints.maxWidth - _gap * (columns - 1)) / columns,
+        );
 
         return Wrap(
           spacing: _gap,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -12,7 +13,7 @@ import 'replay_controller.dart';
 import 'replay_markers.dart';
 import 'replay_tracks.dart';
 
-class ReplayMap extends StatelessWidget {
+class ReplayMap extends StatefulWidget {
   const ReplayMap({
     super.key,
     required this.results,
@@ -30,15 +31,75 @@ class ReplayMap extends StatelessWidget {
   final ValueNotifier<TimelineEvent?> highlightedEvent;
   final VoidCallback onMapReady;
 
+  @override
+  State<ReplayMap> createState() => _ReplayMapState();
+}
+
+class _ReplayMapState extends State<ReplayMap> {
   static const double _playerSize = 30;
   static const double _focusedPlayerSize = 38;
+  static const double _fitMaxZoom = 17;
+
+  // the map first lays out while the header above still shrinks, so it fits
+  // the routes again on every resize until someone moves the camera
+  bool _cameraMoved = false;
+  bool _mapReady = false;
+  bool _refitting = false;
+  Size? _fittedSize;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) =>
-          _buildMap(_fitPadding(constraints.maxHeight)),
+      builder: (context, constraints) {
+        final size = constraints.biggest;
+        final fitPadding = _fitPadding(size.height);
+        _fittedSize ??= size;
+        if (size != _fittedSize) {
+          _refitAfterLayout(size, fitPadding);
+        }
+        return _buildMap(fitPadding);
+      },
     );
+  }
+
+  /// flutter_map applies the initial fit in the same frame, right after it
+  /// reports ready. waiting for that keeps a jump from the ready callback from
+  /// being overwritten, and the fit itself doesn't count as a camera move
+  void _onMapReady() {
+    scheduleMicrotask(() {
+      if (!mounted) return;
+      _mapReady = true;
+      _cameraMoved = false;
+      widget.onMapReady();
+    });
+  }
+
+  void _onMapEvent(MapEvent event) {
+    if (event is MapEventWithMove &&
+        !_refitting &&
+        event.source != MapEventSource.nonRotatedSizeChange) {
+      _cameraMoved = true;
+    }
+  }
+
+  void _refitAfterLayout(Size size, EdgeInsets fitPadding) {
+    final bounds = widget.tracks.bounds;
+    if (bounds == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_mapReady || _cameraMoved) return;
+      _fittedSize = size;
+      // a fit reports itself as a controller move, which would end the refits
+      _refitting = true;
+      widget.mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: fitPadding,
+          maxZoom: _fitMaxZoom,
+        ),
+      );
+      _refitting = false;
+    });
   }
 
   /// keeps the routes clear of the chips on top and the controls at the
@@ -51,10 +112,10 @@ class ReplayMap extends StatelessWidget {
   );
 
   Widget _buildMap(EdgeInsets fitPadding) {
-    final bounds = tracks.bounds;
+    final bounds = widget.tracks.bounds;
 
     return FlutterMap(
-      mapController: mapController,
+      mapController: widget.mapController,
       options: MapOptions(
         initialCenter: kFallbackMapCenter,
         initialZoom: 15,
@@ -63,21 +124,22 @@ class ReplayMap extends StatelessWidget {
             : CameraFit.bounds(
                 bounds: bounds,
                 padding: fitPadding,
-                maxZoom: 17,
+                maxZoom: _fitMaxZoom,
               ),
         minZoom: 10,
         maxZoom: 19,
         backgroundColor: XActColors.bg2,
         keepAlive: true,
-        onMapReady: onMapReady,
+        onMapEvent: _onMapEvent,
+        onMapReady: _onMapReady,
       ),
       children: [
         buildGreyscaleTileLayer(),
-        if (results.geofence.length >= 3)
+        if (widget.results.geofence.length >= 3)
           PolygonLayer(
             polygons: [
               Polygon(
-                points: results.geofence,
+                points: widget.results.geofence,
                 color: XActColors.secondary.withValues(alpha: .06),
                 borderColor: XActColors.secondary.withValues(alpha: .6),
                 borderStrokeWidth: 2,
@@ -87,11 +149,11 @@ class ReplayMap extends StatelessWidget {
         // the whole routes never change, so they skip the per frame rebuild
         RepaintBoundary(
           child: PolylineLayer(
-            polylines: [for (final track in tracks.tracks) ...track.fullRoute()],
+            polylines: [for (final track in widget.tracks.tracks) ...track.fullRoute()],
           ),
         ),
         ListenableBuilder(
-          listenable: Listenable.merge([controller, highlightedEvent]),
+          listenable: Listenable.merge([widget.controller, widget.highlightedEvent]),
           builder: (context, _) =>
               Stack(fit: StackFit.expand, children: _buildDynamicLayers()),
         ),
@@ -100,9 +162,9 @@ class ReplayMap extends StatelessWidget {
   }
 
   List<Widget> _buildDynamicLayers() {
-    final seconds = controller.positionSeconds;
-    final visible = tracks.tracks
-        .where((t) => !controller.hiddenMemberIds.contains(t.member.memberId))
+    final seconds = widget.controller.positionSeconds;
+    final visible = widget.tracks.tracks
+        .where((t) => !widget.controller.hiddenMemberIds.contains(t.member.memberId))
         .toList();
 
     final trails = <Polyline>[];
@@ -125,7 +187,7 @@ class ReplayMap extends StatelessWidget {
         ),
       );
 
-      final focused = controller.focusedMemberId == track.member.memberId;
+      final focused = widget.controller.focusedMemberId == track.member.memberId;
       final size = focused ? _focusedPlayerSize : _playerSize;
       players.add(
         Marker(
@@ -142,9 +204,9 @@ class ReplayMap extends StatelessWidget {
       );
     }
 
-    final highlight = highlightedEvent.value;
+    final highlight = widget.highlightedEvent.value;
     final pins = <Marker>[
-      for (final pin in tracks.revealPins)
+      for (final pin in widget.tracks.revealPins)
         if (pin.offsetSeconds <= seconds)
           Marker(
             point: pin.position,
@@ -152,7 +214,7 @@ class ReplayMap extends StatelessWidget {
             height: 18,
             child: const RevealPinMarker(),
           ),
-      for (final event in results.catches)
+      for (final event in widget.results.catches)
         if (event.position != null && event.offsetSeconds <= seconds)
           Marker(
             point: event.position!,

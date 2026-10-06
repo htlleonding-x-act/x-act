@@ -136,30 +136,61 @@ class _WinnerHeroState extends State<WinnerHero>
   Widget build(BuildContext context) {
     final content = HeroContent.of(widget.results);
 
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(widget.compact ? XActSpace.s3 : XActSpace.s5),
-        decoration: BoxDecoration(
-          borderRadius: XActRadius.lg,
-          border: Border.all(color: content.accent.withValues(alpha: .35)),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              content.accent.withValues(alpha: .18),
-              XActColors.surface,
-            ],
-          ),
-          boxShadow: XActElevation.e2,
+    // the card keeps its border while its height animates, only the content
+    // inside cross fades and gets clipped
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: XActRadius.lg,
+        border: Border.all(color: content.accent.withValues(alpha: .35)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            content.accent.withValues(alpha: .18),
+            XActColors.surface,
+          ],
         ),
-        child: widget.compact
-            ? _buildCompact(content)
-            : _buildFull(content),
+        boxShadow: XActElevation.e2,
       ),
+      child: AnimatedSize(
+        duration: _resizeDuration,
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: AnimatedSwitcher(
+          duration: _resizeDuration,
+          // the old content is gone before the new one shows, so the two
+          // layouts never overlap
+          switchInCurve: const Interval(.5, 1),
+          switchOutCurve: const Interval(.5, 1),
+          layoutBuilder: _sizeByCurrentChild,
+          child: widget.compact
+              ? Padding(
+                  key: const ValueKey('compact'),
+                  padding: const EdgeInsets.all(XActSpace.s3),
+                  child: _buildCompact(content),
+                )
+              : Padding(
+                  key: const ValueKey('full'),
+                  padding: const EdgeInsets.all(XActSpace.s5),
+                  child: _buildFull(content),
+                ),
+        ),
+      ),
+    );
+  }
+
+  static const Duration _resizeDuration = Duration(milliseconds: 250);
+
+  /// the outgoing child is positioned, so the card already resizes towards
+  /// the incoming one instead of waiting for the fade
+  static Widget _sizeByCurrentChild(Widget? current, List<Widget> previous) {
+    return Stack(
+      children: [
+        for (final child in previous)
+          Positioned(top: 0, left: 0, right: 0, child: child),
+        ?current,
+      ],
     );
   }
 
@@ -169,11 +200,18 @@ class _WinnerHeroState extends State<WinnerHero>
         _iconTile(content, size: 40, iconSize: 22),
         const SizedBox(width: XActSpace.s3),
         Expanded(
-          child: Text(
-            '${content.eyebrow}: ${content.headline}',
-            style: XActText.subheading,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              XActBranding.buildEyebrow(content.eyebrow, color: content.accent),
+              Text(
+                content.headline,
+                style: XActText.subheading,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
         if (widget.isWinner) _youWonPill(content),
@@ -183,14 +221,27 @@ class _WinnerHeroState extends State<WinnerHero>
   }
 
   Widget _buildFull(HeroContent content) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildFullRow(
+        content,
+        narrow: constraints.maxWidth < _narrowWidth,
+      ),
+    );
+  }
+
+  // below this the big icon and headline leave the text too little room
+  static const double _narrowWidth = 360;
+
+  Widget _buildFullRow(HeroContent content, {required bool narrow}) {
     final endReason = widget.results.endReason;
+    final burstSize = narrow ? 72.0 : 96.0;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 96,
-          height: 96,
+          width: burstSize,
+          height: burstSize,
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) => CustomPaint(
@@ -204,7 +255,9 @@ class _WinnerHeroState extends State<WinnerHero>
             child: Center(
               child: ScaleTransition(
                 scale: _iconScale,
-                child: _iconTile(content, size: 64, iconSize: 34),
+                child: narrow
+                    ? _iconTile(content, size: 52, iconSize: 28)
+                    : _iconTile(content, size: 64, iconSize: 34),
               ),
             ),
           ),
@@ -235,7 +288,9 @@ class _WinnerHeroState extends State<WinnerHero>
                   position: _headlineSlide,
                   child: Text(
                     content.headline,
-                    style: XActText.displaySm.copyWith(fontSize: 28),
+                    style: XActText.displaySm.copyWith(
+                      fontSize: narrow ? 22 : 28,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

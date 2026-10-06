@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 
@@ -34,20 +36,21 @@ class ReplayTab extends StatefulWidget {
   State<ReplayTab> createState() => _ReplayTabState();
 }
 
-class _ReplayTabState extends State<ReplayTab>
-    with AutomaticKeepAliveClientMixin {
-  // side by side above this width, map over feed below it
+class _ReplayTabState extends State<ReplayTab> {
+  // side by side above this width, map over feed below it. a short and wide
+  // screen like a phone in landscape also goes side by side, stacked the map
+  // would be too flat to use
   static const double _wideBreakpoint = 900;
+  static const double _landscapeMinWidth = 560;
+  static const double _landscapeAspectRatio = 2;
   static const double _timelineWidth = 360;
+  static const double _timelineMaxShare = .4;
 
   // moving the camera every frame makes the tiles stutter
   static const Duration _followInterval = Duration(milliseconds: 250);
 
   bool _mapReady = false;
   DateTime _lastFollow = DateTime.fromMillisecondsSinceEpoch(0);
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -82,8 +85,6 @@ class _ReplayTabState extends State<ReplayTab>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
     final map = ClipRRect(
       borderRadius: XActRadius.lg,
       child: Stack(
@@ -145,12 +146,20 @@ class _ReplayTabState extends State<ReplayTab>
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          if (constraints.maxWidth >= _wideBreakpoint) {
+          final width = constraints.maxWidth;
+          final sideBySide =
+              width >= _wideBreakpoint ||
+              (width >= _landscapeMinWidth &&
+                  width >= constraints.maxHeight * _landscapeAspectRatio);
+          if (sideBySide) {
             return Row(
               children: [
                 Expanded(child: map),
                 const SizedBox(width: XActSpace.s3),
-                SizedBox(width: _timelineWidth, child: timeline),
+                SizedBox(
+                  width: min(_timelineWidth, width * _timelineMaxShare),
+                  child: timeline,
+                ),
               ],
             );
           }

@@ -48,9 +48,22 @@ class _EndMatchScreenState extends State<EndMatchScreen>
   static const double _jumpZoom = 16;
   static const Duration _highlightDuration = Duration(seconds: 2);
 
+  // the full header needs this much body height. below the short height, like
+  // a phone in landscape, the map and leaderboard take the header's room, and
+  // a tiny window only keeps the tabs
+  static const double _fullHeroMinHeight = 560;
+  static const double _shortBodyHeight = 420;
+  static const double _heroMinHeight = 240;
+  static const double _collapseScrollOffset = 24;
+
   late final TabController _tabController = TabController(
     length: _tabs.length,
     vsync: this,
+  );
+  late final AnimationController _tabFade = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 200),
+    value: 1,
   );
   final MapController _mapController = MapController();
   final ValueNotifier<TimelineEvent?> _highlightedEvent = ValueNotifier(null);
@@ -67,6 +80,12 @@ class _EndMatchScreenState extends State<EndMatchScreen>
   bool _mapReady = false;
   LatLng? _pendingCameraTarget;
   Timer? _highlightTimer;
+  bool _overviewScrolled = false;
+  int _shownTab = _overviewTab;
+
+  // a tab is only built once it was opened, the replay map loads its tiles
+  // then and not with the results
+  final Set<int> _visitedTabs = {_overviewTab};
 
   @override
   void initState() {
@@ -81,19 +100,47 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     _rematchSub?.cancel();
     _highlightTimer?.cancel();
     _tabController.dispose();
+    _tabFade.dispose();
     _replay?.dispose();
     _highlightedEvent.dispose();
     _mapController.dispose();
     super.dispose();
   }
 
+  /// the controller also reports the end of the indicator animation, which
+  /// changes nothing here
   void _onTabChanged() {
-    if (_tabController.index != _replayTab) {
+    final index = _tabController.index;
+    if (index == _shownTab) return;
+
+    if (index != _replayTab) {
       _replay?.pause();
     }
-    if (!_tabController.indexIsChanging) {
-      setState(() {});
+    _visitedTabs.add(index);
+    _tabFade.forward(from: 0);
+    setState(() => _shownTab = index);
+  }
+
+  /// scrolling the overview down folds the header to give the list the room,
+  /// scrolling or pulling back to the top opens it again
+  bool _onOverviewScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+      return false;
     }
+
+    final pixels = notification.metrics.pixels;
+    final scrolled = switch (notification) {
+      ScrollUpdateNotification(scrollDelta: final delta?) =>
+        pixels > _collapseScrollOffset ||
+            (_overviewScrolled && (pixels > 0 || delta >= 0)),
+      OverscrollNotification(overscroll: final overscroll) =>
+        _overviewScrolled && overscroll >= 0,
+      _ => _overviewScrolled,
+    };
+    if (scrolled != _overviewScrolled) {
+      setState(() => _overviewScrolled = scrolled);
+    }
+    return false;
   }
 
   void _onMapReady() {
@@ -371,55 +418,92 @@ class _EndMatchScreenState extends State<EndMatchScreen>
       return _buildError();
     }
 
-    final compactHero = _tabController.index != _overviewTab;
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildResults(
+        results,
+        tracks,
+        replay,
+        bodyHeight: constraints.maxHeight,
+      ),
+    );
+  }
+
+  Widget _buildResults(
+    GameResults results,
+    ReplayTrackSet tracks,
+    ReplayController replay, {
+    required double bodyHeight,
+  }) {
+    final onOverview = _tabController.index == _overviewTab;
+    final showHero =
+        bodyHeight >= _heroMinHeight &&
+        (onOverview || bodyHeight >= _shortBodyHeight);
+    final compactHero =
+        !onOverview || _overviewScrolled || bodyHeight < _fullHeroMinHeight;
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            XActSpace.s4,
-            XActSpace.s3,
-            XActSpace.s4,
-            XActSpace.s3,
-          ),
-          child: WinnerHero(
-            results: results,
-            isWinner: _isWinner(results),
-            compact: compactHero,
-            onShare: () => showMatchShareSheet(context, results),
-          ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: showHero
+              ? Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    XActSpace.s4,
+                    XActSpace.s3,
+                    XActSpace.s4,
+                    XActSpace.s3,
+                  ),
+                  child: WinnerHero(
+                    results: results,
+                    isWinner: _isWinner(results),
+                    compact: compactHero,
+                    onShare: () => showMatchShareSheet(context, results),
+                  ),
+                )
+              : const SizedBox(width: double.infinity, height: XActSpace.s3),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: XActSpace.s4),
           child: EndMatchTabBar(controller: _tabController, tabs: _tabs),
         ),
         Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            // a horizontal drag on the map must pan it, not switch tabs
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              OverviewTab(
-                results: results,
-                currentMemberId: _currentMemberId,
-                onShowAward: _showAward,
-                onShare: () => showMatchShareSheet(context, results),
-              ),
-              ReplayTab(
-                results: results,
-                tracks: tracks,
-                controller: replay,
-                mapController: _mapController,
-                highlightedEvent: _highlightedEvent,
-                onEventTap: _jumpToEvent,
-                onMapReady: _onMapReady,
-              ),
-              PlayersTab(
-                results: results,
-                currentMemberId: _currentMemberId,
-                onWatchRoute: _watchRoute,
-              ),
-            ],
+          // a stack instead of a tab view: no page scrolling that a resize could
+          // leave between two pages, and every tab keeps its state
+          child: FadeTransition(
+            opacity: _tabFade,
+            child: IndexedStack(
+              index: _shownTab,
+              children: [
+                NotificationListener<ScrollNotification>(
+                  onNotification: _onOverviewScroll,
+                  child: OverviewTab(
+                    results: results,
+                    currentMemberId: _currentMemberId,
+                    onShowAward: _showAward,
+                    onShare: () => showMatchShareSheet(context, results),
+                  ),
+                ),
+                if (_visitedTabs.contains(_replayTab))
+                  ReplayTab(
+                    results: results,
+                    tracks: tracks,
+                    controller: replay,
+                    mapController: _mapController,
+                    highlightedEvent: _highlightedEvent,
+                    onEventTap: _jumpToEvent,
+                    onMapReady: _onMapReady,
+                  )
+                else
+                  const SizedBox.shrink(),
+                PlayersTab(
+                  results: results,
+                  currentMemberId: _currentMemberId,
+                  onWatchRoute: _watchRoute,
+                ),
+              ],
+            ),
           ),
         ),
       ],

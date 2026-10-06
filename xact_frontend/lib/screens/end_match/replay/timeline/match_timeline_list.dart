@@ -139,9 +139,12 @@ class _MatchTimelineTile extends StatelessWidget {
             child: Row(
               children: [
                 SizedBox(
-                  width: 46,
+                  // room for an hour long clock like 1:00:00
+                  width: 56,
                   child: Text(
                     formatMatchClock(event.offsetSeconds),
+                    maxLines: 1,
+                    softWrap: false,
                     style: XActText.caption.copyWith(
                       color: active ? XActColors.text1 : XActColors.text4,
                       fontFeatures: const [FontFeature.tabularFigures()],
