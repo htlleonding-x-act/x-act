@@ -24,9 +24,12 @@ public interface IGameSessionService
 
     public ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId);
 
-    public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId);
+    public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId, GameEndReason reason);
 
-    /// <summary>swaps roles: the catching detective team becomes mr.x and the old mr.x team becomes a detective team</summary>
+    /// <summary>
+    ///     swaps roles: the catching detective team becomes mr.x and the old mr.x team becomes a detective team.
+    ///     every catch is stored, because the swap leaves no other trace of who was mr.x when
+    /// </summary>
     public ValueTask<OneOf<MrXCaughtResult, NotFound, DomainError>> CatchMrXAsync(int sessionId, int catchingTeamId);
 
     /// <summary>
@@ -234,6 +237,11 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             return DomainError.InvalidSessionTransition(gameSession.Status, gameSessionData.Status);
         }
 
+        if (gameSession.Status == SessionStatus.Active && gameSessionData.Status == SessionStatus.Finished)
+        {
+            gameSession.EndReason ??= GameEndReason.HostEnded;
+        }
+
         gameSession.HostUserId = gameSessionData.HostUserId;
         gameSession.SessionName = gameSessionData.SessionName;
         gameSession.JoinCode = gameSessionData.JoinCode;
@@ -292,6 +300,7 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             {
                 session.Status = SessionStatus.Finished;
                 session.EndTime = now;
+                session.EndReason = GameEndReason.Abandoned;
                 finished.Add(session);
             }
         }
@@ -337,7 +346,7 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         return new Success();
     }
 
-    public async ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId)
+    public async ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId, GameEndReason reason)
     {
         var gameSession = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking: true);
         if (gameSession is null)
@@ -353,10 +362,11 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
 
         gameSession.Status = SessionStatus.Finished;
         gameSession.EndTime = clock.GetCurrentInstant();
+        gameSession.EndReason = reason;
 
         await uow.SaveChangesAsync();
 
-        logger.LogInformation("Ended game session {SessionId}", sessionId);
+        logger.LogInformation("Ended game session {SessionId} with reason {EndReason}", sessionId, reason);
 
         return new Success();
     }
@@ -417,6 +427,8 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         catchingTeam.IsCaught = false;
         // the colors swap with the roles, otherwise the former mr.x team stays red on every map
         (mrXTeam.ColorCode, catchingTeam.ColorCode) = (catchingTeam.ColorCode, mrXTeam.ColorCode);
+
+        uow.CatchEventRepository.AddCatchEvent(sessionId, catchingTeam.Id, mrXTeam.Id, clock.GetCurrentInstant());
 
         await uow.SaveChangesAsync();
 
