@@ -6,16 +6,6 @@ extension ApiServiceHttpMethods on ApiService {
     return ApiListResponse.fromJson(json, GeofencePointInfo.fromJson).items;
   }
 
-  Future<List<UserInfo>> _listUsers() async {
-    final json = await _getJsonObject('/api/users');
-    return ApiListResponse.fromJson(json, UserInfo.fromJson).items;
-  }
-
-  Future<List<GameSessionInfo>> _listGameSessions() async {
-    final json = await _getJsonObject('/api/gamesessions');
-    return ApiListResponse.fromJson(json, GameSessionInfo.fromJson).items;
-  }
-
   Future<GameSessionDetails> _getGameSession(int sessionId) async {
     final json = await _getJsonObject('/api/gamesessions/$sessionId');
     return GameSessionDetails.fromJson(json);
@@ -71,7 +61,7 @@ extension ApiServiceHttpMethods on ApiService {
     final response = await _send(() => _http.get(uri, headers: _headers()));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for GET $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
 
     final decoded = jsonDecode(response.body);
@@ -143,7 +133,7 @@ extension ApiServiceHttpMethods on ApiService {
     final uri = _baseUri.resolve(path);
     final response = await _send(() => _http.post(uri, headers: _headers()));
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for POST $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
@@ -157,7 +147,7 @@ extension ApiServiceHttpMethods on ApiService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for POST $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
@@ -171,7 +161,7 @@ extension ApiServiceHttpMethods on ApiService {
     );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for PUT $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
@@ -179,7 +169,7 @@ extension ApiServiceHttpMethods on ApiService {
     final uri = _baseUri.resolve(path);
     final response = await _send(() => _http.delete(uri, headers: _headers()));
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('HTTP ${response.statusCode} for DELETE $path');
+      throw ApiException(response.statusCode, _errorCode(response.body));
     }
   }
 
@@ -200,7 +190,8 @@ extension ApiServiceHttpMethods on ApiService {
     };
   }
 
-  Future<void> addLocationLog({
+  /// returns whether the server made this ping the reveal of mister x
+  Future<bool> addLocationLog({
     required int sessionId,
     required int teamId,
     required int memberId,
@@ -211,7 +202,7 @@ extension ApiServiceHttpMethods on ApiService {
     required String transportMode,
     bool isRevealedPosition = false,
   }) async {
-    await _postJsonObjectOrThrow(
+    final json = await _postJsonObjectOrThrow(
       '/api/gamesessions/$sessionId/teams/$teamId/members/$memberId/locationlogs',
       {
         'timestamp': timestamp.toIso8601String(),
@@ -222,5 +213,6 @@ extension ApiServiceHttpMethods on ApiService {
         'isRevealedPosition': isRevealedPosition,
       },
     );
+    return json['isRevealedPosition'] == true;
   }
 }

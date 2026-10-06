@@ -52,6 +52,23 @@ class _ReportScreenState extends State<ReportScreen> {
 
   int? get _currentMemberId => AppSession.instance.currentMemberId;
 
+  /// a detective who sees mister x flagged as out of bounds learns where mister
+  /// x is, so that flag only shows to mister x's own team
+  MemberOffense? _visibleOffense(int memberId) {
+    final offense = _offensesByMember[memberId];
+    if (offense == null) {
+      return null;
+    }
+
+    final target = _players.where((p) => p.memberId == memberId).firstOrNull;
+    if (target != null &&
+        target.role == TeamRole.mrX &&
+        target.teamId != AppSession.instance.currentTeamId) {
+      return null;
+    }
+    return offense;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -134,7 +151,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
     final rows = <_PlayerRow>[];
     for (final team in snapshot.teams) {
-      final color = tryParseHexColor(team.colorCode) ?? XActColors.roleSpectator;
+      final color = XActColors.teamColor(team.role, team.colorCode);
       final members = snapshot.membersByTeamId[team.teamId] ?? const [];
       for (final member in members) {
         final name = member.userId != null
@@ -312,7 +329,7 @@ class _ReportScreenState extends State<ReportScreen> {
     // out-of-bounds offense as the reason so it stays even after they return
     final effectiveReason = reason.isNotEmpty
         ? reason
-        : (_offensesByMember.containsKey(row.memberId)
+        : (_visibleOffense(row.memberId) != null
               ? 'Outside the game area'
               : null);
 
@@ -486,7 +503,7 @@ class _ReportScreenState extends State<ReportScreen> {
     }
 
     final flagged = _players
-        .where((p) => _offensesByMember.containsKey(p.memberId))
+        .where((p) => _visibleOffense(p.memberId) != null)
         .toList(growable: false);
 
     return ListView(
@@ -594,7 +611,7 @@ class _ReportScreenState extends State<ReportScreen> {
   /// if there is one, and the typed reason if there is one
   Widget _buildVoteWhy(KickVote vote) {
     final targetOffense = vote.targetMemberId != null
-        ? _offensesByMember[vote.targetMemberId]
+        ? _visibleOffense(vote.targetMemberId!)
         : null;
     final offenseLabel =
         targetOffense != null ? _offenseReasonLabel(targetOffense.type) : null;
@@ -720,7 +737,7 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Widget _buildPlayerTile(_PlayerRow row, {required bool flagged}) {
-    final offense = _offensesByMember[row.memberId];
+    final offense = _visibleOffense(row.memberId);
     final canVote = !row.isSelf && !row.isHost && !_hasOpenVote;
     final canHostKick = _isHost && !row.isSelf && !row.isHost;
 

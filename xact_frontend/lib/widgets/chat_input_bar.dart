@@ -5,8 +5,9 @@ import 'xact_branding.dart';
 class ChatInputBar extends StatefulWidget {
   final String hintText;
 
-  /// gets the trimmed text. null shows the input as disabled
-  final ValueChanged<String>? onSend;
+  /// gets the trimmed text and reports whether it was sent. a failed send puts
+  /// the text back so it isn't lost. null shows the input as disabled
+  final Future<bool> Function(String text)? onSend;
 
   /// null, or a disabled bar, drops the leading button so keyboard and screen
   /// reader users don't land on a control that does nothing
@@ -49,15 +50,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
     }
   }
 
-  void _send() {
+  Future<void> _send() async {
     final onSend = widget.onSend;
     final text = _controller.text.trim();
     if (onSend == null || text.isEmpty) {
       return;
     }
 
-    onSend(text);
     _controller.clear();
+    final sent = await onSend(text);
+    if (!sent && mounted && _controller.text.isEmpty) {
+      _controller.text = text;
+    }
   }
 
   @override

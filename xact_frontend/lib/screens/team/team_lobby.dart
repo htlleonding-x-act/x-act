@@ -8,6 +8,7 @@ import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/lobby/define_game_area_screen.dart';
 import 'package:xact_frontend/screens/settings/profile_screen.dart';
+import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/screens/lobby/map_preview_screen.dart';
 import 'package:xact_frontend/screens/team/add_team.dart';
 import 'package:xact_frontend/services/app_session.dart';
@@ -75,6 +76,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   bool _loading = true;
   bool _working = false;
   bool _gameTransitionStarted = false;
+  bool _leaving = false;
   int _mrXRevealInterval = 5;
 
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
@@ -137,9 +139,10 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
       for (final team in snapshot.teams) {
         final configuredUi = _teamUiConfigById[team.teamId];
-        final teamColor =
-            configuredUi?.color ??
-            (tryParseHexColor(team.colorCode) ?? Colors.blueGrey);
+        final teamColor = team.role == TeamRole.mrX
+            ? XActColors.roleMrX
+            : configuredUi?.color ??
+                  (tryParseHexColor(team.colorCode) ?? Colors.blueGrey);
         final maxPlayers = configuredUi?.maxPlayers ?? team.maxPlayerCount;
         final members = (snapshot.membersByTeamId[team.teamId] ?? const [])
             .map((m) {
@@ -209,7 +212,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load game lobby: $error')),
+        SnackBar(content: Text('Failed to load game lobby. ${describeApiError(error)}')),
       );
     } finally {
       _refreshesInFlight--;
@@ -234,6 +237,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       _realtimeEventSub = ApiService.instance.realtimeEvents.listen((event) {
         if (event.type == RealtimeEvents.gameSessionStarted) {
           unawaited(_openGameForAll());
+        }
+
+        if (event.type == RealtimeEvents.gameSessionDeleted &&
+            event.payload['sessionId'] == widget.sessionId) {
+          unawaited(_onLobbyClosedByHost());
         }
 
         if (_isLobbyRealtimeEvent(event.type)) {
@@ -332,6 +340,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       context: context,
       builder: (_) => AddTeamDialog.create(
         initialName: _nextAvailableTeamName(),
+        takenColors: _teamColorsExcept(null),
       ),
     );
 
@@ -355,7 +364,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not create team: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not create team. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -365,6 +374,35 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
 
   Future<void> _deleteTeam(int index) async {
     final team = _teams[index];
+
+    // the backend refuses to delete a team that still has members
+    if (team.players.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Move the players out of ${team.name} first.'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Delete ${team.name}?'),
+        content: const Text('The team will be removed from the lobby.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
 
     setState(() => _working = true);
     try {
@@ -378,13 +416,18 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not delete team: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not delete team. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
       }
     }
   }
+
+  List<Color> _teamColorsExcept(int? teamId) => _teams
+      .where((t) => t.teamId != teamId)
+      .map((t) => t.color)
+      .toList(growable: false);
 
   Future<void> _renameTeam(int index) async {
     final team = _teams[index];
@@ -394,6 +437,9 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         initialName: team.name,
         initialMaxPlayers: team.maxPlayers,
         initialColor: team.color,
+        playerCount: team.players.length,
+        takenColors: _teamColorsExcept(team.teamId),
+        isMisterX: team.role == TeamRole.mrX,
       ),
     );
 
@@ -425,7 +471,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not rename team: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not save team. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -453,7 +499,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not start game: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not start game. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -474,6 +520,17 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
 
   Future<void> _movePlayerToTeam(LobbyPlayer player, TeamData team) async {
+    if (team.players.length >= team.maxPlayers) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${team.name} is full (${team.maxPlayers}/${team.maxPlayers}).',
+          ),
+        ),
+      );
+      return;
+    }
+
     await _movePlayer(player: player, targetTeamId: team.teamId);
   }
 
@@ -507,7 +564,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not move player: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not move player. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _working = false);
@@ -618,7 +675,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not randomize teams: $error')),
+        SnackBar(content: Text('Could not randomize teams. ${describeApiError(error)}')),
       );
     } finally {
       if (mounted) {
@@ -705,14 +762,102 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not save map area: $e')));
+      ).showSnackBar(SnackBar(content: Text('Could not save map area. ${describeApiError(e)}')));
     } finally {
       if (mounted) setState(() => _working = false);
     }
   }
 
+  Future<void> _leaveLobby() async {
+    if (_leaving) return;
+
+    final leader = isLobbyLeader();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(leader ? 'Close lobby?' : 'Leave lobby?'),
+        content: Text(
+          leader
+              ? 'The lobby closes for everyone who has joined.'
+              : 'You can join again with the game code.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(leader ? 'Close' : 'Leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _leaving = true;
+      _working = true;
+    });
+    try {
+      await ApiService.instance.closeCurrentSession();
+    } catch (_) {
+      // leaving must also work offline. the disconnect cleanup removes the
+      // member on the server later
+      await ApiService.instance.leaveCurrentSessionLocally();
+    }
+    if (!mounted) return;
+    _goToStart();
+  }
+
+  Future<void> _onLobbyClosedByHost() async {
+    if (_leaving || isLobbyLeader()) return;
+    _leaving = true;
+
+    await ApiService.instance.leaveCurrentSessionLocally();
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Lobby closed'),
+        content: const Text('The host closed this lobby.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    _goToStart();
+  }
+
+  void _goToStart() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const StartScreen()),
+      (_) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // the system back gesture leaves through the same confirmation as the
+    // back arrow
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          unawaited(_leaveLobby());
+        }
+      },
+      child: _buildLobby(context),
+    );
+  }
+
+  Widget _buildLobby(BuildContext context) {
     final leader = isLobbyLeader();
 
     if (_loading) {
@@ -728,6 +873,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
               isLeader: leader,
+              onBack: _leaveLobby,
               onViewMap: _openMapPreview,
               onSettings: leader ? _openSettings : null,
               onProfile: () => Navigator.of(context).push(
@@ -774,13 +920,17 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.touch_app_outlined,
+                              leader
+                                  ? Icons.touch_app_outlined
+                                  : Icons.hourglass_empty_rounded,
                               size: 14,
                               color: XActColors.text4,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'Long-press a player to drag them between teams',
+                              leader
+                                  ? 'Long-press a player to drag them between teams'
+                                  : 'Waiting for the host to set up the teams',
                               style: XActText.caption.copyWith(
                                 color: XActColors.text4,
                                 fontSize: 12,
@@ -792,6 +942,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                       const SizedBox(height: 16),
                       SpectatorsCard(
                         spectators: _spectators,
+                        isLeader: leader,
                         onPlayerDropped: _movePlayerToSpectators,
                       ),
                       const SizedBox(height: 12),
@@ -819,15 +970,21 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
                 ),
               ),
             ),
-            if (leader)
-              LobbyBottomButtons(
+          ],
+        ),
+      ),
+      // as the scaffold's bottom bar, snackbars float above the buttons
+      // instead of covering start game
+      bottomNavigationBar: leader
+          ? SafeArea(
+              top: false,
+              child: LobbyBottomButtons(
                 canStartGame: _canStartGame,
                 onRandomize: _randomizeTeams,
                 onStartGame: _startGame,
               ),
-          ],
-        ),
-      ),
+            )
+          : null,
     );
   }
 

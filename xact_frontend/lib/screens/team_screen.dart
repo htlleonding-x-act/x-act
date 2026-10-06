@@ -87,8 +87,12 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   Future<void> _showCaughtDialog(List<TeamCardData> teams) async {
+    // an empty team can't have caught anyone, and handing it the role would
+    // leave the game without a mister x
     final detectiveTeams = teams
-        .where((team) => team.role == TeamRole.detective)
+        .where(
+          (team) => team.role == TeamRole.detective && team.members.isNotEmpty,
+        )
         .toList(growable: false);
 
     if (detectiveTeams.isEmpty) {
@@ -121,7 +125,9 @@ class _TeamScreenState extends State<TeamScreen> {
                   XActBranding.buildActionCard(
                     icon: Icons.groups_rounded,
                     title: team.teamName,
-                    subtitle: '${team.members.length} player(s)',
+                    subtitle: team.members.length == 1
+                        ? '1 player'
+                        : '${team.members.length} players',
                     onTap: () => Navigator.pop(dialogContext, team),
                   ),
                   const SizedBox(height: XActSpace.s2),
@@ -166,7 +172,7 @@ class _TeamScreenState extends State<TeamScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to hand over Mister X: $error')),
+          SnackBar(content: Text('Failed to hand over Mister X. ${describeApiError(error)}')),
         );
       }
     } finally {

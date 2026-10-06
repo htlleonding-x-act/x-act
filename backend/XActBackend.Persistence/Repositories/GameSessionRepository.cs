@@ -24,6 +24,12 @@ public interface IGameSessionRepository
     /// <summary>active here means not finished yet, so a waiting session counts too</summary>
     public ValueTask<GameSession?> GetActiveSessionByHostUserIdAsync(string hostUserId, bool tracking);
 
+    /// <summary>
+    ///     sessions nobody can use anymore: running ones without any member and waiting ones whose host is gone. only
+    ///     sessions created before <paramref name="createdBefore"/> count, so a lobby still being set up stays
+    /// </summary>
+    public ValueTask<IReadOnlyCollection<GameSession>> GetAbandonedSessionsAsync(Instant createdBefore);
+
     public void RemoveSession(GameSession session);
 }
 
@@ -93,6 +99,18 @@ internal sealed class GameSessionRepository(DbSet<GameSession> sessionSet, ICloc
         return await source.FirstOrDefaultAsync(
             s => s.HostUserId == hostUserId && s.Status != SessionStatus.Finished
         );
+    }
+
+    public async ValueTask<IReadOnlyCollection<GameSession>> GetAbandonedSessionsAsync(Instant createdBefore)
+    {
+        List<GameSession> sessions = await Sessions
+            .Where(s => s.CreatedAt < createdBefore)
+            .Where(s => (s.Status == SessionStatus.Active && !s.Teams.Any(t => t.Members.Any()))
+                        || (s.Status == SessionStatus.Waiting
+                            && !s.Teams.Any(t => t.Members.Any(m => m.UserId == s.HostUserId))))
+            .ToListAsync();
+
+        return sessions;
     }
 
     public void RemoveSession(GameSession session)

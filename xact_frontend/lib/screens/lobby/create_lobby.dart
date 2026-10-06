@@ -17,17 +17,22 @@ class CreateGameScreen extends StatefulWidget {
 
 class _CreateGameScreenState extends State<CreateGameScreen> {
   final _gameNameController = TextEditingController();
+  final _hostNameController = TextEditingController(
+    text: AppSession.instance.currentUsername ?? '',
+  );
   bool _creating = false;
   bool _finalizingLobby = false;
 
   @override
   void dispose() {
     _gameNameController.dispose();
+    _hostNameController.dispose();
     super.dispose();
   }
 
   void _onCreate() async {
     final gameName = _gameNameController.text.trim();
+    final hostName = _hostNameController.text.trim();
 
     if (gameName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -36,11 +41,24 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       return;
     }
 
+    // logged-in hosts always play under their keycloak username
+    if (!ApiService.instance.isAuthenticated && hostName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
+      );
+      return;
+    }
+
     setState(() => _creating = true);
 
     try {
+      // checked first, so a host without location access doesn't draw an area
+      // only to get stuck before the lobby
+      final locationReady = await _ensureLocationReadyBeforeLobby();
+      if (!locationReady || !mounted) return;
+
       final hostUserId = await ApiService.instance.ensureMvpUser(
-        preferredName: 'Host',
+        preferredName: hostName,
       );
 
       final session = await ApiService.instance.createLobby(
@@ -71,11 +89,6 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Game created! Share code: ${session.joinCode}'),
-        ),
-      );
 
       // the create form stays mounted under the area screen. setting this flag
       // now shows a loading view the moment the area screen pops, instead of
@@ -93,6 +106,11 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       );
 
       if (areaSaved != true || !mounted) {
+        // without an area the lobby can't be used, so it is deleted instead of
+        // staying behind as an empty waiting session
+        try {
+          await ApiService.instance.closeCurrentSession();
+        } catch (_) {}
         if (mounted) setState(() => _finalizingLobby = false);
         return;
       }
@@ -101,12 +119,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         sessionId: sessionId,
         points: GeofenceStore.instance.points,
       );
-
-      final locationReady = await _ensureLocationReadyBeforeLobby();
-      if (!locationReady || !mounted) {
-        if (mounted) setState(() => _finalizingLobby = false);
-        return;
-      }
+      if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
@@ -123,7 +136,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not create game: $error')));
+      ).showSnackBar(SnackBar(content: Text('Could not create game. ${describeApiError(error)}')));
     } finally {
       if (mounted) {
         setState(() => _creating = false);
@@ -225,7 +238,19 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
                             hintText: "e.g. Sam's Game",
                             controller: _gameNameController,
                             textCapitalization: TextCapitalization.words,
+                            // the backend limit for session names
+                            maxLength: 120,
                           ),
+                          if (!ApiService.instance.isAuthenticated) ...[
+                            const SizedBox(height: XActSpace.s2),
+                            XActBranding.buildTextField(
+                              label: 'Your display name',
+                              hintText: 'Enter your name…',
+                              controller: _hostNameController,
+                              // the backend limit for user and guest names
+                              maxLength: 50,
+                            ),
+                          ],
                           const SizedBox(height: XActSpace.s4),
                           _InfoBanner(
                             icon: Icons.info_outline_rounded,
@@ -257,7 +282,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
           const CircularProgressIndicator(color: XActColors.secondary),
           const SizedBox(height: 20),
           Text(
-            'Preparing your lobby…',
+            'Setting up your game…',
             style: XActText.body.copyWith(color: XActColors.text2),
           ),
         ],

@@ -202,13 +202,13 @@ public sealed class GameSessionServiceTests
         var data = new IGameSessionService.GameSessionData(DefaultUserId, DefaultSessionName, DefaultJoinCode);
         var user = CreateUser();
         var session = CreateSession(10, data.SessionName, data.JoinCode);
-        var team = CreateTeam(20, "Team 1", TeamRole.MrX, "#000000");
+        var team = CreateTeam(20, "Team 1", TeamRole.MrX, "#EF4444");
 
         _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(user);
         _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
         _gameSessionRepository.GetSessionByJoinCodeAsync(DefaultJoinCode, false).Returns((GameSession?) null);
         _gameSessionRepository.AddGameSession(DefaultUserId, DefaultSessionName, DefaultJoinCode, 60, 5).Returns(session);
-        _teamRepository.AddTeam(session.Id, "Team 1", TeamRole.MrX, "#000000", Team.DefaultMaxPlayerCount).Returns(team);
+        _teamRepository.AddTeam(session.Id, "Team 1", TeamRole.MrX, "#EF4444", Team.DefaultMaxPlayerCount).Returns(team);
 
         OneOf<GameSession, NotFound, DomainError> result = await _sut.AddGameSessionAsync(data);
 
@@ -218,6 +218,8 @@ public sealed class GameSessionServiceTests
             domainError => Assert.Fail("Expected GameSession but got DomainError")
         );
         _teamMemberRepository.Received(1).AddTeamMember(session.Id, team.Id, user.Id, null, true);
+        _teamRepository.Received(1).AddTeam(session.Id, "Team 2", TeamRole.Detective, "#5B7CFA", Team.DefaultMaxPlayerCount);
+        _teamRepository.Received(1).AddTeam(session.Id, "Unassigned", TeamRole.Spectator, "#64748B", Team.DefaultMaxPlayerCount);
         await _uow.Received(3).SaveChangesAsync();
     }
 
@@ -700,6 +702,67 @@ public sealed class GameSessionServiceTests
     }
 
     [Fact]
+    public async ValueTask CleanUpAbandonedSessionsAsync_DeletesWaitingAndFinishesActiveSessions()
+    {
+        var now = Instant.FromUtc(2026, 10, 5, 12, 0);
+        _clock.GetCurrentInstant().Returns(now);
+        var waiting = CreateSession(1);
+        waiting.Status = SessionStatus.Waiting;
+        var active = CreateSession(2);
+        active.Status = SessionStatus.Active;
+        _gameSessionRepository.GetAbandonedSessionsAsync(now - Duration.FromMinutes(10)).Returns([waiting, active]);
+
+        IGameSessionService.AbandonedSessions result = await _sut.CleanUpAbandonedSessionsAsync(Duration.FromMinutes(10));
+
+        result.DeletedSessionIds.Should().Equal(1);
+        result.FinishedSessions.Should().ContainSingle().Which.Should().BeSameAs(active);
+        active.Status.Should().Be(SessionStatus.Finished);
+        active.EndTime.Should().Be(now);
+        _gameSessionRepository.Received(1).RemoveSession(waiting);
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask CleanUpAbandonedSessionsAsync_SavesNothing_WhenNothingIsAbandoned()
+    {
+        _clock.GetCurrentInstant().Returns(Instant.FromUtc(2026, 10, 5, 12, 0));
+        _gameSessionRepository.GetAbandonedSessionsAsync(Arg.Any<Instant>()).Returns([]);
+
+        IGameSessionService.AbandonedSessions result = await _sut.CleanUpAbandonedSessionsAsync(Duration.FromMinutes(10));
+
+        result.DeletedSessionIds.Should().BeEmpty();
+        result.FinishedSessions.Should().BeEmpty();
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask GetOpenGameSessionByHostAsync_ReturnsSession_WhenHostHasOne()
+    {
+        var session = CreateSession();
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns(session);
+
+        OneOf<GameSession, NotFound> result = await _sut.GetOpenGameSessionByHostAsync(DefaultUserId);
+
+        result.Switch(
+            found => found.Should().BeSameAs(session),
+            _ => Assert.Fail("Expected GameSession but got NotFound")
+        );
+    }
+
+    [Fact]
+    public async ValueTask GetOpenGameSessionByHostAsync_ReturnsNotFound_WhenHostHasNone()
+    {
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns((GameSession?) null);
+
+        OneOf<GameSession, NotFound> result = await _sut.GetOpenGameSessionByHostAsync(DefaultUserId);
+
+        result.Switch(
+            _ => Assert.Fail("Expected NotFound but got GameSession"),
+            _ => { /* expected */ }
+        );
+    }
+
+    [Fact]
     public async ValueTask StartGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
     {
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns((GameSession?) null);
@@ -794,7 +857,8 @@ public sealed class GameSessionServiceTests
     private Team ArrangeActiveCatchScenario(
         out Team mrXTeam,
         TeamRole catchingRole = TeamRole.Detective,
-        int catchingTeamSessionId = DefaultSessionId)
+        int catchingTeamSessionId = DefaultSessionId,
+        bool catchingTeamHasMembers = true)
     {
         var session = CreateSession();
         session.Status = SessionStatus.Active;
@@ -807,6 +871,12 @@ public sealed class GameSessionServiceTests
         var catchingTeam = CreateTeam(DefaultCatchingTeamId, "Detective Team", catchingRole, "#2563EB");
         catchingTeam.SessionId = catchingTeamSessionId;
         _teamRepository.GetTeamByIdAsync(DefaultCatchingTeamId, true).Returns(catchingTeam);
+
+        IReadOnlyCollection<TeamMember> catchingMembers = catchingTeamHasMembers
+            ? [CreateMember(40, DefaultCatchingTeamId, null, "Guest A", isTeamLeader: false)]
+            : [];
+        _teamMemberRepository.GetMembersBySessionAndTeamIdAsync(DefaultSessionId, DefaultCatchingTeamId, false)
+            .Returns(catchingMembers);
 
         return catchingTeam;
     }
@@ -890,6 +960,21 @@ public sealed class GameSessionServiceTests
     }
 
     [Fact]
+    public async ValueTask CatchMrXAsync_ReturnsDomainError_WhenCatchingTeamEmpty()
+    {
+        ArrangeActiveCatchScenario(out var mrXTeam, catchingTeamHasMembers: false);
+        OneOf<IGameSessionService.MrXCaughtResult, NotFound, DomainError> result = await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
+        result.Switch(
+            _ => Assert.Fail("Expected DomainError but got MrXCaughtResult"),
+            _ => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.CatchingTeamEmpty)
+        );
+
+        mrXTeam.Role.Should().Be(TeamRole.MrX);
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
     public async ValueTask CatchMrXAsync_SwapsRoles_WhenActive()
     {
         var catchingTeam = ArrangeActiveCatchScenario(out var mrXTeam);
@@ -906,6 +991,8 @@ public sealed class GameSessionServiceTests
 
         catchingTeam.Role.Should().Be(TeamRole.MrX);
         mrXTeam.Role.Should().Be(TeamRole.Detective);
+        catchingTeam.ColorCode.Should().Be("#000000");
+        mrXTeam.ColorCode.Should().Be("#2563EB");
         catchingTeam.IsCaught.Should().BeFalse();
         mrXTeam.IsCaught.Should().BeFalse();
         await _uow.Received(1).SaveChangesAsync();

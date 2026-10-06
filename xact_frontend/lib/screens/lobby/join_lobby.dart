@@ -92,6 +92,11 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
     setState(() => _joining = true);
 
     try {
+      // checked before joining, otherwise a player who can't share their
+      // location shows up in the host's lobby without ever entering it
+      final locationReady = await _ensureLocationReadyBeforeLobby();
+      if (!locationReady || !mounted) return;
+
       final userId = await ApiService.instance.ensureMvpUser(
         preferredName: username,
       );
@@ -119,12 +124,11 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         }
       }
 
-      spectatorTeam ??= await ApiService.instance.addTeam(
-        sessionId: session.sessionId,
-        teamName: 'Unassigned',
-        role: TeamRole.spectator,
-        colorCode: '#64748B',
-      );
+      // the backend creates it with the session, so joining players never
+      // create teams themselves
+      if (spectatorTeam == null) {
+        throw StateError('Session ${session.sessionId} has no Unassigned team.');
+      }
 
       final member = existingMembership ??
           await ApiService.instance.addUserMember(
@@ -138,9 +142,7 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
         memberId: member.memberId,
         teamLeader: member.isTeamLeader,
       );
-
-      final locationReady = await _ensureLocationReadyBeforeLobby();
-      if (!locationReady || !mounted) return;
+      if (!mounted) return;
 
       Navigator.push(
         context,
@@ -156,13 +158,9 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
     } catch (error) {
       if (!mounted) return;
       final message = switch (error) {
-        ApiException(code: 'name_taken_in_session') =>
-          'Someone in this game already uses that name. Pick another one.',
-        ApiException(code: 'username_taken') =>
-          'That name belongs to a registered player. Pick another one.',
-        _ when error.toString().contains('HTTP 404') =>
+        ApiException(statusCode: 404) =>
           'No game found with code "$gameCode". Ask the host to share a current code.',
-        _ => 'Could not join game: $error',
+        _ => 'Could not join game. ${describeApiError(error)}',
       };
       ScaffoldMessenger.of(
         context,
@@ -295,6 +293,8 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
                           label: 'Your display name',
                           hintText: 'Enter your name…',
                           controller: _usernameController,
+                          // the backend limit for user and guest names
+                          maxLength: 50,
                         ),
                       const SizedBox(height: XActSpace.s4),
                       _InfoBanner(

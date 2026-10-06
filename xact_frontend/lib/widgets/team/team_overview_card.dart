@@ -22,7 +22,9 @@ class TeamOverviewCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          XActBranding.buildEyebrow('Teams · $totalPlayers players'),
+          XActBranding.buildEyebrow(
+            'Teams · $totalPlayers ${totalPlayers == 1 ? 'player' : 'players'}',
+          ),
           const Spacer(),
         ],
       ),

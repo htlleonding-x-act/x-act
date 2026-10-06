@@ -48,7 +48,9 @@ class ProfileScreen extends StatelessWidget {
                             _buildInfoRow(
                               icon: Icons.badge_outlined,
                               title: 'Account type',
-                              value: 'Free',
+                              value: ApiService.instance.isAuthenticated
+                                  ? 'Free'
+                                  : 'Guest',
                             ),
                           ],
                         ),
@@ -191,10 +193,16 @@ class ProfileScreen extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: XActColors.text3),
           const SizedBox(width: 14),
-          Expanded(child: Text(title, style: XActText.bodySm)),
-          Text(
-            value,
-            style: XActText.bodySm.copyWith(color: XActColors.text3),
+          Text(title, style: XActText.bodySm),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: XActText.bodySm.copyWith(color: XActColors.text3),
+            ),
           ),
         ],
       ),
@@ -285,7 +293,10 @@ class ProfileScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: Text('Log out?', style: XActText.heading),
         content: Text(
-          'You\'ll need to sign in again to play.',
+          // a guest can't sign back in, the guest identity is gone for good
+          ApiService.instance.isAuthenticated
+              ? 'You\'ll need to sign in again to play.'
+              : 'You\'ll leave the current game and lose your guest name.',
           style: XActText.body.copyWith(color: XActColors.text3, fontSize: 14),
         ),
         actions: [
@@ -322,10 +333,13 @@ class ProfileScreen extends StatelessWidget {
   }
 
   static String _initials(String name) {
+    // characters, not code units, so a name starting with an emoji keeps it
+    // whole instead of showing half of it
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length >= 2) {
-      return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+      return '${parts.first.characters.first}${parts.last.characters.first}'
+          .toUpperCase();
     }
-    return name.substring(0, name.length.clamp(1, 2)).toUpperCase();
+    return name.characters.take(2).toString().toUpperCase();
   }
 }

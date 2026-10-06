@@ -61,7 +61,7 @@ class _LobbySettingsSheetState extends State<LobbySettingsSheet> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not save settings: $e')));
+      ).showSnackBar(SnackBar(content: Text('Could not save settings. ${describeApiError(e)}')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

@@ -248,38 +248,6 @@ final class UserDetails {
   }
 }
 
-final class GameSessionInfo {
-  final int sessionId;
-  final String sessionName;
-  final String joinCode;
-  final SessionStatus? status;
-  final DateTime? startTime;
-  final DateTime? endTime;
-
-  const GameSessionInfo({
-    required this.sessionId,
-    required this.sessionName,
-    required this.joinCode,
-    required this.status,
-    required this.startTime,
-    required this.endTime,
-  });
-
-  factory GameSessionInfo.fromJson(Map<String, dynamic> json) {
-    return GameSessionInfo(
-      sessionId: _readInt(json, ['id', 'sessionId']),
-      sessionName: (json['sessionName'] as String?) ?? 'Session',
-      joinCode: json['joinCode'] as String,
-      status: switch (json['status']) {
-        final String s => tryParseSessionStatus(s),
-        _ => null,
-      },
-      startTime: tryParseIsoDateTime(json['startTime']),
-      endTime: tryParseIsoDateTime(json['endTime']),
-    );
-  }
-}
-
 final class GameSessionDetails {
   final int sessionId;
   final String hostUserId;
@@ -491,32 +459,6 @@ final class GeofencePointInfo {
   }
 }
 
-final class GeofencePointDetails {
-  final int pointId;
-  final int sessionId;
-  final double latitude;
-  final double longitude;
-  final int sequenceOrder;
-
-  const GeofencePointDetails({
-    required this.pointId,
-    required this.sessionId,
-    required this.latitude,
-    required this.longitude,
-    required this.sequenceOrder,
-  });
-
-  factory GeofencePointDetails.fromJson(Map<String, dynamic> json) {
-    return GeofencePointDetails(
-      pointId: _readInt(json, ['id', 'pointId']),
-      sessionId: (json['sessionId'] as num).toInt(),
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      sequenceOrder: (json['sequenceOrder'] as num).toInt(),
-    );
-  }
-}
-
 final class LocationLogInfo {
   final int logId;
   final int memberId;
@@ -647,6 +589,7 @@ final class RealtimeEvents {
   static const String teamMemberLeft = 'team_member_left';
   static const String gameSessionStarted = 'game_session_started';
   static const String gameSessionEnded = 'game_session_ended';
+  static const String gameSessionDeleted = 'game_session_deleted';
   static const String locationLogRecorded = 'location_log_recorded';
   static const String mrXCaught = 'mr_x_caught';
   static const String chatMessagePosted = 'chat_message_posted';

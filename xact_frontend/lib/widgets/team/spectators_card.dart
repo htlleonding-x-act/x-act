@@ -8,11 +8,13 @@ import 'team_data.dart';
 /// drag target that holds the unassigned players
 class SpectatorsCard extends StatelessWidget {
   final List<LobbyPlayer> spectators;
+  final bool isLeader;
   final ValueChanged<LobbyPlayer> onPlayerDropped;
 
   const SpectatorsCard({
     super.key,
     required this.spectators,
+    required this.isLeader,
     required this.onPlayerDropped,
   });
 
@@ -86,6 +88,7 @@ class SpectatorsCard extends StatelessWidget {
                   (player) => DraggablePlayerTile(
                     player: player,
                     dotColor: color,
+                    canDrag: isLeader,
                   ),
                 ),
             ],

@@ -81,11 +81,73 @@ class _LegendItem extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        Text(
-          label,
+        _ScrollingLabel(
+          text: label,
           style: XActText.bodySm.copyWith(fontSize: 13),
         ),
       ],
+    );
+  }
+}
+
+/// team names can be 50 characters long, so a name that doesn't fit the
+/// legend scrolls through instead of stretching the legend over the map
+class _ScrollingLabel extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+
+  const _ScrollingLabel({required this.text, required this.style});
+
+  @override
+  State<_ScrollingLabel> createState() => _ScrollingLabelState();
+}
+
+class _ScrollingLabelState extends State<_ScrollingLabel> {
+  static const double _maxWidth = 150;
+  static const Duration _pause = Duration(milliseconds: 1500);
+
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollLoop();
+  }
+
+  Future<void> _scrollLoop() async {
+    while (mounted) {
+      await Future<void>.delayed(_pause);
+      if (!mounted || !_controller.hasClients) continue;
+
+      final overflow = _controller.position.maxScrollExtent;
+      if (overflow <= 0) continue;
+
+      await _controller.animateTo(
+        overflow,
+        duration: Duration(milliseconds: (overflow * 30).round()),
+        curve: Curves.linear,
+      );
+      await Future<void>.delayed(_pause);
+      if (mounted && _controller.hasClients) _controller.jumpTo(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _maxWidth),
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        child: Text(widget.text, style: widget.style, softWrap: false),
+      ),
     );
   }
 }

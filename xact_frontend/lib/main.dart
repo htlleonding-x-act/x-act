@@ -45,6 +45,8 @@ class MainApp extends StatefulWidget {
 
 class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
   bool _isClosingSession = false;
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
+  late final _snackBarCleaner = _ClearSnackBarsOnPageChange(_messengerKey);
 
   @override
   void initState() {
@@ -83,6 +85,8 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
     return MaterialApp(
       title: 'X-ACT',
+      scaffoldMessengerKey: _messengerKey,
+      navigatorObservers: [_snackBarCleaner],
       theme: base.copyWith(
         textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
           bodyColor: XActColors.text1,
@@ -92,6 +96,7 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
           backgroundColor: XActColors.surface2,
           contentTextStyle: XActText.bodySm,
           behavior: SnackBarBehavior.floating,
+          showCloseIcon: true,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
             side: BorderSide(color: XActColors.hairlineSoft),
@@ -124,4 +129,35 @@ class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
           : const StartScreen(),
     );
   }
+}
+
+/// the messenger sits above the navigator, so without this a snackbar stays
+/// on the next screen and covers its buttons. dialogs are routes too, but a
+/// message shown under a dialog still belongs to the same screen
+class _ClearSnackBarsOnPageChange extends NavigatorObserver {
+  _ClearSnackBarsOnPageChange(this._messengerKey);
+
+  final GlobalKey<ScaffoldMessengerState> _messengerKey;
+
+  void _clearFor(Route<dynamic>? route) {
+    if (route is PageRoute) {
+      _messengerKey.currentState?.clearSnackBars();
+    }
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _clearFor(route);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _clearFor(route);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _clearFor(newRoute);
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _clearFor(route);
 }

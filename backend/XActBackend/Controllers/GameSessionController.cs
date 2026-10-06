@@ -61,6 +61,20 @@ public sealed class GameSessionController(
         );
     }
 
+    [HttpGet]
+    [Route("hosted-by/{hostUserId}")]
+    [ProducesResponseType<GameSessionDetailsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async ValueTask<ActionResult<GameSessionDetailsDto>> GetOpenGameSessionByHost([FromRoute] string hostUserId)
+    {
+        OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetOpenGameSessionByHostAsync(hostUserId);
+
+        return sessionResult.Match<ActionResult<GameSessionDetailsDto>>(
+            gameSession => Ok(GameSessionDetailsDto.FromGameSession(gameSession, clock.GetCurrentInstant())),
+            notFound => NotFound()
+        );
+    }
+
     [HttpPost]
     [Route("")]
     [ProducesResponseType<GameSessionDetailsDto>(StatusCodes.Status201Created)]
@@ -202,6 +216,8 @@ public sealed class GameSessionController(
             {
                 await transaction.CommitAsync();
                 logger.LogInformation("Deleted game session {SessionId}", sessionId);
+                // players still in the lobby only learn through this event that it is gone
+                await realtimePublisher.PublishGameSessionDeletedAsync(sessionId);
 
                 return NoContent();
             }, async notFound =>

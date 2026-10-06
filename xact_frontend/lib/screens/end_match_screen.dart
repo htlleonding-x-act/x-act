@@ -123,7 +123,7 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
       }
       setState(() => _working = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start a new lobby: $error')),
+        SnackBar(content: Text('Could not start a new lobby. ${describeApiError(error)}')),
       );
     }
   }
@@ -148,28 +148,20 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     );
   }
 
+  /// a catch hands the mister x role to the catching team, so the team that
+  /// holds it when the match ends wins. a team without players can't win
   String? get _winnerTeamName {
     final snapshot = _snapshot;
     if (snapshot == null) {
       return null;
     }
 
-    final playableTeams = snapshot.teams
-        .where((team) => team.role != TeamRole.spectator)
-        .toList(growable: false);
-    if (playableTeams.isEmpty) {
-      return null;
-    }
-
-    final mrXTeam = playableTeams
-        .where((team) => team.role == TeamRole.mrX)
-        .toList(growable: false);
-    if (mrXTeam.length == 1 && !mrXTeam.first.isCaught) {
-      return mrXTeam.first.teamName;
-    }
-
-    if (playableTeams.length == 1) {
-      return playableTeams.first.teamName;
+    for (final team in snapshot.teams) {
+      final hasPlayers =
+          (snapshot.membersByTeamId[team.teamId] ?? const []).isNotEmpty;
+      if (team.role == TeamRole.mrX && hasPlayers) {
+        return team.teamName;
+      }
     }
 
     return null;
@@ -192,23 +184,9 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     return _formatDuration(duration);
   }
 
-  String get _summaryText {
-    final details = _sessionDetails;
-    final winner = _winnerTeamName;
-    final duration = _matchDurationText;
-
-    if (details?.status == SessionStatus.finished &&
-        winner != null &&
-        duration != null) {
-      return 'The match has ended with a recorded result.';
-    }
-
-    if (winner != null || duration != null) {
-      return 'Partial match summary available.';
-    }
-
-    return 'No detailed match summary is available yet.';
-  }
+  String get _summaryText => _winnerTeamName != null
+      ? 'Held the Mister X role until the match ended.'
+      : 'Nobody held the Mister X role when the match ended.';
 
   int get _teamCount {
     final snapshot = _snapshot;
@@ -231,17 +209,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
       0,
       (sum, members) => sum + members.length,
     );
-  }
-
-  int get _caughtTeamCount {
-    final snapshot = _snapshot;
-    if (snapshot == null) {
-      return 0;
-    }
-
-    return snapshot.teams
-        .where((team) => team.role != TeamRole.spectator && team.isCaught)
-        .length;
   }
 
   String _formatDuration(Duration duration) {
@@ -285,7 +252,7 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not leave lobby cleanly: $error')),
+          SnackBar(content: Text('Could not leave lobby cleanly. ${describeApiError(error)}')),
         );
       }
     }
@@ -329,7 +296,7 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
                           child: XActBranding.buildTopBar(
                             context: context,
                             eyebrow: 'Match result',
-                            title: 'Match beendet',
+                            title: 'Match over',
                             showBack: false,
                           ),
                         ),
@@ -358,7 +325,6 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
       _buildResultHero(),
       _buildStatGrid(),
       _buildMatchDetailsSection(),
-      _buildSessionSection(),
     ];
 
     return ListView.separated(
@@ -442,8 +408,8 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
         accent: XActColors.warning,
       ),
       _MiniStatCard(
-        label: 'Caught',
-        value: '$_caughtTeamCount',
+        label: 'Ping interval',
+        value: '${_sessionDetails?.mrXRevealInterval ?? 0} min',
         accent: XActColors.primary,
       ),
     ];
@@ -468,50 +434,16 @@ class _EndMatchScreenState extends State<EndMatchScreen> {
   }
 
   Widget _buildMatchDetailsSection() {
-    final snapshot = _snapshot;
     final details = _sessionDetails;
 
     return _SectionCard(
       title: 'Match details',
-      subtitle: 'Configuration and end-of-match signals from the backend.',
+      subtitle: 'When and where this match was played.',
       child: _buildDetailBubbleGrid(
         children: [
           _DetailRow(
-            label: 'Session Status',
-            value: details?.status?.name ?? 'Unknown',
-          ),
-          _DetailRow(
-            label: 'Planned Duration',
-            value: '${details?.plannedDurationMinutes ?? 0} min',
-          ),
-          _DetailRow(
-            label: 'Reveal Interval',
-            value: '${details?.mrXRevealInterval ?? 0} min',
-          ),
-          _DetailRow(
-            label: 'Latest Location Points',
-            value: '${snapshot?.latestLocations.length ?? 0}',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSessionSection() {
-    final details = _sessionDetails;
-
-    return _SectionCard(
-      title: 'Session',
-      subtitle: 'Identifiers and timing recorded for this match.',
-      child: _buildDetailBubbleGrid(
-        children: [
-          _DetailRow(
-            label: 'Session Name',
+            label: 'Game',
             value: details?.sessionName ?? 'Not available',
-          ),
-          _DetailRow(
-            label: 'Session ID',
-            value: '${details?.sessionId ?? widget.sessionId}',
           ),
           _DetailRow(
             label: 'Start Time',

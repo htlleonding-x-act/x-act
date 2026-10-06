@@ -13,6 +13,7 @@ public static class DomainErrorCodes
     public const string SessionNotFinished = "session_not_finished";
     public const string MrXTeamAlreadyExists = "mr_x_team_already_exists";
     public const string CatchingTeamNotEligible = "catching_team_not_eligible";
+    public const string CatchingTeamEmpty = "catching_team_empty";
     public const string TeamHasMembers = "team_has_members";
     public const string InvalidMemberIdentity = "invalid_member_identity";
     public const string TeamNotInSession = "team_not_in_session";
@@ -66,6 +67,9 @@ public sealed record DomainError(string Code, string Message)
     public static DomainError CatchingTeamNotEligible(int teamId, TeamRole role) =>
         new(DomainErrorCodes.CatchingTeamNotEligible,
             $"Team {teamId} has role {role} and cannot catch Mr.X; only a detective team can.");
+
+    public static DomainError CatchingTeamEmpty(int teamId) =>
+        new(DomainErrorCodes.CatchingTeamEmpty, $"Team {teamId} has no players and cannot catch Mr.X.");
 
     public static DomainError TeamHasMembers(int teamId) =>
         new(DomainErrorCodes.TeamHasMembers, $"Team {teamId} still has members and cannot be deleted.");

@@ -23,12 +23,13 @@ class LobbyTeamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final roleColor = XActColors.roleColor(team.role);
+    final teamColor = team.color;
 
     return DragTarget<LobbyPlayer>(
+      // a full team still accepts the drop so the lobby can tell the host why
+      // the player didn't move
       onWillAcceptWithDetails: (details) {
-        return team.players.length < team.maxPlayers &&
-            !team.players.any((p) => p.memberId == details.data.memberId);
+        return !team.players.any((p) => p.memberId == details.data.memberId);
       },
       onAcceptWithDetails: (details) => onPlayerDropped(details.data),
       builder: (context, candidateData, rejectedData) {
@@ -39,13 +40,13 @@ class LobbyTeamCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isHovering
-                ? roleColor.withValues(alpha: .10)
+                ? teamColor.withValues(alpha: .10)
                 : XActColors.surface,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: isHovering
-                  ? roleColor
-                  : roleColor.withValues(alpha: .25),
+                  ? teamColor
+                  : teamColor.withValues(alpha: .25),
               width: isHovering ? 2 : 1,
             ),
             boxShadow: XActElevation.e1,
@@ -63,10 +64,10 @@ class LobbyTeamCard extends StatelessWidget {
                           height: 10,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: roleColor,
+                            color: teamColor,
                             boxShadow: [
                               BoxShadow(
-                                color: roleColor.withValues(alpha: .7),
+                                color: teamColor.withValues(alpha: .7),
                                 blurRadius: 12,
                               ),
                             ],
@@ -92,7 +93,7 @@ class LobbyTeamCard extends StatelessWidget {
                   Text(
                     '${team.players.length}/${team.maxPlayers}',
                     style: XActText.bodySm.copyWith(
-                      color: roleColor,
+                      color: teamColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -100,7 +101,7 @@ class LobbyTeamCard extends StatelessWidget {
                     const SizedBox(width: 10),
                     _IconAction(
                       icon: Icons.edit_rounded,
-                      color: roleColor,
+                      color: teamColor,
                       onTap: onRename,
                     ),
                     if (team.isDeletable) ...[
@@ -119,7 +120,7 @@ class LobbyTeamCard extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(left: 4, top: 2, bottom: 2),
                   child: Text(
-                    'No players yet — drag someone in.',
+                    isLeader ? 'No players yet — drag someone in.' : 'No players yet.',
                     style: XActText.caption.copyWith(
                       color: XActColors.text4,
                       fontSize: 13,
@@ -128,7 +129,11 @@ class LobbyTeamCard extends StatelessWidget {
                 )
               else
                 ...team.players.map(
-                  (p) => DraggablePlayerTile(player: p, dotColor: roleColor),
+                  (p) => DraggablePlayerTile(
+                    player: p,
+                    dotColor: teamColor,
+                    canDrag: isLeader,
+                  ),
                 ),
             ],
           ),

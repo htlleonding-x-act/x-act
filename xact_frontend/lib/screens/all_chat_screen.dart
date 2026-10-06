@@ -20,6 +20,7 @@ class AllChatScreen extends StatefulWidget {
 class _AllChatScreenState extends State<AllChatScreen> {
   final List<ChatMessage> _messages = [];
   StreamSubscription<RealtimeEventEnvelope>? _eventSubscription;
+  StreamSubscription<bool>? _connectionSubscription;
   bool _loading = true;
   bool _failed = false;
 
@@ -27,6 +28,10 @@ class _AllChatScreenState extends State<AllChatScreen> {
   void initState() {
     super.initState();
     _eventSubscription = ApiService.instance.realtimeEvents.listen(_onEvent);
+    // messages posted while offline never arrived as events
+    _connectionSubscription = ApiService.instance.realtimeConnectionChanges
+        .where((connected) => connected)
+        .listen((_) => unawaited(_loadHistory()));
     unawaited(_init());
     ChatNotificationService.instance.markAllChatRead();
   }
@@ -34,6 +39,7 @@ class _AllChatScreenState extends State<AllChatScreen> {
   @override
   void dispose() {
     _eventSubscription?.cancel();
+    _connectionSubscription?.cancel();
     super.dispose();
   }
 
@@ -88,22 +94,24 @@ class _AllChatScreenState extends State<AllChatScreen> {
     ChatNotificationService.instance.markAllChatRead();
   }
 
-  void _handleSend(String text) {
-    unawaited(_send(text));
-  }
-
-  Future<void> _send(String text) async {
+  Future<bool> _send(String text) async {
     try {
       final message = await ApiService.instance.sendAllChatMessage(text);
       if (mounted && !_messages.any((m) => m.id == message.id)) {
         setState(() => _messages.add(message));
       }
-    } catch (_) {
+      return true;
+    } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send message.')),
+          SnackBar(
+            content: Text(
+              'Message not sent. ${describeApiError(error)}',
+            ),
+          ),
         );
       }
+      return false;
     }
   }
 
@@ -157,7 +165,7 @@ class _AllChatScreenState extends State<AllChatScreen> {
           Expanded(child: _buildBody()),
           ChatInputBar(
             hintText: 'Message everyone…',
-            onSend: _handleSend,
+            onSend: _send,
           ),
         ],
       ),
@@ -170,15 +178,12 @@ class _AllChatScreenState extends State<AllChatScreen> {
     }
 
     if (_failed && _messages.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Could not load chat. Reopen this tab to retry.',
-            style: XActText.bodySm.copyWith(color: XActColors.text3),
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return ChatLoadFailedView(
+        message: 'Could not load chat.',
+        onRetry: () {
+          setState(() => _loading = true);
+          unawaited(_loadHistory());
+        },
       );
     }
 

@@ -30,11 +30,15 @@ class _GameScreenState extends State<GameScreen> {
   bool _endMatchNavigationStarted = false;
   bool _rematchNavigationStarted = false;
   bool _endingGame = false;
+  bool _offeredEndForEmptySide = false;
   Timer? _trackingRetryTimer;
   Timer? _sessionStatusPollTimer;
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   GameSessionDetails? _sessionDetails;
   StreamSubscription<void>? _chatNotificationSub;
+  StreamSubscription<void>? _ownRevealSub;
+  StreamSubscription<bool>? _connectionSub;
+  bool _connectionLost = false;
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -47,6 +51,7 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
     unawaited(_startLocationTrackingSafely());
+    unawaited(ApiService.instance.rememberActiveGame());
     unawaited(_initRealtimeAnnouncements());
     unawaited(_joinTeamChannel());
     unawaited(_loadSessionDetails());
@@ -54,6 +59,14 @@ class _GameScreenState extends State<GameScreen> {
     _chatNotificationSub =
         ChatNotificationService.instance.onChange.listen((_) {
       if (mounted) setState(() {});
+    });
+    _ownRevealSub = LocationService.instance.ownPositionRevealed.listen(
+      (_) => _onOwnPositionRevealed(),
+    );
+    _connectionSub = ApiService.instance.realtimeConnectionChanges.listen((
+      connected,
+    ) {
+      if (mounted) setState(() => _connectionLost = !connected);
     });
     _sessionStatusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _endMatchNavigationStarted) {
@@ -102,6 +115,11 @@ class _GameScreenState extends State<GameScreen> {
         } else if (event.type == RealtimeEvents.memberKicked) {
           _onMemberKicked(MemberKickedPayload.fromJson(event.payload));
         }
+
+        if (event.type == RealtimeEvents.memberKicked ||
+            event.type == RealtimeEvents.teamMemberLeft) {
+          unawaited(_offerEndWhenOneSideIsEmpty());
+        }
       });
     } catch (_) {
       // announcements are best effort, the game works without them
@@ -142,6 +160,21 @@ class _GameScreenState extends State<GameScreen> {
     } catch (_) {
       // best effort polling, the button stays hidden until a fetch succeeds
     }
+  }
+
+  void _onOwnPositionRevealed() {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Ping! The detectives can now see your position.'),
+          duration: Duration(seconds: 4),
+        ),
+      );
   }
 
   void _onMrXCaught(MrXCaughtPayload payload) {
@@ -188,6 +221,8 @@ class _GameScreenState extends State<GameScreen> {
     _sessionStatusPollTimer?.cancel();
     _realtimeEventSub?.cancel();
     _chatNotificationSub?.cancel();
+    _ownRevealSub?.cancel();
+    _connectionSub?.cancel();
     LocationService.instance.stopTracking();
     super.dispose();
   }
@@ -309,19 +344,12 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
-      return;
-    }
-
-    if (mounted) {
-      setState(() => _allowDirectPop = false);
-      navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const StartScreen()),
-        (route) => false,
-      );
-    }
+    // popping would land on whatever screen led into the lobby, e.g. the
+    // join form, so quitting goes to the start screen like a kick does
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const StartScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _openEndMatchScreen() async {
@@ -422,25 +450,59 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
 
-    final how = payload.byHost ? 'the host' : 'a vote';
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('You were removed from the game by $how.'),
-          duration: const Duration(seconds: 4),
-        ),
-      );
-
     setState(() => _allowDirectPop = true);
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) {
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const StartScreen()),
       (route) => false,
+    );
+
+    // shown after the navigation, which clears the snackbars of the old screen
+    final how = payload.byHost ? 'the host' : 'a vote';
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('You were removed from the game by $how.'),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  /// the game can't go on once kicks or leaving players empty one side, so the
+  /// host gets asked once whether to end it
+  Future<void> _offerEndWhenOneSideIsEmpty() async {
+    if (!_isHost || _offeredEndForEmptySide || _endMatchNavigationStarted) {
+      return;
+    }
+
+    final List<TeamCardData> teams;
+    try {
+      teams = await ApiService.instance.loadTeamCards();
+    } catch (_) {
+      return;
+    }
+
+    final hasMisterX = teams.any(
+      (t) => t.role == TeamRole.mrX && t.members.isNotEmpty,
+    );
+    final hasDetectives = teams.any(
+      (t) => t.role == TeamRole.detective && t.members.isNotEmpty,
+    );
+    if ((hasMisterX && hasDetectives) ||
+        !mounted ||
+        _offeredEndForEmptySide) {
+      return;
+    }
+
+    _offeredEndForEmptySide = true;
+    await _endGameAsHost(
+      title: hasMisterX ? 'No detectives left' : 'No Mister X left',
+      message: 'The other side has no players anymore. End the match?',
+      cancelLabel: 'Keep playing',
     );
   }
 
@@ -452,11 +514,34 @@ class _GameScreenState extends State<GameScreen> {
         details.hostUserId == currentUserId;
   }
 
-  Future<void> _endGameAsHost() async {
+  Future<void> _endGameAsHost({
+    String title = 'End the game?',
+    String message = 'The match ends for every player.',
+    String cancelLabel = 'Cancel',
+  }) async {
     final sessionId = AppSession.instance.currentSessionId;
     if (sessionId == null || _endingGame) {
       return;
     }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(cancelLabel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('End game'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
 
     setState(() => _endingGame = true);
     try {
@@ -469,7 +554,7 @@ class _GameScreenState extends State<GameScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not end game: $error')));
+        ).showSnackBar(SnackBar(content: Text('Could not end game. ${describeApiError(error)}')));
       }
     } finally {
       if (mounted) {
@@ -491,6 +576,7 @@ class _GameScreenState extends State<GameScreen> {
                 bottom: false,
                 child: Column(
                   children: [
+                    if (_connectionLost) _buildConnectionLostBanner(),
                     Expanded(
                       flex: 5,
                       child: MapArea(onFullscreenToggle: _toggleFullscreen),
@@ -500,6 +586,34 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
         bottomNavigationBar: _isMapFullscreen ? null : _buildBottomBar(),
+      ),
+    );
+  }
+
+  /// while this shows, positions, pings and chat are not up to date
+  Widget _buildConnectionLostBanner() {
+    return Container(
+      width: double.infinity,
+      color: XActColors.warning.withValues(alpha: .18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: XActColors.warning,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Connection lost. Reconnecting…',
+              style: XActText.bodySm.copyWith(color: XActColors.text1),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -520,7 +634,9 @@ class _GameScreenState extends State<GameScreen> {
           if (_isHost && !_endMatchNavigationStarted) ...[
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: XActBranding.buildPrimaryButton(
+              // a ghost button, so it doesn't look like the red "I've been
+              // caught" button of the team tab
+              child: XActBranding.buildGhostButton(
                 text: _endingGame ? 'Ending game…' : 'End Game',
                 icon: Icons.stop_circle_rounded,
                 height: 52,

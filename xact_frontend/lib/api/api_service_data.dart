@@ -11,7 +11,7 @@ extension ApiServiceDataMethods on ApiService {
 
     return snapshot.teams
         .map((team) {
-          final color = tryParseHexColor(team.colorCode) ?? Colors.white;
+          final color = XActColors.teamColor(team.role, team.colorCode);
           final members = (snapshot.membersByTeamId[team.teamId] ?? const [])
               .map((member) {
                 if (member.userId != null) {
@@ -53,7 +53,7 @@ extension ApiServiceDataMethods on ApiService {
       teamName: team.teamName,
       role: team.role,
       memberCount: memberCount,
-      teamColor: tryParseHexColor(team.colorCode) ?? Colors.blue,
+      teamColor: XActColors.teamColor(team.role, team.colorCode),
     );
   }
 
@@ -107,7 +107,7 @@ extension ApiServiceDataMethods on ApiService {
         MapLegendTeamData(
           teamId: team.teamId,
           label: formatTeamNameWithRole(team.teamName, team.role),
-          color: tryParseHexColor(team.colorCode) ?? Colors.blueGrey,
+          color: XActColors.teamColor(team.role, team.colorCode),
         ),
       );
     }
@@ -155,13 +155,14 @@ extension ApiServiceDataMethods on ApiService {
         continue;
       }
 
-      final color = tryParseHexColor(team.colorCode) ?? Colors.blueGrey;
+      final color = XActColors.teamColor(team.role, team.colorCode);
       final members = snapshot.membersByTeamId[team.teamId] ?? const [];
       final isMrXTeam = team.role == TeamRole.mrX;
 
       for (final member in members) {
         double? lat;
         double? lon;
+        DateTime? revealedAt;
 
         if (isMrXTeam) {
           final revealed = latestLocationByMemberId[member.memberId];
@@ -170,6 +171,7 @@ extension ApiServiceDataMethods on ApiService {
           }
           lat = revealed.latitude;
           lon = revealed.longitude;
+          revealedAt = revealed.timestamp;
         } else {
           lat = member.currentLatitude;
           lon = member.currentLongitude;
@@ -192,6 +194,7 @@ extension ApiServiceDataMethods on ApiService {
             teamRole: team.role,
             color: color,
             position: LatLng(lat, lon),
+            revealedAt: revealedAt,
           ),
         );
       }

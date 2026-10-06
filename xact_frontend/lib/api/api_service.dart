@@ -7,8 +7,10 @@ import 'package:latlong2/latlong.dart';
 
 import '../auth/auth_config.dart';
 import '../auth/auth_storage.dart';
+import '../services/active_game_storage.dart';
 import '../services/app_session.dart';
 import '../services/realtime_service.dart';
+import '../widgets/xact_branding.dart';
 import 'api_config.dart';
 import 'models.dart';
 
@@ -152,4 +154,6 @@ final class ApiService {
   Stream<RealtimeEventEnvelope> get realtimeEvents => _realtime.eventStream;
 
   Stream<GameSessionSnapshot> get realtimeSnapshots => _realtime.snapshotStream;
+
+  Stream<bool> get realtimeConnectionChanges => _realtime.connectionChanges;
 }

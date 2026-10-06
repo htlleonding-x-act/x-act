@@ -26,6 +26,12 @@ final class LocationService {
 
   Stream<Position> get positionStream => _positionController.stream;
 
+  final _ownRevealController = StreamController<void>.broadcast();
+
+  /// fires when the server revealed one of this player's pings, which only
+  /// happens to mister x
+  Stream<void> get ownPositionRevealed => _ownRevealController.stream;
+
   bool get isTracking => _uploadTimer != null;
 
   Position? lastKnownPosition;
@@ -216,7 +222,7 @@ final class LocationService {
     }
 
     try {
-      await ApiService.instance.addLocationLog(
+      final revealed = await ApiService.instance.addLocationLog(
         sessionId: sessionId,
         teamId: teamId,
         memberId: memberId,
@@ -227,6 +233,9 @@ final class LocationService {
         transportMode: 'Foot',
         isRevealedPosition: false,
       );
+      if (revealed) {
+        _ownRevealController.add(null);
+      }
     } catch (_) {
       // the network may be gone for a moment, the next tick tries again
     }

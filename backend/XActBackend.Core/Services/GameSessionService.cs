@@ -19,6 +19,9 @@ public interface IGameSessionService
 
     public ValueTask<OneOf<GameSession, NotFound>> GetGameSessionByJoinCodeAsync(string joinCode, bool tracking);
 
+    /// <summary>the waiting or running session of a host, a host can only have one</summary>
+    public ValueTask<OneOf<GameSession, NotFound>> GetOpenGameSessionByHostAsync(string hostUserId);
+
     public ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId);
 
     public ValueTask<OneOf<Success, NotFound, DomainError>> EndGameSessionAsync(int sessionId);
@@ -48,13 +51,25 @@ public interface IGameSessionService
         int MrXRevealInterval = 5
     );
 
+    /// <summary>
+    ///     deletes waiting sessions whose host left and finishes running sessions without players. both are left
+    ///     behind when apps crash or get killed, and an open session blocks its host from creating a new one
+    /// </summary>
+    public ValueTask<AbandonedSessions> CleanUpAbandonedSessionsAsync(Duration minimumAge);
+
     public sealed record MrXCaughtResult(Team NewMrXTeam, Team FormerMrXTeam);
+
+    public sealed record AbandonedSessions(IReadOnlyCollection<int> DeletedSessionIds, IReadOnlyCollection<GameSession> FinishedSessions);
 }
 
 internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<GameSessionService> logger) : IGameSessionService
 {
-    private const string HostTeamColor = "#000000";
+    private const string HostTeamColor = "#EF4444";
     private const string DefaultMrXTeamName = "Team 1";
+    private const string DefaultDetectiveTeamName = "Team 2";
+    private const string DefaultDetectiveTeamColor = "#5B7CFA";
+    private const string SpectatorTeamName = "Unassigned";
+    private const string SpectatorTeamColor = "#64748B";
 
 
     public async ValueTask<IReadOnlyCollection<GameSession>> GetAllGameSessionsAsync(bool tracking)
@@ -126,9 +141,26 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
                 Team.DefaultMaxPlayerCount
             );
 
+            // created here so joining players never have to create teams themselves, which raced when several
+            // joined at once
+            uow.TeamRepository.AddTeam(
+                gameSession.Id,
+                DefaultDetectiveTeamName,
+                TeamRole.Detective,
+                DefaultDetectiveTeamColor,
+                Team.DefaultMaxPlayerCount
+            );
+            uow.TeamRepository.AddTeam(
+                gameSession.Id,
+                SpectatorTeamName,
+                TeamRole.Spectator,
+                SpectatorTeamColor,
+                Team.DefaultMaxPlayerCount
+            );
+
             await uow.SaveChangesAsync();
 
-            logger.LogInformation("Created default host team {TeamId} for session {SessionId}", hostTeam.Id, gameSession.Id);
+            logger.LogInformation("Created default teams for session {SessionId}", gameSession.Id);
 
             uow.TeamMemberRepository.AddTeamMember(
                 gameSession.Id,
@@ -242,6 +274,45 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         return gameSession is not null ? gameSession : new NotFound();
     }
 
+    public async ValueTask<IGameSessionService.AbandonedSessions> CleanUpAbandonedSessionsAsync(Duration minimumAge)
+    {
+        Instant now = clock.GetCurrentInstant();
+        IReadOnlyCollection<GameSession> abandoned = await uow.GameSessionRepository.GetAbandonedSessionsAsync(now - minimumAge);
+
+        List<int> deleted = [];
+        List<GameSession> finished = [];
+        foreach (var session in abandoned)
+        {
+            if (session.Status == SessionStatus.Waiting)
+            {
+                uow.GameSessionRepository.RemoveSession(session);
+                deleted.Add(session.Id);
+            }
+            else
+            {
+                session.Status = SessionStatus.Finished;
+                session.EndTime = now;
+                finished.Add(session);
+            }
+        }
+
+        if (abandoned.Count > 0)
+        {
+            await uow.SaveChangesAsync();
+            logger.LogInformation("Cleaned up abandoned sessions: deleted {DeletedCount} lobbies, finished {FinishedCount} games",
+                                  deleted.Count, finished.Count);
+        }
+
+        return new IGameSessionService.AbandonedSessions(deleted, finished);
+    }
+
+    public async ValueTask<OneOf<GameSession, NotFound>> GetOpenGameSessionByHostAsync(string hostUserId)
+    {
+        var gameSession = await uow.GameSessionRepository.GetActiveSessionByHostUserIdAsync(hostUserId, tracking: false);
+
+        return gameSession is not null ? gameSession : new NotFound();
+    }
+
     public async ValueTask<OneOf<Success, NotFound, DomainError>> StartGameSessionAsync(int sessionId)
     {
         var gameSession = await uow.GameSessionRepository.GetSessionByIdAsync(sessionId, tracking: true);
@@ -331,10 +402,21 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
             return DomainError.CatchingTeamNotEligible(catchingTeamId, catchingTeam.Role);
         }
 
+        // handing the role to an empty team would leave the game without a mr.x
+        IReadOnlyCollection<TeamMember> catchingMembers =
+            await uow.TeamMemberRepository.GetMembersBySessionAndTeamIdAsync(sessionId, catchingTeamId, tracking: false);
+        if (catchingMembers.Count == 0)
+        {
+            logger.LogWarning("Rejected catch for session {SessionId} because catching team {TeamId} has no members", sessionId, catchingTeamId);
+            return DomainError.CatchingTeamEmpty(catchingTeamId);
+        }
+
         mrXTeam.Role = TeamRole.Detective;
         mrXTeam.IsCaught = false;
         catchingTeam.Role = TeamRole.MrX;
         catchingTeam.IsCaught = false;
+        // the colors swap with the roles, otherwise the former mr.x team stays red on every map
+        (mrXTeam.ColorCode, catchingTeam.ColorCode) = (catchingTeam.ColorCode, mrXTeam.ColorCode);
 
         await uow.SaveChangesAsync();
 
