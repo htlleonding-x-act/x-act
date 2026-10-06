@@ -1,14 +1,7 @@
----
-name: gh-cli-doctor
-description: Diagnoses why the GitHub CLI (gh) or a GitHub operation fails in this repository — gh missing or outdated, not logged in, wrong account, missing token scopes, wrong repo resolved, no write access, network or SSH push problems — and tells the user exactly how to fix it. Use when a gh or git push command errors, before the first gh write operation of a session, or when the user asks whether gh is set up. Does not create issues, branches or pull requests itself.
-compatibility: Requires git and a shell. gh itself may be missing; detecting that is part of the job. Network access to github.com.
----
-
-# gh CLI Doctor
+# Troubleshooting gh and git push
 
 Find the **one root cause** that blocks GitHub work, explain it in plain words,
-and give the exact fix. The `github-issue` and `github-pull-request` skills hand
-over to this skill whenever a `gh` or `git push` command fails.
+and give the exact fix.
 
 ## Rules
 
