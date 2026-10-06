@@ -4,7 +4,7 @@ import '../services/chat_notification_service.dart';
 import '../api/api_service.dart';
 import '../api/game_results.dart';
 import '../api/models.dart';
-import 'end_match_screen.dart';
+import 'end_match/end_match_screen.dart';
 import 'team/team_lobby.dart';
 import 'start/start_screen.dart';
 import 'team_screen.dart';
