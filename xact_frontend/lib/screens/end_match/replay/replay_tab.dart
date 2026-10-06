@@ -156,9 +156,9 @@ class _ReplayTabState extends State<ReplayTab>
           }
           return Column(
             children: [
-              Expanded(flex: 3, child: map),
+              Expanded(flex: 2, child: map),
               const SizedBox(height: XActSpace.s3),
-              Expanded(flex: 2, child: timeline),
+              Expanded(child: timeline),
             ],
           );
         },

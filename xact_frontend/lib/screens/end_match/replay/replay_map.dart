@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -33,6 +35,22 @@ class ReplayMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _buildMap(_fitPadding(constraints.maxHeight)),
+    );
+  }
+
+  /// keeps the routes clear of the chips on top and the controls at the
+  /// bottom. on a short phone map fixed paddings would eat most of the height
+  static EdgeInsets _fitPadding(double mapHeight) => EdgeInsets.fromLTRB(
+    24,
+    min(72, mapHeight * .2),
+    24,
+    min(88, mapHeight * .25),
+  );
+
+  Widget _buildMap(EdgeInsets fitPadding) {
     final bounds = tracks.bounds;
 
     return FlutterMap(
@@ -44,7 +62,7 @@ class ReplayMap extends StatelessWidget {
             ? null
             : CameraFit.bounds(
                 bounds: bounds,
-                padding: const EdgeInsets.fromLTRB(32, 72, 32, 88),
+                padding: fitPadding,
                 maxZoom: 17,
               ),
         minZoom: 10,

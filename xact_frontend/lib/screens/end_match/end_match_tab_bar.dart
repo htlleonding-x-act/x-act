@@ -43,6 +43,8 @@ class EndMatchTabBar extends StatelessWidget {
         labelStyle: XActText.bodySm.copyWith(fontWeight: FontWeight.w700),
         unselectedLabelStyle: XActText.bodySm,
         splashBorderRadius: XActRadius.pill,
+        // the default padding cuts "Overview" off on phones
+        labelPadding: const EdgeInsets.symmetric(horizontal: XActSpace.s1),
         tabs: [
           for (final tab in tabs)
             Tab(

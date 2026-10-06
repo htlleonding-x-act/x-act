@@ -29,13 +29,13 @@ class EndMatchActionBar extends StatelessWidget {
       text: 'Back to the Lobby',
       icon: Icons.meeting_room_rounded,
       onPressed: busy ? null : onRematch,
-      height: 52,
+      height: 46,
     );
     final leaveButton = XActBranding.buildGhostButton(
       text: 'Leave Lobby',
       icon: Icons.logout_rounded,
       onPressed: busy ? null : onLeave,
-      height: 52,
+      height: 46,
     );
 
     return Container(
@@ -54,7 +54,7 @@ class EndMatchActionBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.all(XActSpace.s4),
+          padding: const EdgeInsets.all(XActSpace.s3),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final sideBySide = constraints.maxWidth >= _rowBreakpoint;
