@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../api/api_service.dart';
 import '../../api/game_results.dart';
@@ -13,6 +16,9 @@ import 'end_match_action_bar.dart';
 import 'end_match_tab_bar.dart';
 import 'overview/overview_tab.dart';
 import 'players/players_tab.dart';
+import 'replay/replay_controller.dart';
+import 'replay/replay_tab.dart';
+import 'replay/replay_tracks.dart';
 import 'winner_hero.dart';
 
 class EndMatchScreen extends StatefulWidget {
@@ -25,27 +31,41 @@ class EndMatchScreen extends StatefulWidget {
 }
 
 class _EndMatchScreenState extends State<EndMatchScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const double _maxContentWidth = 1080;
 
   static const _tabs = [
     EndMatchTab('Overview', Icons.dashboard_rounded),
+    EndMatchTab('Replay', Icons.route_rounded),
     EndMatchTab('Players', Icons.leaderboard_rounded),
   ];
   static const int _overviewTab = 0;
+  static const int _replayTab = 1;
+
+  // a jump lands a moment before the event, so the replay shows it happen
+  static const int _jumpLeadSeconds = 3;
+  static const double _jumpZoom = 16;
+  static const Duration _highlightDuration = Duration(seconds: 2);
 
   late final TabController _tabController = TabController(
     length: _tabs.length,
     vsync: this,
   );
+  final MapController _mapController = MapController();
+  final ValueNotifier<TimelineEvent?> _highlightedEvent = ValueNotifier(null);
 
   bool _loading = true;
   bool _working = false;
   bool _migrating = false;
   GameResults? _results;
+  ReplayTrackSet? _tracks;
+  ReplayController? _replay;
   Object? _loadError;
   String? _hostUserId;
   StreamSubscription<RealtimeEventEnvelope>? _rematchSub;
+  bool _mapReady = false;
+  LatLng? _pendingCameraTarget;
+  Timer? _highlightTimer;
 
   @override
   void initState() {
@@ -58,13 +78,95 @@ class _EndMatchScreenState extends State<EndMatchScreen>
   @override
   void dispose() {
     _rematchSub?.cancel();
+    _highlightTimer?.cancel();
     _tabController.dispose();
+    _replay?.dispose();
+    _highlightedEvent.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
   void _onTabChanged() {
+    if (_tabController.index != _replayTab) {
+      _replay?.pause();
+    }
     if (!_tabController.indexIsChanging) {
       setState(() {});
+    }
+  }
+
+  void _onMapReady() {
+    _mapReady = true;
+    final target = _pendingCameraTarget;
+    if (target != null) {
+      _pendingCameraTarget = null;
+      _mapController.move(target, _jumpZoom);
+    }
+  }
+
+  /// the map only exists once the replay tab was opened, until then the
+  /// target waits for it
+  void _moveCamera(LatLng target) {
+    if (_mapReady) {
+      _mapController.move(target, max(_mapController.camera.zoom, _jumpZoom));
+    } else {
+      _pendingCameraTarget = target;
+    }
+  }
+
+  void _jumpToEvent(TimelineEvent event) {
+    final replay = _replay;
+    if (replay == null) return;
+
+    replay.pause();
+    replay.seek(max(0, event.offsetSeconds - _jumpLeadSeconds).toDouble());
+    if (event.position case final position?) {
+      _moveCamera(position);
+    }
+
+    _highlightedEvent.value = event;
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(
+      _highlightDuration,
+      () => _highlightedEvent.value = null,
+    );
+  }
+
+  void _watchRoute(ResultMember member) {
+    final replay = _replay;
+    if (replay == null || member.route.isEmpty) return;
+
+    _tabController.animateTo(_replayTab);
+    replay.focusMember(member.memberId);
+    replay.seek(member.route.first.offsetSeconds.toDouble());
+    _moveCamera(member.route.first.position);
+    replay.play();
+  }
+
+  /// catches and offenses have a moment to jump to, the other awards are about
+  /// a whole route
+  void _showAward(MatchAward award) {
+    final results = _results;
+    if (results == null || award.memberIds.isEmpty) return;
+
+    final eventType = switch (award.type) {
+      AwardType.hunter => TimelineEventType.mrXCaught,
+      AwardType.ruleBender => TimelineEventType.leftGameArea,
+      _ => null,
+    };
+    final event = results.timeline
+        .where((e) => e.type == eventType && award.memberIds.contains(e.memberId))
+        .firstOrNull;
+
+    if (event != null) {
+      _tabController.animateTo(_replayTab);
+      _jumpToEvent(event);
+      return;
+    }
+
+    final member = results.memberById(award.memberIds.first);
+    if (member != null) {
+      _watchRoute(member);
     }
   }
 
@@ -79,8 +181,14 @@ class _EndMatchScreenState extends State<EndMatchScreen>
         widget.sessionId,
       );
       if (!mounted) return;
+      _replay?.dispose();
       setState(() {
         _results = results;
+        _tracks = ReplayTrackSet.of(results);
+        _replay = ReplayController(
+          vsync: this,
+          matchSeconds: results.durationSeconds,
+        );
         _hostUserId = results.hostUserId;
         _loading = false;
       });
@@ -253,10 +361,12 @@ class _EndMatchScreenState extends State<EndMatchScreen>
 
   Widget _buildBody() {
     final results = _results;
+    final tracks = _tracks;
+    final replay = _replay;
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (results == null) {
+    if (results == null || tracks == null || replay == null) {
       return _buildError();
     }
 
@@ -284,14 +394,27 @@ class _EndMatchScreenState extends State<EndMatchScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
+            // a horizontal drag on the map must pan it, not switch tabs
+            physics: const NeverScrollableScrollPhysics(),
             children: [
               OverviewTab(
                 results: results,
                 currentMemberId: _currentMemberId,
+                onShowAward: _showAward,
+              ),
+              ReplayTab(
+                results: results,
+                tracks: tracks,
+                controller: replay,
+                mapController: _mapController,
+                highlightedEvent: _highlightedEvent,
+                onEventTap: _jumpToEvent,
+                onMapReady: _onMapReady,
               ),
               PlayersTab(
                 results: results,
                 currentMemberId: _currentMemberId,
+                onWatchRoute: _watchRoute,
               ),
             ],
           ),
