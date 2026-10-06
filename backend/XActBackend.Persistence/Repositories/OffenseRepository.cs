@@ -10,6 +10,9 @@ public interface IOffenseRepository
     public ValueTask<Offense?> GetActiveOffenseAsync(int memberId, OffenseType type, bool tracking);
 
     public ValueTask<IReadOnlyCollection<Offense>> GetActiveOffensesBySessionAsync(int sessionId, bool tracking);
+
+    /// <summary>active and cleared offenses, oldest first</summary>
+    public ValueTask<IReadOnlyCollection<Offense>> GetOffensesBySessionAsync(int sessionId, bool tracking);
 }
 
 internal sealed class OffenseRepository(DbSet<Offense> offenseSet) : IOffenseRepository
@@ -49,6 +52,18 @@ internal sealed class OffenseRepository(DbSet<Offense> offenseSet) : IOffenseRep
 
         List<Offense> offenses = await source
             .Where(o => o.SessionId == sessionId && o.Status == OffenseStatus.Active)
+            .OrderBy(o => o.DetectedAt)
+            .ToListAsync();
+
+        return offenses;
+    }
+
+    public async ValueTask<IReadOnlyCollection<Offense>> GetOffensesBySessionAsync(int sessionId, bool tracking)
+    {
+        IQueryable<Offense> source = tracking ? Offenses : OffensesNoTracking;
+
+        List<Offense> offenses = await source
+            .Where(o => o.SessionId == sessionId)
             .OrderBy(o => o.DetectedAt)
             .ToListAsync();
 

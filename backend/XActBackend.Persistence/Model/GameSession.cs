@@ -16,6 +16,9 @@ public sealed class GameSession
 
     public Instant? EndTime { get; set; }
 
+    /// <summary>null while the session runs, and for sessions finished before the reason was stored</summary>
+    public GameEndReason? EndReason { get; set; }
+
     public int PlannedDurationMinutes { get; set; }
 
     /// <summary>minutes between two mr.x reveals</summary>

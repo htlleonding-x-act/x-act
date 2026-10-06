@@ -42,7 +42,7 @@ Four projects with strict layering:
 
 - **XActBackend** — ASP.NET Core Web API. Controllers translate HTTP → service calls. SignalR hub at `/hubs/game-session` for real-time events. `Program.cs` / `Setup.cs` wire DI, middleware, CORS, and JSON config (NodaTime).
 - **XActBackend.Core** — Domain and business logic. Services return `OneOf<T, TError>` union types instead of throwing exceptions. Key services: `GameSessionService`, `TeamService`, `UserService`, `GameSessionSnapshotService`.
-- **XActBackend.Persistence** — EF Core 10 + PostgreSQL. Repository and transaction abstractions. Models: `GameSession`, `Team`, `TeamMember`, `LocationLog`, `GeofencePoint`, `PowerUpUsage`. Migrations in `Migrations/`.
+- **XActBackend.Persistence** — EF Core 10 + PostgreSQL. Repository and transaction abstractions. Models: `GameSession`, `Team`, `TeamMember`, `LocationLog`, `GeofencePoint`, `PowerUpUsage`, `CatchEvent`. Migrations in `Migrations/`.
 - **XActBackend.Shared** — NodaTime JSON config, date/time extensions.
 - **XActBackend.Test** / **XActBackend.TestInt** — xUnit unit and integration tests. Prefer the smallest test layer that proves the behavior changed.
 

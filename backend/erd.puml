@@ -42,7 +42,18 @@ table(Game_Sessions) {
     column(end_time) : TIMESTAMP
     column(planned_duration_minutes) : INTEGER
     column(mr_x_reveal_interval) : INTEGER
+    column(end_reason) : ENUM('HOST_ENDED', 'NO_OPPONENTS_LEFT', 'HOST_LEFT', 'ABANDONED') NULL
     column(created_at) : TIMESTAMP
+}
+
+table(Catch_Events) {
+    primary_key(catch_event_id) : INTEGER
+    --
+    foreign_key(session_id) : INTEGER
+    foreign_key(catching_team_id) : INTEGER
+    foreign_key(caught_team_id) : INTEGER
+    --
+    column(occurred_at) : TIMESTAMP
 }
 
 table(Geofence_Points) {
@@ -110,6 +121,9 @@ Users ||..o{ Game_Sessions : "hosts"
 Game_Sessions ||--|{ Teams : "consists of"
 Game_Sessions ||--|{ Geofence_Points : "defined by boundary"
 Game_Sessions ||--|{ Team_Members : "contains participants"
+Game_Sessions ||--o{ Catch_Events : "records catches"
+
+Teams ||--o{ Catch_Events : "catches / is caught"
 
 Teams ||--|{ Team_Members : "has members"
 

@@ -26,6 +26,7 @@ public interface IUnitOfWork
     public IKickVoteRepository KickVoteRepository { get; }
     public IKickVoteBallotRepository KickVoteBallotRepository { get; }
     public IOffenseRepository OffenseRepository { get; }
+    public ICatchEventRepository CatchEventRepository { get; }
     public Task SaveChangesAsync();
 }
 
@@ -46,6 +47,7 @@ internal sealed class UnitOfWork(DatabaseContext context, IClock clock, ILogger<
     public IKickVoteRepository KickVoteRepository => new KickVoteRepository(context.KickVotes);
     public IKickVoteBallotRepository KickVoteBallotRepository => new KickVoteBallotRepository(context.KickVoteBallots);
     public IOffenseRepository OffenseRepository => new OffenseRepository(context.Offenses);
+    public ICatchEventRepository CatchEventRepository => new CatchEventRepository(context.CatchEvents);
 
     public async ValueTask BeginTransactionAsync()
     {
