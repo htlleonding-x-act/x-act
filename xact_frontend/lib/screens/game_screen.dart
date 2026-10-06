@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/chat_notification_service.dart';
 import '../api/api_service.dart';
+import '../api/game_results.dart';
 import '../api/models.dart';
 import 'end_match_screen.dart';
 import 'team/team_lobby.dart';
@@ -503,6 +504,7 @@ class _GameScreenState extends State<GameScreen> {
       title: hasMisterX ? 'No detectives left' : 'No Mister X left',
       message: 'The other side has no players anymore. End the match?',
       cancelLabel: 'Keep playing',
+      reason: GameEndReason.noOpponentsLeft,
     );
   }
 
@@ -518,6 +520,7 @@ class _GameScreenState extends State<GameScreen> {
     String title = 'End the game?',
     String message = 'The match ends for every player.',
     String cancelLabel = 'Cancel',
+    GameEndReason reason = GameEndReason.hostEnded,
   }) async {
     final sessionId = AppSession.instance.currentSessionId;
     if (sessionId == null || _endingGame) {
@@ -545,7 +548,7 @@ class _GameScreenState extends State<GameScreen> {
 
     setState(() => _endingGame = true);
     try {
-      await ApiService.instance.endGameSession(sessionId);
+      await ApiService.instance.endGameSession(sessionId, reason: reason);
       await _openEndMatchScreen();
     } catch (error, stackTrace) {
       debugPrint('Failed to end game session: $error');

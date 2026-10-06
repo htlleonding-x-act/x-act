@@ -12,9 +12,11 @@ import '../services/app_session.dart';
 import '../services/realtime_service.dart';
 import '../widgets/xact_branding.dart';
 import 'api_config.dart';
+import 'game_results.dart';
 import 'models.dart';
 
 part 'api_service_types.dart';
+part 'api_service_results.dart';
 part 'api_service_data.dart';
 part 'api_service_session.dart';
 part 'api_service_http.dart';
