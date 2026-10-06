@@ -30,6 +30,7 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
       KC_DB_USERNAME: admin
       KC_DB_PASSWORD: supersecretpassword
+      KC_PROXY_HEADERS: xforwarded
     volumes:
       - ./docker/keycloak:/opt/keycloak/data/import:ro
     ports:
@@ -50,8 +51,6 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=xact_db;Username=admin;Password=supersecretpassword
       - Authentication__Authority=http://keycloak:8080/realms/xact
-      - Authentication__ValidIssuers__0=http://localhost:8080/realms/xact
-      - Authentication__ValidIssuers__1=http://10.0.2.2:8080/realms/xact
       - Authentication__ValidAudience=x-act-backend
       - Authentication__RequireHttpsMetadata=false
     depends_on:
@@ -59,6 +58,19 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_started
+
+  # single entry for clients: the backend at the root, keycloak under /realms and /resources
+  proxy:
+    image: caddy:2-alpine
+    container_name: xact-proxy
+    restart: always
+    ports:
+      - "8000:80"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - backend
+      - keycloak
 
 volumes:
   postgres_data:

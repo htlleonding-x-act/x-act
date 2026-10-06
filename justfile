@@ -9,7 +9,7 @@ db-update:
 backend:
 	dotnet run --project backend/XActBackend/XActBackend.csproj
 
-# backend, database and keycloak in containers
+# backend, database and keycloak in containers, all reachable through the proxy on port 8000
 docker-up:
 	docker compose up --build -d
 
@@ -17,12 +17,12 @@ docker-up:
 docker-reset:
 	docker compose down -v
 
-frontend api_base_url="http://localhost:5200":
+frontend api_base_url="http://localhost:8000":
 	cd xact_frontend && flutter run --dart-define=API_BASE_URL={{api_base_url}}
 
 # port 8088 is the only web redirect URI and origin registered in the keycloak realm
-web api_base_url="http://localhost:5200":
+web api_base_url="http://localhost:8000":
 	cd xact_frontend && flutter run -d chrome --web-port=8088 --dart-define=API_BASE_URL={{api_base_url}}
 
-apk api_base_url="http://localhost:5200":
+apk api_base_url="http://localhost:8000":
 	cd xact_frontend && flutter build apk --dart-define=API_BASE_URL={{api_base_url}}

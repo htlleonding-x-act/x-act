@@ -46,6 +46,11 @@ public static class Setup
                         {
                             ValidateIssuer = true,
                             ValidIssuers = settings.ValidIssuers is { Length: > 0 } ? settings.ValidIssuers : [settings.Authority],
+                            IssuerValidator = settings.AcceptAnyIssuerHost
+                                ? (issuer, _, _) => settings.IsRealmIssuer(issuer)
+                                    ? issuer
+                                    : throw new SecurityTokenInvalidIssuerException($"Issuer {issuer} is not the realm of {settings.Authority}")
+                                : null,
                             ValidateAudience = settings.ValidAudience is not null,
                             ValidAudience = settings.ValidAudience
                         };
