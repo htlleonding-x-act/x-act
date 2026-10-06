@@ -8,20 +8,14 @@ class AuthConfig {
     'KEYCLOAK_AUTHORITY',
   );
 
-  /// keycloak runs next to the backend in the docker stack, so a phone that reaches
-  /// the backend under a lan address reaches keycloak under the same one
+  /// keycloak sits behind the same reverse proxy as the backend in the docker stack,
+  /// so whatever address reaches the backend reaches keycloak too
   static String get authority {
     if (_configuredAuthority.isNotEmpty) {
       return _configuredAuthority;
     }
 
-    final api = Uri.parse(ApiConfig.baseUrl);
-    return Uri(
-      scheme: api.scheme,
-      host: api.host,
-      port: 8080,
-      path: '/realms/xact',
-    ).toString();
+    return Uri.parse(ApiConfig.baseUrl).resolve('/realms/xact').toString();
   }
 
   static const String clientId = String.fromEnvironment(

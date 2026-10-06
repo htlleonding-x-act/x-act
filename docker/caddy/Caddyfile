@@ -1,0 +1,19 @@
+{
+	servers {
+		# a proxy on the host, like tailscale serve, reaches this one from the docker bridge. trusting it keeps
+		# its X-Forwarded-Proto: https, without which keycloak would build http links
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	# keycloak's public paths only, the admin console stays on port 8080
+	@keycloak path /realms/* /resources/*
+	handle @keycloak {
+		reverse_proxy keycloak:8080
+	}
+
+	handle {
+		reverse_proxy backend:5200
+	}
+}

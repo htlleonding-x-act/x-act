@@ -14,8 +14,13 @@ Flutter client.
 
 ```bash
 just docker-up          # postgres, keycloak and the backend in containers
-just frontend           # flutter client against http://localhost:5200
+just frontend           # flutter client against http://localhost:8000
 ```
+
+Clients reach the stack through one entry, a Caddy reverse proxy on port 8000
+([`docker/caddy/Caddyfile`](docker/caddy/Caddyfile)): `/realms/*` and `/resources/*` go
+to Keycloak, everything else to the backend. The backend (5200) and Keycloak (8080)
+stay published for debugging and the admin console.
 
 `just docker-up` applies pending EF Core migrations on startup, because the backend
 container runs in the Development environment. Production applies them explicitly with
@@ -55,7 +60,7 @@ The realm registers `http://localhost:8088` as a redirect URI and web origin, so
 client has to use that port:
 
 ```bash
-cd xact_frontend && flutter run -d chrome --web-port=8088 --dart-define=API_BASE_URL=http://localhost:5200
+cd xact_frontend && flutter run -d chrome --web-port=8088 --dart-define=API_BASE_URL=http://localhost:8000
 ```
 
 Desktop builds use a local callback server on port 9482, Android and iOS use the
@@ -63,19 +68,23 @@ Desktop builds use a local callback server on port 9482, Android and iOS use the
 
 ### Running on a phone
 
-The client looks for Keycloak on port 8080 of the `API_BASE_URL` host unless
-`KEYCLOAK_AUTHORITY` is set, so the Android emulator (`10.0.2.2`) works with the Docker
-stack as is. A physical phone reaches the stack under the machine's LAN address, which
-then ends up in the token issuer, so add it to the backend's issuers in
-`docker-compose.yaml` before building:
+The client looks for Keycloak under `/realms/xact` of the `API_BASE_URL` origin unless
+`KEYCLOAK_AUTHORITY` is set, so any address that reaches the proxy works for both. The
+Android emulator uses `http://10.0.2.2:8000`.
 
-```yaml
-      - Authentication__ValidIssuers__2=http://192.168.1.20:8080/realms/xact
-```
+A physical phone on the same tailnet reaches the proxy through `tailscale serve`, which
+also gives it HTTPS with a valid certificate:
 
 ```bash
-just apk http://192.168.1.20:5200
+tailscale serve --bg 8000                       # https://<machine>.<tailnet>.ts.net -> proxy
+just apk https://<machine>.<tailnet>.ts.net
+tailscale serve reset                           # stop serving again
 ```
+
+`tailscale serve` prints the URL it serves under. Keycloak builds
+its links and the token issuer from whatever host the request came in under, and the
+Development config accepts the realm under any host (`AcceptAnyIssuerHost`), so neither
+the tailnet name nor a LAN address has to be configured anywhere.
 
 ### Backend configuration
 
@@ -83,6 +92,7 @@ just apk http://192.168.1.20:5200
 | --- | --- | --- |
 | `Authentication:Authority` | yes | Realm URL the backend fetches signing keys from. Startup fails without it. |
 | `Authentication:ValidIssuers` | no | Issuers accepted in the token. Keycloak puts the host name the client used into the issuer, so list every host clients reach it under when the backend uses another one (`keycloak:8080` inside Docker). Falls back to the authority. |
+| `Authentication:AcceptAnyIssuerHost` | no | Accepts the authority's realm under any host in the issuer, in place of `ValidIssuers`. The signing keys still come from the authority. On in the Development config, for a stack reached under host names nobody knows in advance; keep it off in production. |
 | `Authentication:ValidAudience` | no | Audience expected in the token. Only validated when set, since Keycloak issues a usable audience only once the client has an audience mapper. |
 | `Authentication:RequireHttpsMetadata` | no | Defaults to `true`; the development and Docker configs set it to `false`. |
 | `General:ClientOrigin` | yes | Allowed CORS origin. An origin ending in `:*` allows any loopback port. |
