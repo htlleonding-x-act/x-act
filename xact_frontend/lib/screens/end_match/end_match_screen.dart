@@ -19,6 +19,7 @@ import 'players/players_tab.dart';
 import 'replay/replay_controller.dart';
 import 'replay/replay_tab.dart';
 import 'replay/replay_tracks.dart';
+import 'share/share_match_result.dart';
 import 'winner_hero.dart';
 
 class EndMatchScreen extends StatefulWidget {
@@ -385,6 +386,7 @@ class _EndMatchScreenState extends State<EndMatchScreen>
             results: results,
             isWinner: _isWinner(results),
             compact: compactHero,
+            onShare: () => showMatchShareSheet(context, results),
           ),
         ),
         Padding(
@@ -401,6 +403,7 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                 results: results,
                 currentMemberId: _currentMemberId,
                 onShowAward: _showAward,
+                onShare: () => showMatchShareSheet(context, results),
               ),
               ReplayTab(
                 results: results,
