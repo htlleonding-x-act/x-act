@@ -19,6 +19,15 @@ public abstract class WebApiTestBase(WebApiTestFixture webApiFixture) : IClassFi
     protected HttpClient ApiClient => webApiFixture.Client;
     protected IClock TestClock => webApiFixture.Clock;
     protected CancellationToken TestCancellationToken => TestContext.Current.CancellationToken;
+
+    /// <summary>a client whose requests are signed in as the given keycloak subject</summary>
+    protected HttpClient CreateClientSignedInAs(string subject)
+    {
+        var client = webApiFixture.AppFactory.CreateClient();
+        client.DefaultRequestHeaders.Add(TestAuthHandler.SubjectHeader, subject);
+
+        return client;
+    }
     
     public async ValueTask InitializeAsync()
     {

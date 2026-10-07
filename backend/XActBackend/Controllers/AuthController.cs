@@ -24,7 +24,7 @@ public sealed class AuthController(
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async ValueTask<ActionResult<UserDetailsDto>> RegisterCurrentUser()
     {
-        string? keycloakSubject = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        string? keycloakSubject = KeycloakSubject;
 
         if (string.IsNullOrWhiteSpace(keycloakSubject))
         {

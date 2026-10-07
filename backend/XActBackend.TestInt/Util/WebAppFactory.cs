@@ -1,6 +1,7 @@
 using XActBackend.Persistence;
 using XActBackend.Persistence.Util;
 using XActBackend.Shared;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,7 @@ internal sealed class WebAppFactory(string connectionString) : WebApplicationFac
         {
             SetTestDbContext(services);
             SetTestClock(services);
+            SetTestAuthentication(services);
         });
     }
 
@@ -44,6 +46,12 @@ internal sealed class WebAppFactory(string connectionString) : WebApplicationFac
         clockMock.GetCurrentInstant().Returns(currentInstant);
 
         services.AddSingleton(clockMock);
+    }
+
+    private static void SetTestAuthentication(IServiceCollection services)
+    {
+        services.AddAuthentication(TestAuthHandler.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
     }
 
     private static void RemoveServiceIfExists<TService>(IServiceCollection services)

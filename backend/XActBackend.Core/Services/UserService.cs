@@ -18,6 +18,9 @@ public interface IUserService
 
     public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, UserData userData, bool tracking);
 
+    /// <summary>changes what a user may edit about themselves; the username has to stay unique among registered users</summary>
+    public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateProfileAsync(string userId, string username);
+
     /// <summary>soft delete: flags the user and replaces username and email with placeholders</summary>
     public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking);
 
@@ -168,6 +171,29 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         user.SubscriptionEndDate = userData.SubscriptionEndDate;
         user.TotalWins = userData.TotalWins;
         user.TotalGamesPlayed = userData.TotalGamesPlayed;
+
+        await uow.SaveChangesAsync();
+
+        return new Success();
+    }
+
+    public async ValueTask<OneOf<Success, NotFound, DomainError>> UpdateProfileAsync(string userId, string username)
+    {
+        var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking: true);
+
+        if (user is null)
+        {
+            return new NotFound();
+        }
+
+        var registeredUser = await uow.UserRepository.GetRegisteredUserByUsernameAsync(username, tracking: false);
+        if (registeredUser is not null && registeredUser.Id != userId)
+        {
+            logger.LogWarning("Rejected rename of user {UserId} because username {Username} is already taken", userId, username);
+            return DomainError.UsernameTaken(username);
+        }
+
+        user.Username = username;
 
         await uow.SaveChangesAsync();
 

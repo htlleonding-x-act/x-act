@@ -321,6 +321,73 @@ public sealed class UserServiceTests
     }
 
     [Fact]
+    public async ValueTask UpdateProfileAsync_RenamesUser_WhenNameIsFree()
+    {
+        var user = CreateUser(DefaultUserId, "old");
+        _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns(user);
+        _userRepository.GetRegisteredUserByUsernameAsync("new", false).Returns((User?) null);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, "new");
+
+        result.Switch(
+            success => { /* expected */ },
+            notFound => Assert.Fail("Expected Success but got NotFound"),
+            domainError => Assert.Fail($"Expected Success but got {domainError.Code}")
+        );
+        user.Username.Should().Be("new");
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask UpdateProfileAsync_RenamesUser_WhenOnlyTheCaseOfTheOwnNameChanges()
+    {
+        var user = CreateUser(DefaultUserId, "player");
+        _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns(user);
+        _userRepository.GetRegisteredUserByUsernameAsync("Player", false).Returns(user);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, "Player");
+
+        result.Switch(
+            success => { /* expected */ },
+            notFound => Assert.Fail("Expected Success but got NotFound"),
+            domainError => Assert.Fail($"Expected Success but got {domainError.Code}")
+        );
+        user.Username.Should().Be("Player");
+    }
+
+    [Fact]
+    public async ValueTask UpdateProfileAsync_ReturnsDomainError_WhenAnotherUserHasTheName()
+    {
+        var user = CreateUser(DefaultUserId, "old");
+        _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns(user);
+        _userRepository.GetRegisteredUserByUsernameAsync("taken", false).Returns(CreateUser("2", "taken"));
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, "taken");
+
+        result.Switch(
+            success => Assert.Fail("Expected DomainError but got Success"),
+            notFound => Assert.Fail("Expected DomainError but got NotFound"),
+            domainError => domainError.Code.Should().Be(DomainErrorCodes.UsernameTaken)
+        );
+        user.Username.Should().Be("old");
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask UpdateProfileAsync_ReturnsNotFound_WhenUnknown()
+    {
+        _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns((User?) null);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, "new");
+
+        result.Switch(
+            success => Assert.Fail("Expected NotFound but got Success"),
+            notFound => { /* expected */ },
+            domainError => Assert.Fail($"Expected NotFound but got {domainError.Code}")
+        );
+    }
+
+    [Fact]
     public async ValueTask DeleteUserAsync_ReturnsSuccess_WhenFound()
     {
         var user = CreateUser(DefaultUserId, "user", "user@test.com");
