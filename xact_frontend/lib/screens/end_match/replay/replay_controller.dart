@@ -1,6 +1,8 @@
 import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
 
+import 'replay_visibility.dart';
+
 /// the playback clock of the replay. one animation controller runs from 0 to 1
 /// over the match, its duration is the match length divided by the speed
 class ReplayController extends ChangeNotifier {
@@ -11,6 +13,7 @@ class ReplayController extends ChangeNotifier {
         AnimationController(vsync: vsync, duration: _durationFor(_speed))
           ..addListener(notifyListeners)
           ..addStatusListener((_) => notifyListeners());
+    visibility.addListener(_onVisibilityChanged);
   }
 
   static const List<double> speeds = [30, 60, 120, 240];
@@ -21,14 +24,13 @@ class ReplayController extends ChangeNotifier {
   final int matchSeconds;
   late final AnimationController _animation;
   late double _speed;
+  final ReplayVisibility visibility = ReplayVisibility();
   int? _focusedMemberId;
-  final Set<int> _hiddenMemberIds = {};
 
   double get positionSeconds => _animation.value * matchSeconds;
   bool get isPlaying => _animation.isAnimating;
   double get speed => _speed;
   int? get focusedMemberId => _focusedMemberId;
-  Set<int> get hiddenMemberIds => _hiddenMemberIds;
 
   static double _defaultSpeed(int matchSeconds) {
     final wanted = matchSeconds / _targetPlaybackSeconds;
@@ -79,23 +81,23 @@ class ReplayController extends ChangeNotifier {
   void focusMember(int? memberId) {
     _focusedMemberId = memberId;
     if (memberId != null) {
-      _hiddenMemberIds.remove(memberId);
+      visibility.showMember(memberId);
     }
     notifyListeners();
   }
 
-  void toggleHidden(int memberId) {
-    if (!_hiddenMemberIds.remove(memberId)) {
-      _hiddenMemberIds.add(memberId);
-      if (_focusedMemberId == memberId) {
-        _focusedMemberId = null;
-      }
+  /// the camera can't follow someone who is no longer drawn
+  void _onVisibilityChanged() {
+    if (_focusedMemberId case final memberId?
+        when visibility.isMemberHidden(memberId)) {
+      _focusedMemberId = null;
     }
     notifyListeners();
   }
 
   @override
   void dispose() {
+    visibility.dispose();
     _animation.dispose();
     super.dispose();
   }

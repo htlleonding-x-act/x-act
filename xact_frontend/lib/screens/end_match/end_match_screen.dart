@@ -82,6 +82,7 @@ class _EndMatchScreenState extends State<EndMatchScreen>
   Timer? _highlightTimer;
   bool _overviewScrolled = false;
   int _shownTab = _overviewTab;
+  bool _replayFullscreen = false;
 
   // a tab is only built once it was opened, the replay map loads its tiles
   // then and not with the results
@@ -141,6 +142,10 @@ class _EndMatchScreenState extends State<EndMatchScreen>
       setState(() => _overviewScrolled = scrolled);
     }
     return false;
+  }
+
+  void _toggleReplayFullscreen() {
+    setState(() => _replayFullscreen = !_replayFullscreen);
   }
 
   void _onMapReady() {
@@ -377,32 +382,42 @@ class _EndMatchScreenState extends State<EndMatchScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: XActColors.bg,
-      body: Stack(
-        children: [
-          Positioned.fill(child: XActBranding.aurora()),
-          SafeArea(
-            bottom: false,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _maxContentWidth),
-                child: Column(
-                  children: [
-                    Expanded(child: _buildBody()),
-                    EndMatchActionBar(
-                      isHost: _isHost,
-                      loading: _loading,
-                      busy: _working || _migrating,
-                      onRematch: _startRematch,
-                      onLeave: _leaveLobby,
-                    ),
-                  ],
+    // back leaves the fullscreen map before it leaves the screen
+    return PopScope(
+      canPop: !_replayFullscreen,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _toggleReplayFullscreen();
+      },
+      child: Scaffold(
+        backgroundColor: XActColors.bg,
+        body: Stack(
+          children: [
+            Positioned.fill(child: XActBranding.aurora()),
+            SafeArea(
+              bottom: false,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: _replayFullscreen
+                      ? const BoxConstraints()
+                      : const BoxConstraints(maxWidth: _maxContentWidth),
+                  child: Column(
+                    children: [
+                      Expanded(child: _buildBody()),
+                      if (!_replayFullscreen)
+                        EndMatchActionBar(
+                          isHost: _isHost,
+                          loading: _loading,
+                          busy: _working || _migrating,
+                          onRematch: _startRematch,
+                          onLeave: _leaveLobby,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -447,7 +462,7 @@ class _EndMatchScreenState extends State<EndMatchScreen>
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
-          child: showHero
+          child: showHero && !_replayFullscreen
               ? Padding(
                   padding: const EdgeInsets.fromLTRB(
                     XActSpace.s4,
@@ -462,12 +477,16 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                     onShare: () => showMatchShareSheet(context, results),
                   ),
                 )
-              : const SizedBox(width: double.infinity, height: XActSpace.s3),
+              : SizedBox(
+                  width: double.infinity,
+                  height: _replayFullscreen ? 0 : XActSpace.s3,
+                ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: XActSpace.s4),
-          child: EndMatchTabBar(controller: _tabController, tabs: _tabs),
-        ),
+        if (!_replayFullscreen)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: XActSpace.s4),
+            child: EndMatchTabBar(controller: _tabController, tabs: _tabs),
+          ),
         Expanded(
           // a stack instead of a tab view: no page scrolling that a resize could
           // leave between two pages, and every tab keeps its state
@@ -494,6 +513,8 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                     highlightedEvent: _highlightedEvent,
                     onEventTap: _jumpToEvent,
                     onMapReady: _onMapReady,
+                    fullscreen: _replayFullscreen,
+                    onToggleFullscreen: _toggleReplayFullscreen,
                   )
                 else
                   const SizedBox.shrink(),

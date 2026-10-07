@@ -7,6 +7,7 @@ import '../../../api/game_results.dart';
 import '../../../widgets/xact_branding.dart';
 import 'replay_controller.dart';
 import 'replay_controls.dart';
+import 'replay_layers_sheet.dart';
 import 'replay_map.dart';
 import 'replay_member_chips.dart';
 import 'replay_tracks.dart';
@@ -22,6 +23,8 @@ class ReplayTab extends StatefulWidget {
     required this.highlightedEvent,
     required this.onEventTap,
     required this.onMapReady,
+    required this.fullscreen,
+    required this.onToggleFullscreen,
   });
 
   final GameResults results;
@@ -31,6 +34,10 @@ class ReplayTab extends StatefulWidget {
   final ValueNotifier<TimelineEvent?> highlightedEvent;
   final ValueChanged<TimelineEvent> onEventTap;
   final VoidCallback onMapReady;
+
+  /// the map alone over the whole screen, so a phone can show all of it
+  final bool fullscreen;
+  final VoidCallback onToggleFullscreen;
 
   @override
   State<ReplayTab> createState() => _ReplayTabState();
@@ -49,6 +56,9 @@ class _ReplayTabState extends State<ReplayTab> {
   // moving the camera every frame makes the tiles stutter
   static const Duration _followInterval = Duration(milliseconds: 250);
 
+  // the map moves between the row, the column and fullscreen. the key keeps
+  // its state, so the camera stays where it was
+  final GlobalKey _mapKey = GlobalKey();
   bool _mapReady = false;
   DateTime _lastFollow = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -86,7 +96,8 @@ class _ReplayTabState extends State<ReplayTab> {
   @override
   Widget build(BuildContext context) {
     final map = ClipRRect(
-      borderRadius: XActRadius.lg,
+      key: _mapKey,
+      borderRadius: widget.fullscreen ? BorderRadius.zero : XActRadius.lg,
       child: Stack(
         children: [
           Positioned.fill(
@@ -104,17 +115,44 @@ class _ReplayTabState extends State<ReplayTab> {
           ),
           Positioned(
             left: 0,
-            right: 0,
+            right: XActSpace.s3,
             top: XActSpace.s3,
-            child: ReplayMemberChips(
-              tracks: widget.tracks,
-              controller: widget.controller,
+            child: Row(
+              children: [
+                Expanded(
+                  child: ReplayMemberChips(
+                    tracks: widget.tracks,
+                    controller: widget.controller,
+                  ),
+                ),
+                _MapButton(
+                  tooltip: 'Layers and players',
+                  icon: Icons.layers_rounded,
+                  onPressed: () => showReplayLayersSheet(
+                    context,
+                    tracks: widget.tracks,
+                    visibility: widget.controller.visibility,
+                  ),
+                ),
+                const SizedBox(width: XActSpace.s2),
+                _MapButton(
+                  tooltip: widget.fullscreen ? 'Exit fullscreen' : 'Fullscreen',
+                  icon: widget.fullscreen
+                      ? Icons.fullscreen_exit_rounded
+                      : Icons.fullscreen_rounded,
+                  onPressed: widget.onToggleFullscreen,
+                ),
+              ],
             ),
           ),
           Positioned(
             left: XActSpace.s3,
             right: XActSpace.s3,
-            bottom: XActSpace.s3,
+            // the end screen leaves the bottom inset to its action bar, which
+            // fullscreen hides
+            bottom:
+                XActSpace.s3 +
+                (widget.fullscreen ? MediaQuery.paddingOf(context).bottom : 0),
             child: ReplayControls(
               controller: widget.controller,
               results: widget.results,
@@ -136,6 +174,10 @@ class _ReplayTabState extends State<ReplayTab> {
         onEventTap: widget.onEventTap,
       ),
     );
+
+    if (widget.fullscreen) {
+      return map;
+    }
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -171,6 +213,32 @@ class _ReplayTabState extends State<ReplayTab> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _MapButton extends StatelessWidget {
+  const _MapButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: XActColors.glass,
+      shape: CircleBorder(side: BorderSide(color: XActColors.hairlineSoft)),
+      child: IconButton(
+        tooltip: tooltip,
+        onPressed: onPressed,
+        visualDensity: VisualDensity.compact,
+        icon: Icon(icon, color: XActColors.text1, size: 20),
       ),
     );
   }

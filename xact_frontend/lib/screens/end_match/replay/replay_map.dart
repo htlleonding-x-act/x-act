@@ -12,6 +12,7 @@ import '../../../widgets/xact_branding.dart';
 import 'replay_controller.dart';
 import 'replay_markers.dart';
 import 'replay_tracks.dart';
+import 'replay_visibility.dart';
 
 class ReplayMap extends StatefulWidget {
   const ReplayMap({
@@ -135,21 +136,12 @@ class _ReplayMapState extends State<ReplayMap> {
       ),
       children: [
         buildGreyscaleTileLayer(),
-        if (widget.results.geofence.length >= 3)
-          PolygonLayer(
-            polygons: [
-              Polygon(
-                points: widget.results.geofence,
-                color: XActColors.secondary.withValues(alpha: .06),
-                borderColor: XActColors.secondary.withValues(alpha: .6),
-                borderStrokeWidth: 2,
-              ),
-            ],
-          ),
-        // the whole routes never change, so they skip the per frame rebuild
-        RepaintBoundary(
-          child: PolylineLayer(
-            polylines: [for (final track in widget.tracks.tracks) ...track.fullRoute()],
+        // the game area and whole routes don't move with the playback, so they
+        // only rebuild when the viewer toggles something
+        ListenableBuilder(
+          listenable: widget.controller.visibility,
+          builder: (context, _) => RepaintBoundary(
+            child: Stack(fit: StackFit.expand, children: _buildStaticLayers()),
           ),
         ),
         ListenableBuilder(
@@ -161,31 +153,58 @@ class _ReplayMapState extends State<ReplayMap> {
     );
   }
 
+  Iterable<MemberTrack> get _visibleTracks => widget.tracks.tracks.where(
+    (t) => !widget.controller.visibility.isMemberHidden(t.member.memberId),
+  );
+
+  List<Widget> _buildStaticLayers() {
+    final visibility = widget.controller.visibility;
+    return [
+      if (visibility.isLayerVisible(ReplayLayer.gameArea) &&
+          widget.results.geofence.length >= 3)
+        PolygonLayer(
+          polygons: [
+            Polygon(
+              points: widget.results.geofence,
+              color: XActColors.secondary.withValues(alpha: .06),
+              borderColor: XActColors.secondary.withValues(alpha: .6),
+              borderStrokeWidth: 2,
+            ),
+          ],
+        ),
+      if (visibility.isLayerVisible(ReplayLayer.wholeRoutes))
+        PolylineLayer(
+          polylines: [for (final track in _visibleTracks) ...track.fullRoute()],
+        ),
+    ];
+  }
+
   List<Widget> _buildDynamicLayers() {
     final seconds = widget.controller.positionSeconds;
-    final visible = widget.tracks.tracks
-        .where((t) => !widget.controller.hiddenMemberIds.contains(t.member.memberId))
-        .toList();
+    final visibility = widget.controller.visibility;
+    final showTrails = visibility.isLayerVisible(ReplayLayer.trails);
 
     final trails = <Polyline>[];
     final heads = <Polyline>[];
     final players = <Marker>[];
-    for (final track in visible) {
+    for (final track in _visibleTracks) {
       final index = track.indexAt(seconds);
-      trails.addAll(track.trailUpTo(index));
       final position = track.positionAt(seconds);
       if (position == null) {
         continue;
       }
 
       final isMrX = track.isMrXAt(seconds);
-      heads.add(
-        Polyline(
-          points: [track.pointAt(index), position],
-          color: isMrX ? XActColors.roleMrX : track.color,
-          strokeWidth: isMrX ? 4 : 3,
-        ),
-      );
+      if (showTrails) {
+        trails.addAll(track.trailUpTo(index));
+        heads.add(
+          Polyline(
+            points: [track.pointAt(index), position],
+            color: isMrX ? XActColors.roleMrX : track.color,
+            strokeWidth: isMrX ? 4 : 3,
+          ),
+        );
+      }
 
       final focused = widget.controller.focusedMemberId == track.member.memberId;
       final size = focused ? _focusedPlayerSize : _playerSize;
@@ -206,22 +225,24 @@ class _ReplayMapState extends State<ReplayMap> {
 
     final highlight = widget.highlightedEvent.value;
     final pins = <Marker>[
-      for (final pin in widget.tracks.revealPins)
-        if (pin.offsetSeconds <= seconds)
-          Marker(
-            point: pin.position,
-            width: 18,
-            height: 18,
-            child: const RevealPinMarker(),
-          ),
-      for (final event in widget.results.catches)
-        if (event.position != null && event.offsetSeconds <= seconds)
-          Marker(
-            point: event.position!,
-            width: 26,
-            height: 26,
-            child: const CatchMarker(),
-          ),
+      if (visibility.isLayerVisible(ReplayLayer.sightings))
+        for (final pin in widget.tracks.revealPins)
+          if (pin.offsetSeconds <= seconds)
+            Marker(
+              point: pin.position,
+              width: 18,
+              height: 18,
+              child: const RevealPinMarker(),
+            ),
+      if (visibility.isLayerVisible(ReplayLayer.catches))
+        for (final event in widget.results.catches)
+          if (event.position != null && event.offsetSeconds <= seconds)
+            Marker(
+              point: event.position!,
+              width: 26,
+              height: 26,
+              child: const CatchMarker(),
+            ),
       if (highlight?.position case final LatLng position)
         Marker(
           point: position,

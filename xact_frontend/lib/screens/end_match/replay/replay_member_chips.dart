@@ -30,7 +30,7 @@ class ReplayMemberChips extends StatelessWidget {
             final track = tracks.tracks[index];
             final memberId = track.member.memberId;
             final focused = controller.focusedMemberId == memberId;
-            final hidden = controller.hiddenMemberIds.contains(memberId);
+            final hidden = controller.visibility.isMemberHidden(memberId);
 
             return Opacity(
               opacity: hidden ? .4 : 1,
@@ -44,7 +44,7 @@ class ReplayMemberChips extends StatelessWidget {
                 child: InkWell(
                   customBorder: const StadiumBorder(),
                   onTap: () => controller.focusMember(focused ? null : memberId),
-                  onLongPress: () => controller.toggleHidden(memberId),
+                  onLongPress: () => controller.visibility.toggleMember(memberId),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: XActSpace.s3),
                     child: Row(
