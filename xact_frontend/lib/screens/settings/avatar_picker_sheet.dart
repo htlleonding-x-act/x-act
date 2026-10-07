@@ -35,10 +35,10 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
   ];
 
   // saturated enough to carry a white initial, picked to sit well on the
-  // dark background
+  // dark background. no red, the default gradient already is
   static const _colors = [
-    '#FF4D5E', '#5B7CFA', '#34D399', '#F6B05B', //
-    '#A78BFA', '#F472B6', '#22D3EE', '#94A3B8', //
+    '#5B7CFA', '#34D399', '#F6B05B', '#A78BFA', //
+    '#F472B6', '#22D3EE', '#94A3B8', //
   ];
 
   late String? _emoji = widget.profile.avatarEmoji;
