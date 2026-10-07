@@ -248,6 +248,36 @@ final class UserDetails {
   }
 }
 
+/// the signed-in user as they see themselves, including fields other players don't get
+final class MyProfile {
+  final String userId;
+  final String username;
+  final String? email;
+  final AccountType? accountType;
+  final DateTime? createdAt;
+
+  const MyProfile({
+    required this.userId,
+    required this.username,
+    required this.email,
+    required this.accountType,
+    required this.createdAt,
+  });
+
+  factory MyProfile.fromJson(Map<String, dynamic> json) {
+    return MyProfile(
+      userId: json['id'] as String,
+      username: json['username'] as String,
+      email: json['email'] as String?,
+      accountType: switch (json['accountType']) {
+        final String s => tryParseAccountType(s),
+        _ => null,
+      },
+      createdAt: tryParseIsoDateTime(json['createdAt']),
+    );
+  }
+}
+
 final class GameSessionDetails {
   final int sessionId;
   final String hostUserId;
