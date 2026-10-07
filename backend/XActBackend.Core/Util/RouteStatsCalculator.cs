@@ -70,9 +70,16 @@ public static class RouteStatsCalculator
             double stepMeters = GeoMath.HaversineMeters(anchor, point);
             double stepSeconds = (point.Timestamp - anchor.Timestamp).TotalSeconds;
 
-            switch (ClassifyStep(anchor, point, stepMeters, stepSeconds, rejections))
+            // jitter keeps the anchor, so after standing still for minutes its timestamp is old and a wild fix
+            // spread over that whole time would look like a plausible walk. the player was last seen near the
+            // anchor at the previous fix, so the speed check counts from there
+            double secondsSincePrevious = (point.Timestamp - candidates[i - 1].Timestamp).TotalSeconds;
+
+            switch (ClassifyStep(anchor, point, stepMeters, secondsSincePrevious, rejections))
             {
                 case StepKind.Jitter:
+                    // a fix close to the anchor confirms it, so earlier outliers no longer count towards a re-anchor
+                    rejections = 0;
                     break;
                 case StepKind.Teleport:
                     rejections++;
@@ -147,9 +154,10 @@ public static class RouteStatsCalculator
         return precise.Count >= 2 ? precise : inMatch;
     }
 
-    private static StepKind ClassifyStep(TrackPoint anchor, TrackPoint point, double stepMeters, double stepSeconds, int rejections)
+    private static StepKind ClassifyStep(TrackPoint anchor, TrackPoint point, double stepMeters, double secondsSincePrevious,
+                                         int rejections)
     {
-        if (stepMeters / stepSeconds > Limits.MaxPlausibleSpeedMps)
+        if (stepMeters / secondsSincePrevious > Limits.MaxPlausibleSpeedMps)
         {
             return rejections + 1 >= Limits.MaxRejectionsBeforeReanchor ? StepKind.Reanchor : StepKind.Teleport;
         }

@@ -80,6 +80,35 @@ public sealed class RouteStatsCalculatorTests
     }
 
     [Fact]
+    public void Calculate_KeepsAnchor_WhenOutliersAreSpacedOutByGoodFixes()
+    {
+        // standing still with three fixes 2 km off, each one followed by good fixes again
+        HashSet<int> outlierSeconds = [50, 150, 250];
+        List<TrackPoint> points = Enumerable.Range(0, 60)
+            .Select(i => Point(i * 5, outlierSeconds.Contains(i * 5) ? 0.018 : 0))
+            .ToList();
+
+        RouteStats stats = RouteStatsCalculator.Calculate(points, Start, End);
+
+        stats.AcceptedPoints.Should().OnlyContain(p => p.Latitude < 48.301);
+        stats.DistanceMeters.Should().Be(0);
+    }
+
+    [Fact]
+    public void Calculate_DropsOutlier_AfterStandingStillForLong()
+    {
+        // ten minutes hiding, then one fix 2 km off, which spread over those ten minutes would read as a walk
+        List<TrackPoint> points = Enumerable.Range(0, 180)
+            .Select(i => Point(i * 5, i * 5 == 600 ? 0.018 : 0))
+            .ToList();
+
+        RouteStats stats = RouteStatsCalculator.Calculate(points, Start, End);
+
+        stats.AcceptedPoints.Should().OnlyContain(p => p.Latitude < 48.301);
+        stats.DistanceMeters.Should().Be(0);
+    }
+
+    [Fact]
     public void Calculate_DropsLowAccuracyFixes()
     {
         List<TrackPoint> points = Walk(5);
