@@ -17,7 +17,7 @@ public sealed class GameResultsController(
     [Route("")]
     [ProducesResponseType<GameResultsDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async ValueTask<ActionResult<GameResultsDto>> GetGameResults([FromRoute] int sessionId)
     {
         OneOf<IGameResultsService.GameResults, NotFound, DomainError> result = await gameResultsService.GetResultsAsync(sessionId);
