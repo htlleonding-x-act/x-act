@@ -5,6 +5,16 @@ extension ApiServiceProfileMethods on ApiService {
     return MyProfile.fromJson(await _getJsonObject('/api/users/me'));
   }
 
+  Future<PlayerStats> loadMyStats() async {
+    return PlayerStats.fromJson(await _getJsonObject('/api/users/me/stats'));
+  }
+
+  /// newest first; the backend allows at most 50
+  Future<List<MatchSummary>> loadMyMatches({int limit = 20}) async {
+    final json = await _getJsonObject('/api/users/me/matches?limit=$limit');
+    return ApiListResponse.fromJson(json, MatchSummary.fromJson).items;
+  }
+
   /// replaces the whole profile, so pass the current avatar to keep it
   Future<void> updateMyProfile({
     required String username,

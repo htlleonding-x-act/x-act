@@ -286,6 +286,83 @@ final class MyProfile {
   }
 }
 
+/// totals over every finished match of the signed-in user
+final class PlayerStats {
+  final int gamesPlayed;
+  final int wins;
+  final double distanceMeters;
+  final double mrXSeconds;
+  final int catchesMade;
+  final int powerUpsUsed;
+  final double topSpeedKmh;
+
+  const PlayerStats({
+    required this.gamesPlayed,
+    required this.wins,
+    required this.distanceMeters,
+    required this.mrXSeconds,
+    required this.catchesMade,
+    required this.powerUpsUsed,
+    required this.topSpeedKmh,
+  });
+
+  factory PlayerStats.fromJson(Map<String, dynamic> json) {
+    return PlayerStats(
+      gamesPlayed: (json['gamesPlayed'] as num).toInt(),
+      wins: (json['wins'] as num).toInt(),
+      distanceMeters: (json['distanceMeters'] as num).toDouble(),
+      mrXSeconds: (json['mrXSeconds'] as num).toDouble(),
+      catchesMade: (json['catchesMade'] as num).toInt(),
+      powerUpsUsed: (json['powerUpsUsed'] as num).toInt(),
+      topSpeedKmh: (json['topSpeedKmh'] as num).toDouble(),
+    );
+  }
+}
+
+/// one finished match as the signed-in user played it
+final class MatchSummary {
+  final int sessionId;
+  final String sessionName;
+  final DateTime startTime;
+  final DateTime endTime;
+
+  /// the user's member in that match
+  final int memberId;
+  final String teamName;
+  final bool won;
+  final double distanceMeters;
+  final double mrXSeconds;
+  final int catchesMade;
+
+  const MatchSummary({
+    required this.sessionId,
+    required this.sessionName,
+    required this.startTime,
+    required this.endTime,
+    required this.memberId,
+    required this.teamName,
+    required this.won,
+    required this.distanceMeters,
+    required this.mrXSeconds,
+    required this.catchesMade,
+  });
+
+  factory MatchSummary.fromJson(Map<String, dynamic> json) {
+    return MatchSummary(
+      sessionId: (json['sessionId'] as num).toInt(),
+      sessionName: json['sessionName'] as String,
+      startTime: DateTime.parse(json['startTime'] as String),
+      endTime: DateTime.parse(json['endTime'] as String),
+      memberId: (json['memberId'] as num).toInt(),
+      teamName: json['teamName'] as String,
+      won: json['won'] as bool,
+      distanceMeters: (json['distanceMeters'] as num).toDouble(),
+      mrXSeconds: (json['mrXSeconds'] as num).toDouble(),
+      catchesMade: (json['catchesMade'] as num).toInt(),
+    );
+  }
+}
+
 final class GameSessionDetails {
   final int sessionId;
   final String hostUserId;

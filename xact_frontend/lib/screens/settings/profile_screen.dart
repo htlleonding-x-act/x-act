@@ -6,9 +6,12 @@ import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/auth/auth_config.dart';
 import 'package:xact_frontend/screens/auth/login_screen.dart';
+import 'package:xact_frontend/screens/end_match/end_match_format.dart';
+import 'package:xact_frontend/screens/end_match/overview/stat_tile.dart';
 import 'package:xact_frontend/screens/settings/account_dialogs.dart';
 import 'package:xact_frontend/screens/settings/avatar_picker_sheet.dart';
 import 'package:xact_frontend/screens/settings/gps_check_sheet.dart';
+import 'package:xact_frontend/screens/settings/match_history_screen.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/location_service.dart';
@@ -42,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   MyProfile? _profile;
   bool _profileFailed = false;
+  PlayerStats? _stats;
+  bool _statsFailed = false;
   String? _version;
   bool? _locationAllowed;
 
@@ -56,7 +61,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _loadVersion();
     _loadLocationPermission();
-    if (_isSignedIn) _loadProfile();
+    if (_isSignedIn) {
+      _loadProfile();
+      _loadStats();
+    }
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _statsFailed = false);
+    try {
+      final stats = await ApiService.instance.loadMyStats();
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {
+      if (mounted) setState(() => _statsFailed = true);
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -108,9 +126,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         _buildHeader(),
                         const SizedBox(height: 28),
-                        if (_isSignedIn)
-                          _buildAccountSection()
-                        else
+                        if (_isSignedIn) ...[
+                          _buildStatsSection(),
+                          const SizedBox(height: 16),
+                          _buildAccountSection(),
+                        ] else
                           _buildGuestCard(),
                         const SizedBox(height: 16),
                         _buildNotificationSection(),
@@ -224,6 +244,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
       AccountType.eventPass => 'Event Pass',
       AccountType.free || null => 'Free',
     };
+  }
+
+  Widget _buildStatsSection() {
+    final stats = _stats;
+
+    return SettingsSection(
+      label: 'Your stats',
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: switch (stats) {
+            _ when _statsFailed => Text(
+              'Could not load your stats.',
+              style: XActText.bodySm.copyWith(color: XActColors.text3),
+            ),
+            null => const Center(child: CircularProgressIndicator()),
+            PlayerStats(gamesPlayed: 0) => Text(
+              'No finished matches yet. Your stats show up here after your '
+              'first match.',
+              style: XActText.bodySm.copyWith(color: XActColors.text3),
+            ),
+            _ => _buildStatTiles(stats),
+          },
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: Icons.history_rounded,
+          title: 'Match history',
+          subtitle: 'Replay and results of your past matches',
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const MatchHistoryScreen())),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatTiles(PlayerStats stats) {
+    return StatTileGrid(
+      tiles: [
+        StatTile(
+          label: 'Matches',
+          value: '${stats.gamesPlayed}',
+          icon: Icons.flag_rounded,
+          accent: XActColors.secondary,
+        ),
+        StatTile(
+          label: 'Wins',
+          value: '${stats.wins}',
+          icon: Icons.emoji_events_rounded,
+          accent: XActColors.success,
+        ),
+        StatTile(
+          label: 'Distance',
+          value: formatDistance(stats.distanceMeters),
+          icon: Icons.directions_walk_rounded,
+          accent: XActColors.warning,
+        ),
+        StatTile(
+          label: 'As Mister X',
+          value: formatShortDuration(
+            Duration(seconds: stats.mrXSeconds.round()),
+          ),
+          icon: Icons.visibility_off_rounded,
+          accent: XActColors.primary,
+        ),
+      ],
+    );
   }
 
   Widget _buildAccountSection() {
