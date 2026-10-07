@@ -16,6 +16,7 @@ namespace XActBackend.Controllers;
 public sealed class MeController(
     ITransactionProvider transaction,
     IUserService userService,
+    IPlayerStatsService playerStatsService,
     ILogger<MeController> logger) : BaseController
 {
     [HttpGet]
@@ -36,6 +37,48 @@ public sealed class MeController(
             user => Ok(MyProfileDto.FromUser(user)),
             notFound => NotFound()
         );
+    }
+
+    [HttpGet]
+    [Route("stats")]
+    [ProducesResponseType<PlayerStatsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async ValueTask<ActionResult<PlayerStatsDto>> GetMyStats()
+    {
+        if (KeycloakSubject is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        IPlayerStatsService.PlayerStats stats = await playerStatsService.GetStatsAsync(userId);
+
+        return Ok(PlayerStatsDto.FromStats(stats));
+    }
+
+    [HttpGet]
+    [Route("matches")]
+    [ProducesResponseType<MatchHistoryResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async ValueTask<ActionResult<MatchHistoryResponse>> GetMyMatches([FromQuery] MatchHistoryQuery query)
+    {
+        if (KeycloakSubject is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        if (!ValidateRequest<MatchHistoryQuery.Validator, MatchHistoryQuery>(query))
+        {
+            return BadRequest();
+        }
+
+        IReadOnlyList<IPlayerStatsService.MatchSummary> matches =
+            await playerStatsService.GetMatchHistoryAsync(userId, query.Limit);
+
+        return Ok(new MatchHistoryResponse
+        {
+            Items = matches.Select(MatchSummaryDto.FromSummary).ToList()
+        });
     }
 
     [HttpPut]
@@ -171,4 +214,75 @@ public sealed record UpdateMyProfileRequest(string Username, string? AvatarEmoji
             RuleFor(x => x.AvatarColor).Matches("^#[0-9A-Fa-f]{6}$").When(x => x.AvatarColor is not null);
         }
     }
+}
+
+public sealed record PlayerStatsDto(
+    int GamesPlayed,
+    int Wins,
+    double DistanceMeters,
+    double MrXSeconds,
+    int CatchesMade,
+    int PowerUpsUsed,
+    double TopSpeedKmh
+)
+{
+    public static PlayerStatsDto FromStats(IPlayerStatsService.PlayerStats stats) =>
+        new(
+            stats.GamesPlayed,
+            stats.Wins,
+            stats.DistanceMeters,
+            stats.MrXSeconds,
+            stats.CatchesMade,
+            stats.PowerUpsUsed,
+            stats.TopSpeedKmh
+        );
+}
+
+public sealed record MatchHistoryQuery(int Limit = MatchHistoryQuery.DefaultLimit)
+{
+    public const int DefaultLimit = 20;
+
+    // every match loads its full results, so a page stays small
+    public const int MaxLimit = 50;
+
+    public sealed class Validator : AbstractValidator<MatchHistoryQuery>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.Limit).InclusiveBetween(1, MaxLimit);
+        }
+    }
+}
+
+public sealed class MatchHistoryResponse
+{
+    public required List<MatchSummaryDto> Items { get; init; }
+}
+
+public sealed record MatchSummaryDto(
+    int SessionId,
+    string SessionName,
+    Instant StartTime,
+    Instant EndTime,
+    int MemberId,
+    string TeamName,
+    bool Won,
+    double DistanceMeters,
+    double MrXSeconds,
+    int CatchesMade
+)
+{
+    public static MatchSummaryDto FromSummary(IPlayerStatsService.MatchSummary summary) =>
+        new(
+            summary.SessionId,
+            summary.SessionName,
+            summary.Start,
+            summary.End,
+            summary.MemberId,
+            summary.TeamName,
+            summary.Won,
+            summary.Stats.DistanceMeters,
+            summary.Stats.MrXSeconds,
+            summary.Stats.CatchesMade
+        );
 }

@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
+using NodaTime;
 using XActBackend.Controllers;
 using XActBackend.Importer;
+using XActBackend.Persistence.Model;
 using XActBackend.TestInt.Util;
 
 namespace XActBackend.TestInt;
@@ -148,4 +150,80 @@ public sealed class MeControllerTests(WebApiTestFixture fixture) : SeededWebApiT
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
+
+    [Fact]
+    public async ValueTask GetMyStats_ReturnsUnauthorized_WhenNotSignedIn()
+    {
+        var response = await ApiClient.GetAsync($"{BaseUrl}/stats", TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async ValueTask GetMyStats_ReturnsZeros_WhenNoMatchIsFinished()
+    {
+        using var client = CreateClientSignedInAs(SeedData.DetectiveUserId);
+
+        var stats = await client.GetFromJsonAsync<PlayerStatsDto>($"{BaseUrl}/stats", JsonOptions, TestCancellationToken);
+
+        stats.Should().Be(new PlayerStatsDto(0, 0, 0, 0, 0, 0, 0));
+    }
+
+    [Fact]
+    public async ValueTask GetMyStats_MatchesTheEndScreenResults()
+    {
+        await FinishSeededSessionAsync();
+        using var client = CreateClientSignedInAs(SeedData.DetectiveUserId);
+
+        var stats = await client.GetFromJsonAsync<PlayerStatsDto>($"{BaseUrl}/stats", JsonOptions, TestCancellationToken);
+        var results = await ApiClient.GetFromJsonAsync<GameResultsDto>($"api/gamesessions/{SeedData.SessionId}/results",
+                                                                        JsonOptions, TestCancellationToken);
+
+        stats.Should().NotBeNull();
+        results.Should().NotBeNull();
+        ResultMemberDto detective = results.Members.Single(m => m.MemberId == SeedData.DetectiveMemberId);
+        stats.GamesPlayed.Should().Be(1);
+        stats.Wins.Should().Be(0);
+        stats.DistanceMeters.Should().BeGreaterThan(0);
+        // the results dto rounds to a tenth of a metre
+        stats.DistanceMeters.Should().BeApproximately(detective.Stats.DistanceMeters, 0.05);
+    }
+
+    [Fact]
+    public async ValueTask GetMyMatches_ReturnsFinishedMatchFromTheUsersView()
+    {
+        await FinishSeededSessionAsync();
+        using var client = CreateClientSignedInAs(SeedData.HostUserId);
+
+        var history = await client.GetFromJsonAsync<MatchHistoryResponse>($"{BaseUrl}/matches", JsonOptions,
+                                                                           TestCancellationToken);
+
+        history.Should().NotBeNull();
+        MatchSummaryDto match = history.Items.Should().ContainSingle().Subject;
+        match.SessionId.Should().Be(SeedData.SessionId);
+        match.MemberId.Should().Be(SeedData.HostMemberId);
+        match.Won.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(MatchHistoryQuery.MaxLimit + 1)]
+    public async ValueTask GetMyMatches_ReturnsBadRequest_WhenLimitIsOutOfRange(int limit)
+    {
+        using var client = CreateClientSignedInAs(SeedData.HostUserId);
+
+        var response = await client.GetAsync($"{BaseUrl}/matches?limit={limit}", TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private ValueTask FinishSeededSessionAsync() =>
+        ModifyDatabaseContentAsync(context =>
+        {
+            GameSession session = context.GameSessions.Single(s => s.Id == SeedData.SessionId);
+            session.Status = SessionStatus.Finished;
+            session.EndTime = SeedData.BaseInstant.Plus(Duration.FromHours(2));
+
+            return new ValueTask(context.SaveChangesAsync(TestCancellationToken));
+        });
 }

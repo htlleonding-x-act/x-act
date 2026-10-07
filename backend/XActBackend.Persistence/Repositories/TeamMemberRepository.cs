@@ -19,6 +19,9 @@ public interface ITeamMemberRepository
 
     public ValueTask<TeamMember?> GetMemberBySessionAndUserIdAsync(int sessionId, string userId, bool tracking);
 
+    /// <summary>the sessions the user is still a member of after they finished, newest first</summary>
+    public ValueTask<IReadOnlyList<int>> GetFinishedSessionIdsOfUserAsync(string userId, int? limit);
+
     /// <summary>whether a member of the session other than <paramref name="excludedMemberId"/> goes by the name, ignoring case</summary>
     public ValueTask<bool> IsNameTakenInSessionAsync(int sessionId, string name, int? excludedMemberId);
 
@@ -99,6 +102,22 @@ internal sealed class TeamMemberRepository(DbSet<TeamMember> memberSet, IClock c
         IQueryable<TeamMember> source = tracking ? Members : MembersNoTracking;
 
         return await source.FirstOrDefaultAsync(m => m.SessionId == sessionId && m.UserId == userId);
+    }
+
+    public async ValueTask<IReadOnlyList<int>> GetFinishedSessionIdsOfUserAsync(string userId, int? limit)
+    {
+        IQueryable<int> sessionIds = MembersNoTracking
+            .Where(m => m.UserId == userId && m.Session.Status == SessionStatus.Finished)
+            .OrderByDescending(m => m.Session.EndTime)
+            .ThenByDescending(m => m.SessionId)
+            .Select(m => m.SessionId);
+
+        if (limit is not null)
+        {
+            sessionIds = sessionIds.Take(limit.Value);
+        }
+
+        return await sessionIds.ToListAsync();
     }
 
     public async ValueTask<bool> IsNameTakenInSessionAsync(int sessionId, string name, int? excludedMemberId)
