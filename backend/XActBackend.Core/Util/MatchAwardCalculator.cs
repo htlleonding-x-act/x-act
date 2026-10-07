@@ -34,7 +34,7 @@ public static class MatchAwardCalculator
     private const double RuleBenderMinimumSeconds = 30;
 
     /// <summary>
-    ///     one award per category for the best member. members within the rounding step of the best value share
+    ///     one award per category for the best member. members less than the tie step below the best value share
     ///     it, so gps noise doesn't decide a tie
     /// </summary>
     public static IReadOnlyList<MatchAward> Calculate(IReadOnlyList<AwardCandidate> candidates)
@@ -69,9 +69,8 @@ public static class MatchAwardCalculator
             return;
         }
 
-        double bestKey = Math.Round(best / tieStep);
         List<int> winners = candidates
-            .Where(c => Math.Round(metric(c) / tieStep) == bestKey)
+            .Where(c => best - metric(c) < tieStep)
             .Select(c => c.MemberId)
             .Order()
             .ToList();

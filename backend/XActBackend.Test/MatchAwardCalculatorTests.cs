@@ -41,6 +41,16 @@ public sealed class MatchAwardCalculatorTests
               AwardType.Marathon)!.MemberIds.Should().Equal(1, 3);
 
     [Fact]
+    public void Award_IsShared_WhenValuesAreWithinTieStep_AcrossRoundingBoundary() =>
+        Award(MatchAwardCalculator.Calculate([Candidate(1, topSpeedKmh: 12.06), Candidate(2, topSpeedKmh: 12.04)]), AwardType.SpeedDemon)!
+            .MemberIds.Should().Equal(1, 2);
+
+    [Fact]
+    public void Award_IsNotShared_WhenValuesDifferByTieStep() =>
+        Award(MatchAwardCalculator.Calculate([Candidate(1, topSpeedKmh: 12.2), Candidate(2, topSpeedKmh: 12.0)]), AwardType.SpeedDemon)!
+            .MemberIds.Should().Equal(1);
+
+    [Fact]
     public void SpeedDemon_RequiresMinimumSpeed() =>
         Award(MatchAwardCalculator.Calculate([Candidate(1, topSpeedKmh: 6)]), AwardType.SpeedDemon).Should().BeNull();
 
