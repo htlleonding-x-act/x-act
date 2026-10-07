@@ -131,13 +131,14 @@ class _PlayersTabState extends State<PlayersTab> {
   }
 
   List<Widget> _buildRows(List<ResultMember> players) {
+    final ranks = _ranks(players);
     return [
       for (final (index, player) in players.indexed)
         Padding(
           padding: const EdgeInsets.only(bottom: XActSpace.s2),
           child: LeaderboardRow(
             key: ValueKey(player.memberId),
-            rank: index + 1,
+            rank: ranks[index],
             member: player,
             team: widget.results.teamById(player.teamId),
             accent: teamAccent(widget.results, player.teamId),
@@ -151,19 +152,28 @@ class _PlayersTabState extends State<PlayersTab> {
     ];
   }
 
-  List<ResultMember> _sorted(List<ResultMember> players) {
-    final sorted = [...players];
+  List<ResultMember> _sorted(List<ResultMember> players) =>
+      [...players]..sort(_compare);
+
+  int _compare(ResultMember a, ResultMember b) {
     if (_metric == LeaderboardMetric.pace) {
       // lower pace is faster, players without a pace go last
-      sorted.sort((a, b) {
-        final paceA = a.stats.avgPaceSecondsPerKm ?? double.infinity;
-        final paceB = b.stats.avgPaceSecondsPerKm ?? double.infinity;
-        return paceA.compareTo(paceB);
-      });
-    } else {
-      sorted.sort((a, b) => _valueOf(b.stats).compareTo(_valueOf(a.stats)));
+      final paceA = a.stats.avgPaceSecondsPerKm ?? double.infinity;
+      final paceB = b.stats.avgPaceSecondsPerKm ?? double.infinity;
+      return paceA.compareTo(paceB);
     }
-    return sorted;
+    return _valueOf(b.stats).compareTo(_valueOf(a.stats));
+  }
+
+  /// tied players share a place (1, 1, 3), the same way the personal summary
+  /// card ranks them
+  List<int> _ranks(List<ResultMember> sorted) {
+    final ranks = <int>[];
+    for (var i = 0; i < sorted.length; i++) {
+      final tied = i > 0 && _compare(sorted[i - 1], sorted[i]) == 0;
+      ranks.add(tied ? ranks[i - 1] : i + 1);
+    }
+    return ranks;
   }
 
   num _valueOf(MemberStats stats) => switch (_metric) {
