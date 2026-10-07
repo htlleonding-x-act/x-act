@@ -54,4 +54,17 @@ public sealed class RouteDownsamplerTests
         result.Count.Should().BeLessThanOrEqualTo(500);
         result[^1].Should().Be(accepted[^1]);
     }
+
+    [Fact]
+    public void Downsample_KeepsOnlyMandatoryPoints_WhenTheyFillTheBudget()
+    {
+        // first, last and two reveals are mandatory and use up all four places
+        List<TrackPoint> accepted = Enumerable.Range(0, 20)
+            .Select(i => Point(i * 5, i * 0.0002, revealed: i is 5 or 10))
+            .ToList();
+
+        IReadOnlyList<TrackPoint> result = RouteDownsampler.Downsample(accepted, accepted, maxPoints: 4);
+
+        result.Should().Equal(accepted[0], accepted[5], accepted[10], accepted[19]);
+    }
 }

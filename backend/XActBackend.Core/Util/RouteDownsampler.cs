@@ -40,12 +40,13 @@ public static class RouteDownsampler
         return kept.Count <= maxPoints ? kept.Select(k => k.Point).ToList() : Thin(kept, maxPoints);
     }
 
+    // mandatory points are never dropped, so a route with more reveals and mode changes than maxPoints stays above it
     private static List<TrackPoint> Thin(List<(TrackPoint Point, bool Mandatory)> kept, int maxPoints)
     {
         int mandatoryCount = kept.Count(k => k.Mandatory);
         int optionalCount = kept.Count - mandatoryCount;
         int optionalBudget = Math.Max(0, maxPoints - mandatoryCount);
-        int stride = optionalBudget == 0 ? int.MaxValue : (int)Math.Ceiling(optionalCount / (double)optionalBudget);
+        int stride = optionalBudget == 0 ? 0 : (int)Math.Ceiling(optionalCount / (double)optionalBudget);
 
         List<TrackPoint> thinned = [];
         int optionalIndex = 0;
@@ -57,7 +58,7 @@ public static class RouteDownsampler
             }
             else
             {
-                if (optionalIndex % stride == 0)
+                if (stride > 0 && optionalIndex % stride == 0)
                 {
                     thinned.Add(point);
                 }
