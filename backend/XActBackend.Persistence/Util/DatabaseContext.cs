@@ -21,6 +21,7 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
     public DbSet<KickVote> KickVotes { get; set; }
     public DbSet<KickVoteBallot> KickVoteBallots { get; set; }
     public DbSet<Offense> Offenses { get; set; }
+    public DbSet<CatchEvent> CatchEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -40,6 +41,7 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         modelBuilder.Entity<KickVote>(ConfigureKickVote);
         modelBuilder.Entity<KickVoteBallot>(ConfigureKickVoteBallot);
         modelBuilder.Entity<Offense>(ConfigureOffense);
+        modelBuilder.Entity<CatchEvent>(ConfigureCatchEvent);
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -56,6 +58,7 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         configurationBuilder.Properties<KickVoteStatus>().HaveConversion<string>();
         configurationBuilder.Properties<OffenseType>().HaveConversion<string>();
         configurationBuilder.Properties<OffenseStatus>().HaveConversion<string>();
+        configurationBuilder.Properties<GameEndReason>().HaveConversion<string>();
     }
 
     private static void ConfigureUser(EntityTypeBuilder<User> user)
@@ -261,5 +264,28 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
 
         offense.HasIndex(e => new { e.SessionId, e.Status });
         offense.HasIndex(e => new { e.MemberId, e.Type, e.Status });
+    }
+
+    private static void ConfigureCatchEvent(EntityTypeBuilder<CatchEvent> catchEvent)
+    {
+        catchEvent
+            .HasOne(e => e.Session)
+            .WithMany()
+            .HasForeignKey(e => e.SessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        catchEvent
+            .HasOne(e => e.CatchingTeam)
+            .WithMany()
+            .HasForeignKey(e => e.CatchingTeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        catchEvent
+            .HasOne(e => e.CaughtTeam)
+            .WithMany()
+            .HasForeignKey(e => e.CaughtTeamId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        catchEvent.HasIndex(e => new { e.SessionId, e.OccurredAt });
     }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xact_frontend/api/api_service.dart';
+import 'package:xact_frontend/widgets/map_tiles.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class MapPreviewScreen extends StatefulWidget {
@@ -121,19 +122,7 @@ class _MapPreviewScreenState extends State<MapPreviewScreen> {
         ),
       ),
       children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.xact.app',
-          tileBuilder: (context, tileWidget, tile) => ColorFiltered(
-            colorFilter: const ColorFilter.matrix(<double>[
-              0.2126, 0.7152, 0.0722, 0, 0,
-              0.2126, 0.7152, 0.0722, 0, 0,
-              0.2126, 0.7152, 0.0722, 0, 0,
-              0,      0,      0,      1, 0,
-            ]),
-            child: tileWidget,
-          ),
-        ),
+        buildGreyscaleTileLayer(),
         PolygonLayer(
           polygons: [
             Polygon(

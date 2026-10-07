@@ -337,13 +337,18 @@ extension ApiServiceSessionMethods on ApiService {
     await _postNoContent('/api/gamesessions/$sessionId/start');
   }
 
-  Future<void> endGameSession(int sessionId) async {
+  Future<void> endGameSession(
+    int sessionId, {
+    GameEndReason reason = GameEndReason.hostEnded,
+  }) async {
     final details = await _getGameSession(sessionId);
 
     if (details.status == SessionStatus.finished) return;
 
     if (details.status == SessionStatus.active) {
-      await _postNoContent('/api/gamesessions/$sessionId/end');
+      await _postJsonNoContent('/api/gamesessions/$sessionId/end', {
+        'reason': gameEndReasonToApi(reason),
+      });
       return;
     }
 
@@ -551,9 +556,12 @@ extension ApiServiceSessionMethods on ApiService {
     } catch (_) {}
   }
 
+  /// only the host closes a session, and here because they leave it
   Future<void> _finishSession(GameSessionDetails details) async {
     if (details.status == SessionStatus.active) {
-      await _postNoContent('/api/gamesessions/${details.sessionId}/end');
+      await _postJsonNoContent('/api/gamesessions/${details.sessionId}/end', {
+        'reason': gameEndReasonToApi(GameEndReason.hostLeft),
+      });
       return;
     }
 

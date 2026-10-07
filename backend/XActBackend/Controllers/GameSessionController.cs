@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using OneOf;
 using OneOf.Types;
 using XActBackend.Core.Util;
@@ -288,15 +289,27 @@ public sealed class GameSessionController(
     [HttpPost]
     [Route("{sessionId:int}/end")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async ValueTask<IActionResult> EndGameSession([FromRoute] int sessionId)
+    public async ValueTask<IActionResult> EndGameSession(
+        [FromRoute] int sessionId,
+        // older clients post no body, so the reason stays optional
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] EndGameSessionRequest? request)
     {
+        if (request is not null && !ValidateRequest<EndGameSessionRequest.Validator, EndGameSessionRequest>(request))
+        {
+            logger.LogWarning("Rejected end for game session {SessionId} because validation failed", sessionId);
+            return BadRequest();
+        }
+
+        GameEndReason reason = request?.Reason ?? GameEndReason.HostEnded;
+
         try
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound, DomainError> result = await gameSessionService.EndGameSessionAsync(sessionId);
+            OneOf<Success, NotFound, DomainError> result = await gameSessionService.EndGameSessionAsync(sessionId, reason);
 
             return await result.Match<ValueTask<IActionResult>>(async success =>
             {
@@ -443,6 +456,18 @@ public sealed class GameSessionController(
             await transaction.RollbackAsync();
 
             return Problem();
+        }
+    }
+}
+
+public sealed record EndGameSessionRequest(GameEndReason Reason)
+{
+    public sealed class Validator : AbstractValidator<EndGameSessionRequest>
+    {
+        public Validator()
+        {
+            // only the server decides that a session was abandoned
+            RuleFor(x => x.Reason).IsInEnum().NotEqual(GameEndReason.Abandoned);
         }
     }
 }

@@ -25,6 +25,7 @@ public sealed class GameSessionServiceTests
     private readonly ITeamRepository _teamRepository;
     private readonly ITeamMemberRepository _teamMemberRepository;
     private readonly IGeofencePointRepository _geofencePointRepository;
+    private readonly ICatchEventRepository _catchEventRepository;
     private readonly GameSessionService _sut;
     private readonly IUnitOfWork _uow;
     private readonly IClock _clock;
@@ -47,6 +48,9 @@ public sealed class GameSessionServiceTests
 
         _geofencePointRepository = Substitute.For<IGeofencePointRepository>();
         _uow.GeofencePointRepository.Returns(_geofencePointRepository);
+
+        _catchEventRepository = Substitute.For<ICatchEventRepository>();
+        _uow.CatchEventRepository.Returns(_catchEventRepository);
 
         _clock = Substitute.For<IClock>();
         var logger = Substitute.For<ILogger<GameSessionService>>();
@@ -642,7 +646,30 @@ public sealed class GameSessionServiceTests
         existing.SessionName.Should().Be("Updated Session");
         existing.JoinCode.Should().Be("UPD123");
         existing.Status.Should().Be(SessionStatus.Active);
+        existing.EndReason.Should().BeNull();
         await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask UpdateGameSessionAsync_SetsHostEndedReason_WhenFinishingActiveSession()
+    {
+        var existing = CreateSession();
+        existing.Status = SessionStatus.Active;
+        var data = new IGameSessionService.GameSessionData(DefaultUserId, DefaultSessionName, DefaultJoinCode, SessionStatus.Finished);
+
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, false).Returns(existing);
+        _userRepository.GetUserByIdAsync(DefaultUserId, false).Returns(CreateUser());
+        _gameSessionRepository.GetActiveSessionByHostUserIdAsync(DefaultUserId, false).Returns(existing);
+        _gameSessionRepository.GetSessionByJoinCodeExcludingIdAsync(DefaultJoinCode, DefaultSessionId, false).Returns((GameSession?) null);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateGameSessionAsync(DefaultSessionId, data, false);
+
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound"),
+            _ => Assert.Fail("Expected Success but got DomainError")
+        );
+        existing.EndReason.Should().Be(GameEndReason.HostEnded);
     }
 
     [Fact]
@@ -718,6 +745,7 @@ public sealed class GameSessionServiceTests
         result.FinishedSessions.Should().ContainSingle().Which.Should().BeSameAs(active);
         active.Status.Should().Be(SessionStatus.Finished);
         active.EndTime.Should().Be(now);
+        active.EndReason.Should().Be(GameEndReason.Abandoned);
         _gameSessionRepository.Received(1).RemoveSession(waiting);
         await _uow.Received(1).SaveChangesAsync();
     }
@@ -811,7 +839,7 @@ public sealed class GameSessionServiceTests
     public async ValueTask EndGameSessionAsync_ReturnsNotFound_WhenSessionMissing()
     {
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns((GameSession?) null);
-        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId);
+        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId, GameEndReason.HostEnded);
         result.Switch(
             _ => Assert.Fail("Expected NotFound but got Success"),
             _ => { /* expected */ },
@@ -825,7 +853,7 @@ public sealed class GameSessionServiceTests
         var session = CreateSession();
         session.Status = SessionStatus.Waiting;
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns(session);
-        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId);
+        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId, GameEndReason.HostEnded);
         result.Switch(
             _ => Assert.Fail("Expected DomainError but got Success"),
             _ => Assert.Fail("Expected DomainError but got NotFound"),
@@ -841,7 +869,7 @@ public sealed class GameSessionServiceTests
         var now = Instant.FromUtc(2026, 3, 15, 14, 0);
         _clock.GetCurrentInstant().Returns(now);
         _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns(session);
-        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId);
+        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId, GameEndReason.HostEnded);
         result.Switch(
             _ => { /* expected */ },
             _ => Assert.Fail("Expected Success but got NotFound"),
@@ -850,6 +878,23 @@ public sealed class GameSessionServiceTests
         session.Status.Should().Be(SessionStatus.Finished);
         session.EndTime.Should().Be(now);
         await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask EndGameSessionAsync_StoresEndReason()
+    {
+        var session = CreateSession();
+        session.Status = SessionStatus.Active;
+        _gameSessionRepository.GetSessionByIdAsync(DefaultSessionId, true).Returns(session);
+
+        OneOf<Success, NotFound, DomainError> result = await _sut.EndGameSessionAsync(DefaultSessionId, GameEndReason.NoOpponentsLeft);
+
+        result.Switch(
+            _ => { /* expected */ },
+            _ => Assert.Fail("Expected Success but got NotFound"),
+            _ => Assert.Fail("Expected Success but got DomainError")
+        );
+        session.EndReason.Should().Be(GameEndReason.NoOpponentsLeft);
     }
 
     private const int DefaultCatchingTeamId = 20;
@@ -996,5 +1041,27 @@ public sealed class GameSessionServiceTests
         catchingTeam.IsCaught.Should().BeFalse();
         mrXTeam.IsCaught.Should().BeFalse();
         await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_RecordsCatchEvent_WithBothTeamsAndCurrentTime()
+    {
+        var now = Instant.FromUtc(2026, 3, 15, 14, 30);
+        _clock.GetCurrentInstant().Returns(now);
+        ArrangeActiveCatchScenario(out var mrXTeam);
+
+        await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
+
+        _catchEventRepository.Received(1).AddCatchEvent(DefaultSessionId, DefaultCatchingTeamId, mrXTeam.Id, now);
+    }
+
+    [Fact]
+    public async ValueTask CatchMrXAsync_DoesNotRecordCatchEvent_WhenCatchingTeamNotEligible()
+    {
+        ArrangeActiveCatchScenario(out _, catchingRole: TeamRole.Spectator);
+
+        await _sut.CatchMrXAsync(DefaultSessionId, DefaultCatchingTeamId);
+
+        _catchEventRepository.DidNotReceiveWithAnyArgs().AddCatchEvent(default, default, default, default);
     }
 }

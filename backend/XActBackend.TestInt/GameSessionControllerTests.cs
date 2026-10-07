@@ -201,6 +201,38 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         var content = await checkResponse.Content.ReadFromJsonAsync<GameSessionDetailsDto>(JsonOptions, TestCancellationToken);
         content!.Status.Should().Be(SessionStatus.Finished);
         content.EndTime.Should().NotBeNull();
+        (await ReadEndReasonAsync(SeedData.SessionTwoId)).Should().Be(GameEndReason.HostEnded);
+    }
+
+    [Fact]
+    public async ValueTask EndGameSession_StoresReason_FromRequestBody()
+    {
+        var request = new EndGameSessionRequest(GameEndReason.NoOpponentsLeft);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionTwoId}/end", request, JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        (await ReadEndReasonAsync(SeedData.SessionTwoId)).Should().Be(GameEndReason.NoOpponentsLeft);
+    }
+
+    [Fact]
+    public async ValueTask EndGameSession_BadRequest_WhenReasonIsAbandoned()
+    {
+        var request = new EndGameSessionRequest(GameEndReason.Abandoned);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionTwoId}/end", request, JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private async ValueTask<GameEndReason?> ReadEndReasonAsync(int sessionId)
+    {
+        GameEndReason? reason = null;
+        await ModifyDatabaseContentAsync(context =>
+        {
+            reason = context.GameSessions.Single(s => s.Id == sessionId).EndReason;
+            return ValueTask.CompletedTask;
+        });
+
+        return reason;
     }
 
     [Fact]
@@ -317,6 +349,28 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         var newMrXTeam = await newMrX.Content.ReadFromJsonAsync<TeamDetailsDto>(JsonOptions, TestCancellationToken);
         formerMrXTeam!.Role.Should().Be(TeamRole.Detective);
         newMrXTeam!.Role.Should().Be(TeamRole.MrX);
+    }
+
+    [Fact]
+    public async ValueTask CatchMrX_RecordsCatchEvent()
+    {
+        await ActivateSeededSessionAsync();
+
+        var request = new CatchMrXRequest(SeedData.DetectiveTeamId);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionId}/catch", request, JsonOptions, TestCancellationToken);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        List<CatchEvent> catchEvents = [];
+        await ModifyDatabaseContentAsync(context =>
+        {
+            catchEvents = context.CatchEvents.Where(c => c.SessionId == SeedData.SessionId).ToList();
+            return ValueTask.CompletedTask;
+        });
+
+        CatchEvent catchEvent = catchEvents.Should().ContainSingle().Subject;
+        catchEvent.CatchingTeamId.Should().Be(SeedData.DetectiveTeamId);
+        catchEvent.CaughtTeamId.Should().Be(SeedData.MrXTeamId);
+        catchEvent.OccurredAt.Should().Be(TestClock.GetCurrentInstant());
     }
 
     [Fact]

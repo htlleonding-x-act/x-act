@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../map_tiles.dart';
 import '../xact_branding.dart';
 
 class DefineGameAreaMap extends StatelessWidget {
@@ -41,37 +42,7 @@ class DefineGameAreaMap extends StatelessWidget {
         ),
       ),
       children: [
-        TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.xact.app',
-          tileBuilder: (context, tileWidget, tile) {
-            return ColorFiltered(
-              colorFilter: const ColorFilter.matrix(<double>[
-                0.2126,
-                0.7152,
-                0.0722,
-                0,
-                0,
-                0.2126,
-                0.7152,
-                0.0722,
-                0,
-                0,
-                0.2126,
-                0.7152,
-                0.0722,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1,
-                0,
-              ]),
-              child: tileWidget,
-            );
-          },
-        ),
+        buildGreyscaleTileLayer(),
         if (points.length >= 3)
           PolygonLayer(
             polygons: [

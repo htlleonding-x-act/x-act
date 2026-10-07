@@ -1,5 +1,6 @@
 using OneOf;
 using OneOf.Types;
+using XActBackend.Core.Util;
 using XActBackend.Persistence.Model;
 using XActBackend.Persistence.Util;
 
@@ -126,21 +127,11 @@ internal sealed class ChatService(IUnitOfWork uow, IClock clock, ILogger<ChatSer
 
     private async ValueTask<string> ResolveSenderNameAsync(TeamMember sender)
     {
-        if (!string.IsNullOrWhiteSpace(sender.UserId))
-        {
-            var user = await uow.UserRepository.GetUserByIdAsync(sender.UserId, tracking: false);
-            if (!string.IsNullOrWhiteSpace(user?.Username))
-            {
-                return Truncate(user.Username);
-            }
-        }
+        User? user = string.IsNullOrWhiteSpace(sender.UserId)
+            ? null
+            : await uow.UserRepository.GetUserByIdAsync(sender.UserId, tracking: false);
 
-        if (!string.IsNullOrWhiteSpace(sender.GuestName))
-        {
-            return Truncate(sender.GuestName);
-        }
-
-        return "Unknown";
+        return Truncate(MemberDisplayName.Resolve(sender, user));
     }
 
     private static string Truncate(string value) =>

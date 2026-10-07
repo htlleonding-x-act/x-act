@@ -11,6 +11,8 @@ public interface IUserRepository
 
     public ValueTask<User?> GetUserByIdAsync(string id, bool tracking);
 
+    public ValueTask<IReadOnlyCollection<User>> GetUsersByIdsAsync(IReadOnlyCollection<string> ids, bool tracking);
+
     public ValueTask<User?> GetUserByEmailAsync(string email, bool tracking);
 
     /// <summary>ignores guests and the case of the username</summary>
@@ -55,6 +57,15 @@ internal sealed class UserRepository(DbSet<User> userSet, IClock clock) : IUserR
         IQueryable<User> source = tracking ? Users : UsersNoTracking;
 
         return await source.FirstOrDefaultAsync(u => u.Id == id);
+    }
+
+    public async ValueTask<IReadOnlyCollection<User>> GetUsersByIdsAsync(IReadOnlyCollection<string> ids, bool tracking)
+    {
+        IQueryable<User> source = tracking ? Users : UsersNoTracking;
+
+        List<User> users = await source.Where(u => ids.Contains(u.Id)).ToListAsync();
+
+        return users;
     }
 
     public async ValueTask<User?> GetUserByEmailAsync(string email, bool tracking)

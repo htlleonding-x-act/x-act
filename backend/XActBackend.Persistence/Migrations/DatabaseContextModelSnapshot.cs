@@ -23,6 +23,37 @@ namespace XActBackend.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("XActBackend.Persistence.Model.CatchEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CatchingTeamId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CaughtTeamId")
+                        .HasColumnType("integer");
+
+                    b.Property<Instant>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SessionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CatchingTeamId");
+
+                    b.HasIndex("CaughtTeamId");
+
+                    b.HasIndex("SessionId", "OccurredAt");
+
+                    b.ToTable("CatchEvent", "XActBackend");
+                });
+
             modelBuilder.Entity("XActBackend.Persistence.Model.ChatMessage", b =>
                 {
                     b.Property<int>("Id")
@@ -78,6 +109,9 @@ namespace XActBackend.Persistence.Migrations
 
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EndReason")
+                        .HasColumnType("text");
 
                     b.Property<Instant?>("EndTime")
                         .HasColumnType("timestamp with time zone");
@@ -493,6 +527,33 @@ namespace XActBackend.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("UserAuthIdentity", "XActBackend");
+                });
+
+            modelBuilder.Entity("XActBackend.Persistence.Model.CatchEvent", b =>
+                {
+                    b.HasOne("XActBackend.Persistence.Model.Team", "CatchingTeam")
+                        .WithMany()
+                        .HasForeignKey("CatchingTeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("XActBackend.Persistence.Model.Team", "CaughtTeam")
+                        .WithMany()
+                        .HasForeignKey("CaughtTeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("XActBackend.Persistence.Model.GameSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CatchingTeam");
+
+                    b.Navigation("CaughtTeam");
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("XActBackend.Persistence.Model.ChatMessage", b =>

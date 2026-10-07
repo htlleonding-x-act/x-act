@@ -12,6 +12,7 @@ import '../services/geofence_store.dart';
 import '../services/location_service.dart';
 import 'map_header.dart';
 import 'map_legend.dart';
+import 'map_tiles.dart';
 import 'xact_branding.dart';
 
 class MapArea extends StatefulWidget {
@@ -330,37 +331,7 @@ class _MapAreaState extends State<MapArea> {
               },
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.xact.app',
-                tileBuilder: (context, tileWidget, tile) {
-                  return ColorFiltered(
-                    colorFilter: const ColorFilter.matrix(<double>[
-                      0.2126,
-                      0.7152,
-                      0.0722,
-                      0,
-                      0,
-                      0.2126,
-                      0.7152,
-                      0.0722,
-                      0,
-                      0,
-                      0.2126,
-                      0.7152,
-                      0.0722,
-                      0,
-                      0,
-                      0,
-                      0,
-                      0,
-                      1,
-                      0,
-                    ]),
-                    child: tileWidget,
-                  );
-                },
-              ),
+              buildGreyscaleTileLayer(),
               MarkerLayer(markers: _buildAllMarkers()),
               if (_geofencePoints.length >= 3)
                 PolygonLayer(

@@ -59,7 +59,7 @@ public sealed record DomainError(string Code, string Message)
 
     public static DomainError SessionNotFinished(int sessionId, SessionStatus status) =>
         new(DomainErrorCodes.SessionNotFinished,
-            $"Session {sessionId} is in status {status} and cannot be used for a rematch until it has finished.");
+            $"Session {sessionId} is in status {status} and has not finished yet.");
 
     public static DomainError MrXTeamAlreadyExists(int sessionId) =>
         new(DomainErrorCodes.MrXTeamAlreadyExists, $"Session {sessionId} already has an Mr.X team.");
