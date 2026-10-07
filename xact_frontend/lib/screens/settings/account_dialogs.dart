@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/api_service.dart';
+import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 /// returns true once the new name is saved
-Future<bool> showRenameDialog(BuildContext context, String currentName) async {
+Future<bool> showRenameDialog(BuildContext context, MyProfile profile) async {
   final renamed = await showDialog<bool>(
     context: context,
-    builder: (_) => _RenameDialog(currentName: currentName),
+    builder: (_) => _RenameDialog(profile: profile),
   );
   return renamed ?? false;
 }
@@ -24,9 +25,9 @@ Future<bool> showDeleteAccountDialog(
 }
 
 class _RenameDialog extends StatefulWidget {
-  const _RenameDialog({required this.currentName});
+  const _RenameDialog({required this.profile});
 
-  final String currentName;
+  final MyProfile profile;
 
   @override
   State<_RenameDialog> createState() => _RenameDialogState();
@@ -37,14 +38,14 @@ class _RenameDialogState extends State<_RenameDialog> {
   static const _maxLength = 50;
 
   late final TextEditingController _controller = TextEditingController(
-    text: widget.currentName,
+    text: widget.profile.username,
   );
   bool _saving = false;
   String? _error;
 
   bool get _canSave {
     final name = _controller.text.trim();
-    return !_saving && name.isNotEmpty && name != widget.currentName;
+    return !_saving && name.isNotEmpty && name != widget.profile.username;
   }
 
   @override
@@ -60,7 +61,11 @@ class _RenameDialogState extends State<_RenameDialog> {
     });
 
     try {
-      await ApiService.instance.renameMe(_controller.text);
+      await ApiService.instance.updateMyProfile(
+        username: _controller.text,
+        avatarEmoji: widget.profile.avatarEmoji,
+        avatarColor: widget.profile.avatarColor,
+      );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {

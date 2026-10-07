@@ -255,6 +255,10 @@ final class MyProfile {
   final String? email;
   final AccountType? accountType;
   final DateTime? createdAt;
+  final String? avatarEmoji;
+
+  /// hex colour like `#5B7CFA`
+  final String? avatarColor;
 
   const MyProfile({
     required this.userId,
@@ -262,6 +266,8 @@ final class MyProfile {
     required this.email,
     required this.accountType,
     required this.createdAt,
+    required this.avatarEmoji,
+    required this.avatarColor,
   });
 
   factory MyProfile.fromJson(Map<String, dynamic> json) {
@@ -274,6 +280,8 @@ final class MyProfile {
         _ => null,
       },
       createdAt: tryParseIsoDateTime(json['createdAt']),
+      avatarEmoji: json['avatarEmoji'] as String?,
+      avatarColor: json['avatarColor'] as String?,
     );
   }
 }

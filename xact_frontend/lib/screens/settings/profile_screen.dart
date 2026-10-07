@@ -7,12 +7,14 @@ import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/auth/auth_config.dart';
 import 'package:xact_frontend/screens/auth/login_screen.dart';
 import 'package:xact_frontend/screens/settings/account_dialogs.dart';
+import 'package:xact_frontend/screens/settings/avatar_picker_sheet.dart';
 import 'package:xact_frontend/screens/settings/gps_check_sheet.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/location_service.dart';
 import 'package:xact_frontend/services/preferences_service.dart';
 import 'package:xact_frontend/widgets/settings/settings_widgets.dart';
+import 'package:xact_frontend/widgets/user_avatar.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -140,34 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Center(
       child: Column(
         children: [
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [XActColors.primaryLight, XActColors.primaryDark],
-              ),
-              boxShadow: XActElevation.glowRed,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: .12),
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                _initials(_username),
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -1,
-                ),
-              ),
-            ),
-          ),
+          _buildAvatar(),
           const SizedBox(height: 14),
           Text(_username, style: XActText.title, textAlign: TextAlign.center),
           const SizedBox(height: 6),
@@ -199,6 +174,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildAvatar() {
+    final profile = _profile;
+    final avatar = UserAvatar(
+      name: _username,
+      emoji: profile?.avatarEmoji,
+      color: profile?.avatarColor,
+      size: 88,
+      glow: true,
+    );
+
+    // only a loaded profile can be saved back, see updateMyProfile
+    if (profile == null) return avatar;
+
+    return GestureDetector(
+      onTap: _pickAvatar,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          avatar,
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: XActColors.surface2,
+                border: Border.all(color: XActColors.bg, width: 2),
+              ),
+              child: const Icon(
+                Icons.edit_rounded,
+                size: 15,
+                color: XActColors.text1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String get _accountLabel {
     if (!_isSignedIn) return 'Guest';
 
@@ -220,7 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: 'Username',
           subtitle: _username,
           trailingIcon: Icons.edit_outlined,
-          onTap: _rename,
+          onTap: _profile == null ? null : _rename,
         ),
         const SettingsDivider(),
         SettingsInfoRow(
@@ -455,8 +472,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _rename() async {
-    final renamed = await showRenameDialog(context, _username);
+    final profile = _profile;
+    if (profile == null) return;
+
+    final renamed = await showRenameDialog(context, profile);
     if (renamed) _loadProfile();
+  }
+
+  Future<void> _pickAvatar() async {
+    final profile = _profile;
+    if (profile == null) return;
+
+    final saved = await AvatarPickerSheet.show(context, profile);
+    if (saved) _loadProfile();
   }
 
   Future<void> _openAccountConsole() async {
@@ -521,16 +549,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute(builder: (_) => const StartScreen()),
       (_) => false,
     );
-  }
-
-  static String _initials(String name) {
-    // characters, not code units, so a name starting with an emoji keeps it
-    // whole instead of showing half of it
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2) {
-      return '${parts.first.characters.first}${parts.last.characters.first}'
-          .toUpperCase();
-    }
-    return name.characters.take(2).toString().toUpperCase();
   }
 }
