@@ -36,6 +36,10 @@ class _OverviewTabState extends State<OverviewTab>
   static const double _stagger = .08;
   static const double _cardShare = .4;
 
+  // kept across builds because every CurvedAnimation listens to the controller
+  // until it is disposed
+  final List<CurvedAnimation> _cardEntrances = [];
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -50,6 +54,9 @@ class _OverviewTabState extends State<OverviewTab>
 
   @override
   void dispose() {
+    for (final entrance in _cardEntrances) {
+      entrance.dispose();
+    }
     _awardsEntrance.dispose();
     super.dispose();
   }
@@ -154,11 +161,23 @@ class _OverviewTabState extends State<OverviewTab>
   }
 
   Animation<double> _entranceFor(int index) {
-    final begin = (_stagger * index).clamp(0.0, 1 - _cardShare);
-    return CurvedAnimation(
-      parent: _awardsEntrance,
-      curve: Interval(begin, begin + _cardShare, curve: Curves.easeOutCubic),
-    );
+    while (_cardEntrances.length <= index) {
+      final begin = (_stagger * _cardEntrances.length).clamp(
+        0.0,
+        1 - _cardShare,
+      );
+      _cardEntrances.add(
+        CurvedAnimation(
+          parent: _awardsEntrance,
+          curve: Interval(
+            begin,
+            begin + _cardShare,
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+      );
+    }
+    return _cardEntrances[index];
   }
 
   Widget _buildMatchDetails(GameResults results) {
