@@ -158,9 +158,27 @@ class _StartScreenState extends State<StartScreen> {
     );
   }
 
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
+    setState(() {});
+  }
+
   Widget _buildTopBar() {
     final username = AppSession.instance.currentUsername;
-    if (!_isLoggedIn || username == null) return const SizedBox.shrink();
+    if (!_isLoggedIn || username == null) {
+      return Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 12, right: 16),
+          child: XActBranding.circleIconButton(
+            icon: Icons.settings_outlined,
+            onPressed: _openSettings,
+          ),
+        ),
+      );
+    }
 
     final initial = username.trim().isEmpty
         ? 'P'
@@ -171,12 +189,7 @@ class _StartScreenState extends State<StartScreen> {
       child: Padding(
         padding: const EdgeInsets.only(top: 12, right: 16),
         child: GestureDetector(
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            );
-            setState(() {});
-          },
+          onTap: _openSettings,
           child: Container(
             width: 40,
             height: 40,
