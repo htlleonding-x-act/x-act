@@ -17,6 +17,8 @@ table(Users) {
     column(is_deleted) : BOOLEAN
     column(deleted_at) : TIMESTAMP
     column(created_at) : TIMESTAMP
+    column(avatar_emoji) : VARCHAR(16) NULL
+    column(avatar_color) : VARCHAR(7) NULL
 }
 
 table(User_Auth_Identities) {

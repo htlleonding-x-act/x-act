@@ -61,8 +61,14 @@ public sealed class MeController(
         {
             await transaction.BeginTransactionAsync();
 
-            OneOf<Success, NotFound, DomainError> updateResult =
-                await userService.UpdateProfileAsync(userId, updateRequest.Username.Trim());
+            OneOf<Success, NotFound, DomainError> updateResult = await userService.UpdateProfileAsync(
+                userId,
+                new IUserService.ProfileData(
+                    updateRequest.Username.Trim(),
+                    updateRequest.AvatarEmoji,
+                    updateRequest.AvatarColor?.ToUpperInvariant()
+                )
+            );
 
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
@@ -135,7 +141,9 @@ public sealed record MyProfileDto(
     string Username,
     string? Email,
     AccountType AccountType,
-    Instant CreatedAt
+    Instant CreatedAt,
+    string? AvatarEmoji,
+    string? AvatarColor
 )
 {
     public static MyProfileDto FromUser(User user) =>
@@ -144,17 +152,23 @@ public sealed record MyProfileDto(
             user.Username!,
             user.Email,
             user.AccountType,
-            user.CreatedAt
+            user.CreatedAt,
+            user.AvatarEmoji,
+            user.AvatarColor
         );
 }
 
-public sealed record UpdateMyProfileRequest(string Username)
+/// <summary>replaces the whole profile; a null avatar field falls back to the default look</summary>
+public sealed record UpdateMyProfileRequest(string Username, string? AvatarEmoji = null, string? AvatarColor = null)
 {
     public sealed class Validator : AbstractValidator<UpdateMyProfileRequest>
     {
         public Validator()
         {
             RuleFor(x => x.Username).NotEmpty().MaximumLength(50);
+            // column lengths of User.AvatarEmoji and User.AvatarColor
+            RuleFor(x => x.AvatarEmoji).NotEmpty().MaximumLength(16).When(x => x.AvatarEmoji is not null);
+            RuleFor(x => x.AvatarColor).Matches("^#[0-9A-Fa-f]{6}$").When(x => x.AvatarColor is not null);
         }
     }
 }

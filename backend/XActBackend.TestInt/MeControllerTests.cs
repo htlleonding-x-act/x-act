@@ -58,6 +58,45 @@ public sealed class MeControllerTests(WebApiTestFixture fixture) : SeededWebApiT
     }
 
     [Fact]
+    public async ValueTask UpdateMyProfile_StoresAndClearsAvatar()
+    {
+        using var client = CreateClientSignedInAs(SeedData.HostUserId);
+
+        var setResponse = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user", "🦊", "#5b7cfa"),
+                                                      JsonOptions, TestCancellationToken);
+
+        setResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var withAvatar = await client.GetFromJsonAsync<MyProfileDto>(BaseUrl, JsonOptions, TestCancellationToken);
+        withAvatar.Should().NotBeNull();
+        withAvatar.AvatarEmoji.Should().Be("🦊");
+        withAvatar.AvatarColor.Should().Be("#5B7CFA");
+
+        var clearResponse = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user"),
+                                                        JsonOptions, TestCancellationToken);
+
+        clearResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var withoutAvatar = await client.GetFromJsonAsync<MyProfileDto>(BaseUrl, JsonOptions, TestCancellationToken);
+        withoutAvatar.Should().NotBeNull();
+        withoutAvatar.AvatarEmoji.Should().BeNull();
+        withoutAvatar.AvatarColor.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("🦊", "blue")]
+    [InlineData("🦊", "#12345G")]
+    [InlineData("", "#5B7CFA")]
+    [InlineData("this is far too long", "#5B7CFA")]
+    public async ValueTask UpdateMyProfile_ReturnsBadRequest_WhenAvatarIsInvalid(string emoji, string color)
+    {
+        using var client = CreateClientSignedInAs(SeedData.HostUserId);
+
+        var response = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user", emoji, color),
+                                                   JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async ValueTask UpdateMyProfile_ReturnsBadRequest_WhenUsernameIsBlank()
     {
         using var client = CreateClientSignedInAs(SeedData.HostUserId);

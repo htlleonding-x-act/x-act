@@ -24,6 +24,11 @@ public sealed class User
 
     public Instant CreatedAt { get; set; }
 
+    public string? AvatarEmoji { get; set; }
+
+    /// <summary>hex colour like #5B7CFA</summary>
+    public string? AvatarColor { get; set; }
+
 
     public ICollection<GameSession> HostedSessions { get; set; } = [];
 

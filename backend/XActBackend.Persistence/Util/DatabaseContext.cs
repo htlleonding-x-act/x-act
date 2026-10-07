@@ -66,6 +66,9 @@ public sealed class DatabaseContext(DbContextOptions<DatabaseContext> options) :
         // keycloak allows usernames up to 255 characters, guests are capped at 50 by the request validator
         user.Property(e => e.Username).HasMaxLength(255);
         user.Property(e => e.Email).HasMaxLength(100);
+        // a single emoji can take several code units, e.g. flags or skin tones
+        user.Property(e => e.AvatarEmoji).HasMaxLength(16);
+        user.Property(e => e.AvatarColor).HasMaxLength(7);
 
         user.HasIndex(e => e.Email).IsUnique();
         // guest names only have to be unique within a session, which TeamMemberService checks
