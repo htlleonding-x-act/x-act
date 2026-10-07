@@ -148,3 +148,67 @@ class SettingsDivider extends StatelessWidget {
     );
   }
 }
+
+/// [onChanged] null greys the switch out, e.g. when another setting turns it off
+class SettingsSwitchTile extends StatelessWidget {
+  const SettingsSwitchTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChanged,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = this.subtitle;
+    final enabled = onChanged != null;
+
+    return InkWell(
+      onTap: enabled ? () => onChanged!(!value) : null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: enabled ? XActColors.text3 : XActColors.text5,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: XActText.bodySm.copyWith(
+                      color: enabled ? null : XActColors.text4,
+                    ),
+                  ),
+                  if (subtitle != null)
+                    Text(
+                      subtitle,
+                      style: XActText.caption.copyWith(fontSize: 12),
+                    ),
+                ],
+              ),
+            ),
+            Switch(
+              value: value,
+              onChanged: onChanged,
+              activeTrackColor: XActColors.secondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

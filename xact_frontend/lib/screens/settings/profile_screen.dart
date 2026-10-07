@@ -7,8 +7,11 @@ import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/auth/auth_config.dart';
 import 'package:xact_frontend/screens/auth/login_screen.dart';
 import 'package:xact_frontend/screens/settings/account_dialogs.dart';
+import 'package:xact_frontend/screens/settings/gps_check_sheet.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/services/app_session.dart';
+import 'package:xact_frontend/services/location_service.dart';
+import 'package:xact_frontend/services/preferences_service.dart';
 import 'package:xact_frontend/widgets/settings/settings_widgets.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
@@ -38,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   MyProfile? _profile;
   bool _profileFailed = false;
   String? _version;
+  bool? _locationAllowed;
 
   // guests get a user id too, so only a keycloak token means signed in
   bool get _isSignedIn => ApiService.instance.isAuthenticated;
@@ -49,6 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadVersion();
+    _loadLocationPermission();
     if (_isSignedIn) _loadProfile();
   }
 
@@ -67,6 +72,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final info = await PackageInfo.fromPlatform();
       final build = info.buildNumber.isEmpty ? '' : ' (${info.buildNumber})';
       if (mounted) setState(() => _version = '${info.version}$build');
+    } catch (_) {}
+  }
+
+  Future<void> _loadLocationPermission() async {
+    try {
+      final allowed = await LocationService.instance.hasPermission();
+      if (mounted) setState(() => _locationAllowed = allowed);
     } catch (_) {}
   }
 
@@ -98,6 +110,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _buildAccountSection()
                         else
                           _buildGuestCard(),
+                        const SizedBox(height: 16),
+                        _buildNotificationSection(),
+                        const SizedBox(height: 16),
+                        _buildLocationSection(),
                         const SizedBox(height: 16),
                         _buildAboutSection(),
                         const SizedBox(height: 28),
@@ -270,6 +286,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildNotificationSection() {
+    final preferences = PreferencesService.instance;
+
+    return SettingsSection(
+      label: 'Notifications & haptics',
+      children: [
+        ValueListenableBuilder(
+          valueListenable: preferences.chatNotifications,
+          builder: (_, enabled, _) => SettingsSwitchTile(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Chat notifications',
+            subtitle: 'New messages while the app is in the background',
+            value: enabled,
+            onChanged: preferences.setChatNotifications,
+          ),
+        ),
+        const SettingsDivider(),
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            preferences.chatNotifications,
+            preferences.teamChatOnly,
+          ]),
+          builder: (_, _) => SettingsSwitchTile(
+            icon: Icons.groups_outlined,
+            title: 'Team chat only',
+            subtitle: 'Mute messages to everyone',
+            value: preferences.teamChatOnly.value,
+            onChanged: preferences.chatNotifications.value
+                ? preferences.setTeamChatOnly
+                : null,
+          ),
+        ),
+        const SettingsDivider(),
+        ValueListenableBuilder(
+          valueListenable: preferences.hapticFeedback,
+          builder: (_, enabled, _) => SettingsSwitchTile(
+            icon: Icons.vibration_rounded,
+            title: 'Vibrate on game events',
+            subtitle: 'Start, end, Mister X caught or revealed',
+            value: enabled,
+            onChanged: preferences.setHapticFeedback,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationSection() {
+    final allowed = _locationAllowed;
+
+    return SettingsSection(
+      label: 'Location',
+      children: [
+        SettingsTile(
+          icon: allowed == false
+              ? Icons.location_disabled_rounded
+              : Icons.my_location_rounded,
+          title: 'Location access',
+          subtitle: switch (allowed) {
+            true => 'Allowed',
+            false => 'Not allowed · tap to allow',
+            null => '…',
+          },
+          color: allowed == false ? XActColors.warning : null,
+          onTap: _requestLocation,
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: Icons.satellite_alt_rounded,
+          title: 'GPS check',
+          subtitle: 'See how precise your position is right now',
+          onTap: _checkGps,
+        ),
+      ],
+    );
+  }
+
   Widget _buildAboutSection() {
     return SettingsSection(
       label: 'About',
@@ -347,6 +440,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _requestLocation() async {
+    try {
+      await LocationService.instance.requestPermission();
+    } catch (_) {}
+    await _loadLocationPermission();
+  }
+
+  Future<void> _checkGps() async {
+    await GpsCheckSheet.show(context);
+    await _loadLocationPermission();
   }
 
   Future<void> _rename() async {
