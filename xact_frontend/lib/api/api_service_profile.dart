@@ -18,14 +18,12 @@ extension ApiServiceProfileMethods on ApiService {
   /// replaces the whole profile, so pass the current avatar to keep it
   Future<void> updateMyProfile({
     required String username,
-    required String? avatarEmoji,
-    required String? avatarColor,
+    required String? avatarIcon,
   }) async {
     final trimmed = username.trim();
     await _putJsonNoContent('/api/users/me', {
       'username': trimmed,
-      'avatarEmoji': avatarEmoji,
-      'avatarColor': avatarColor,
+      'avatarIcon': avatarIcon,
     });
 
     final userId = _session.currentUserId;

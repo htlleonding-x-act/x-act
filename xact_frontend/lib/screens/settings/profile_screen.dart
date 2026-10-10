@@ -205,8 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = _profile;
     final avatar = UserAvatar(
       name: _username,
-      emoji: profile?.avatarEmoji,
-      color: profile?.avatarColor,
+      icon: profile?.avatarIcon,
       size: 88,
       glow: true,
     );

@@ -63,8 +63,7 @@ class _RenameDialogState extends State<_RenameDialog> {
     try {
       await ApiService.instance.updateMyProfile(
         username: _controller.text,
-        avatarEmoji: widget.profile.avatarEmoji,
-        avatarColor: widget.profile.avatarColor,
+        avatarIcon: widget.profile.avatarIcon,
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {

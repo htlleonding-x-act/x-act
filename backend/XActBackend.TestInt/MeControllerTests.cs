@@ -64,14 +64,13 @@ public sealed class MeControllerTests(WebApiTestFixture fixture) : SeededWebApiT
     {
         using var client = CreateClientSignedInAs(SeedData.HostUserId);
 
-        var setResponse = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user", "🦊", "#5b7cfa"),
+        var setResponse = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user", "fox"),
                                                       JsonOptions, TestCancellationToken);
 
         setResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var withAvatar = await client.GetFromJsonAsync<MyProfileDto>(BaseUrl, JsonOptions, TestCancellationToken);
         withAvatar.Should().NotBeNull();
-        withAvatar.AvatarEmoji.Should().Be("🦊");
-        withAvatar.AvatarColor.Should().Be("#5B7CFA");
+        withAvatar.AvatarIcon.Should().Be("fox");
 
         var clearResponse = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user"),
                                                         JsonOptions, TestCancellationToken);
@@ -79,20 +78,19 @@ public sealed class MeControllerTests(WebApiTestFixture fixture) : SeededWebApiT
         clearResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
         var withoutAvatar = await client.GetFromJsonAsync<MyProfileDto>(BaseUrl, JsonOptions, TestCancellationToken);
         withoutAvatar.Should().NotBeNull();
-        withoutAvatar.AvatarEmoji.Should().BeNull();
-        withoutAvatar.AvatarColor.Should().BeNull();
+        withoutAvatar.AvatarIcon.Should().BeNull();
     }
 
     [Theory]
-    [InlineData("🦊", "blue")]
-    [InlineData("🦊", "#12345G")]
-    [InlineData("", "#5B7CFA")]
-    [InlineData("this is far too long", "#5B7CFA")]
-    public async ValueTask UpdateMyProfile_ReturnsBadRequest_WhenAvatarIsInvalid(string emoji, string color)
+    [InlineData("")]
+    [InlineData("🦊")]
+    [InlineData("Fox")]
+    [InlineData("a_key_that_is_far_too_long_to_fit")]
+    public async ValueTask UpdateMyProfile_ReturnsBadRequest_WhenAvatarIconIsInvalid(string icon)
     {
         using var client = CreateClientSignedInAs(SeedData.HostUserId);
 
-        var response = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user", emoji, color),
+        var response = await client.PutAsJsonAsync(BaseUrl, new UpdateMyProfileRequest("host_user", icon),
                                                    JsonOptions, TestCancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);

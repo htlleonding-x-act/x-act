@@ -108,8 +108,7 @@ public sealed class MeController(
                 userId,
                 new IUserService.ProfileData(
                     updateRequest.Username.Trim(),
-                    updateRequest.AvatarEmoji,
-                    updateRequest.AvatarColor?.ToUpperInvariant()
+                    updateRequest.AvatarIcon
                 )
             );
 
@@ -185,8 +184,7 @@ public sealed record MyProfileDto(
     string? Email,
     AccountType AccountType,
     Instant CreatedAt,
-    string? AvatarEmoji,
-    string? AvatarColor
+    string? AvatarIcon
 )
 {
     public static MyProfileDto FromUser(User user) =>
@@ -196,22 +194,21 @@ public sealed record MyProfileDto(
             user.Email,
             user.AccountType,
             user.CreatedAt,
-            user.AvatarEmoji,
-            user.AvatarColor
+            user.AvatarIcon
         );
 }
 
-/// <summary>replaces the whole profile; a null avatar field falls back to the default look</summary>
-public sealed record UpdateMyProfileRequest(string Username, string? AvatarEmoji = null, string? AvatarColor = null)
+/// <summary>replaces the whole profile; a null avatar icon falls back to the initials</summary>
+public sealed record UpdateMyProfileRequest(string Username, string? AvatarIcon = null)
 {
     public sealed class Validator : AbstractValidator<UpdateMyProfileRequest>
     {
         public Validator()
         {
             RuleFor(x => x.Username).NotEmpty().MaximumLength(50);
-            // column lengths of User.AvatarEmoji and User.AvatarColor
-            RuleFor(x => x.AvatarEmoji).NotEmpty().MaximumLength(16).When(x => x.AvatarEmoji is not null);
-            RuleFor(x => x.AvatarColor).Matches("^#[0-9A-Fa-f]{6}$").When(x => x.AvatarColor is not null);
+            // only the shape of a key and the column length of User.AvatarIcon. the app owns the
+            // icon set and shows initials for a key it doesn't know
+            RuleFor(x => x.AvatarIcon).Matches("^[a-z_]{1,32}$").When(x => x.AvatarIcon is not null);
         }
     }
 }

@@ -327,7 +327,7 @@ public sealed class UserServiceTests
         _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns(user);
         _userRepository.GetRegisteredUserByUsernameAsync("new", false).Returns((User?) null);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("new", null, null));
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("new", null));
 
         result.Switch(
             success => { /* expected */ },
@@ -345,15 +345,14 @@ public sealed class UserServiceTests
         _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns(user);
 
         OneOf<Success, NotFound, DomainError> result =
-            await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("player", "🦊", "#5B7CFA"));
+            await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("player", "fox"));
 
         result.Switch(
             success => { /* expected */ },
             notFound => Assert.Fail("Expected Success but got NotFound"),
             domainError => Assert.Fail($"Expected Success but got {domainError.Code}")
         );
-        user.AvatarEmoji.Should().Be("🦊");
-        user.AvatarColor.Should().Be("#5B7CFA");
+        user.AvatarIcon.Should().Be("fox");
     }
 
     [Fact]
@@ -363,7 +362,7 @@ public sealed class UserServiceTests
         _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns(user);
         _userRepository.GetRegisteredUserByUsernameAsync("Player", false).Returns(user);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("Player", null, null));
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("Player", null));
 
         result.Switch(
             success => { /* expected */ },
@@ -380,7 +379,7 @@ public sealed class UserServiceTests
         _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns(user);
         _userRepository.GetRegisteredUserByUsernameAsync("taken", false).Returns(CreateUser("2", "taken"));
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("taken", null, null));
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("taken", null));
 
         result.Switch(
             success => Assert.Fail("Expected DomainError but got Success"),
@@ -396,7 +395,7 @@ public sealed class UserServiceTests
     {
         _userRepository.GetUserByIdAsync(DefaultUserId, true).Returns((User?) null);
 
-        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("new", null, null));
+        OneOf<Success, NotFound, DomainError> result = await _sut.UpdateProfileAsync(DefaultUserId, new IUserService.ProfileData("new", null));
 
         result.Switch(
             success => Assert.Fail("Expected NotFound but got Success"),

@@ -4,7 +4,7 @@ import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/widgets/user_avatar.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-/// lets the player pick an emoji and a colour; returns true once saved
+/// lets the player pick an avatar icon; returns true once saved
 class AvatarPickerSheet extends StatefulWidget {
   const AvatarPickerSheet({super.key, required this.profile});
 
@@ -28,21 +28,7 @@ class AvatarPickerSheet extends StatefulWidget {
 }
 
 class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
-  static const _emojis = [
-    '🕵️', '🦊', '🐺', '🦉', '🐱', '🐶', '🐼', '🐸', //
-    '🦁', '🐯', '🐙', '🦄', '👻', '🤖', '👽', '🎩', //
-    '🕶️', '🚲', '🛴', '🚇', '🗺️', '🔦', '⚡', '🔥', //
-  ];
-
-  // saturated enough to carry a white initial, picked to sit well on the
-  // dark background. no red, the default gradient already is
-  static const _colors = [
-    '#5B7CFA', '#34D399', '#F6B05B', '#A78BFA', //
-    '#F472B6', '#22D3EE', '#94A3B8', //
-  ];
-
-  late String? _emoji = widget.profile.avatarEmoji;
-  late String? _color = widget.profile.avatarColor;
+  late String? _icon = widget.profile.avatarIcon;
   bool _saving = false;
   String? _error;
 
@@ -55,8 +41,7 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
     try {
       await ApiService.instance.updateMyProfile(
         username: widget.profile.username,
-        avatarEmoji: _emoji,
-        avatarColor: _color,
+        avatarIcon: _icon,
       );
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -87,22 +72,20 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
             Center(
               child: UserAvatar(
                 name: widget.profile.username,
-                emoji: _emoji,
-                color: _color,
+                icon: _icon,
                 size: 88,
                 glow: true,
               ),
             ),
             const SizedBox(height: 24),
-            Text('Emoji', style: XActText.bodySm),
-            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
+              alignment: WrapAlignment.center,
               children: [
                 _buildChoice(
-                  selected: _emoji == null,
-                  onTap: () => setState(() => _emoji = null),
+                  selected: avatarIcons[_icon] == null,
+                  onTap: () => setState(() => _icon = null),
                   child: Text(
                     UserAvatar.initialsOf(widget.profile.username),
                     style: XActText.bodySm.copyWith(
@@ -110,50 +93,11 @@ class _AvatarPickerSheetState extends State<AvatarPickerSheet> {
                     ),
                   ),
                 ),
-                for (final emoji in _emojis)
+                for (final MapEntry(:key, :value) in avatarIcons.entries)
                   _buildChoice(
-                    selected: _emoji == emoji,
-                    onTap: () => setState(() => _emoji = emoji),
-                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text('Colour', style: XActText.bodySm),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _buildChoice(
-                  selected: _color == null,
-                  onTap: () => setState(() => _color = null),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          XActColors.primaryLight,
-                          XActColors.primaryDark,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                for (final color in _colors)
-                  _buildChoice(
-                    selected: _color == color,
-                    onTap: () => setState(() => _color = color),
-                    child: Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: UserAvatar.parseHexColor(color),
-                      ),
-                    ),
+                    selected: _icon == key,
+                    onTap: () => setState(() => _icon = key),
+                    child: Icon(value, size: 24, color: XActColors.text1),
                   ),
               ],
             ),
