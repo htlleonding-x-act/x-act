@@ -68,6 +68,8 @@ class _GameScreenState extends State<GameScreen> {
       connected,
     ) {
       if (mounted) setState(() => _connectionLost = !connected);
+      // the match may have ended while the app was offline or frozen
+      if (connected) unawaited(_checkForFinishedSession());
     });
     _sessionStatusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _endMatchNavigationStarted) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -50,6 +52,26 @@ class MainApp extends StatefulWidget {
 class _MainAppState extends State<MainApp> {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   late final _snackBarCleaner = _ClearSnackBarsOnPageChange(_messengerKey);
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // onShow only fires when the app comes back from the background, not when
+    // the notification shade or a dialog takes the focus for a moment
+    _lifecycleListener = AppLifecycleListener(onShow: _onShow);
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  /// a locked phone may have frozen the app, so catch up on what it missed
+  void _onShow() {
+    unawaited(ApiService.instance.resyncRealtime());
+  }
 
   @override
   Widget build(BuildContext context) {

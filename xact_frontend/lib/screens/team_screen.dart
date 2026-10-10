@@ -18,6 +18,7 @@ class TeamScreen extends StatefulWidget {
 class _TeamScreenState extends State<TeamScreen> {
   late Future<List<TeamCardData>> _load;
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
+  StreamSubscription<bool>? _connectionSub;
   Timer? _refreshDebounce;
   bool _markingCaught = false;
 
@@ -31,6 +32,7 @@ class _TeamScreenState extends State<TeamScreen> {
   @override
   void dispose() {
     _realtimeEventSub?.cancel();
+    _connectionSub?.cancel();
     _refreshDebounce?.cancel();
     super.dispose();
   }
@@ -48,6 +50,10 @@ class _TeamScreenState extends State<TeamScreen> {
           _queueReload();
         }
       });
+      // catches and role swaps sent while offline never arrived as events
+      _connectionSub = ApiService.instance.realtimeConnectionChanges
+          .where((connected) => connected)
+          .listen((_) => _queueReload());
     } catch (_) {
       // without realtime the screen still shows the initial load
     }
