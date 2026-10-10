@@ -15,6 +15,8 @@ public interface IGameSessionRepository
 
     public ValueTask<IReadOnlyCollection<GameSession>> GetAllSessionsAsync(bool tracking);
 
+    public ValueTask<IReadOnlyCollection<GameSession>> GetSessionsByStatusAsync(SessionStatus status, bool tracking);
+
     public ValueTask<GameSession?> GetSessionByIdAsync(int id, bool tracking);
 
     public ValueTask<GameSession?> GetSessionByJoinCodeAsync(string joinCode, bool tracking);
@@ -67,6 +69,15 @@ internal sealed class GameSessionRepository(DbSet<GameSession> sessionSet, ICloc
         IQueryable<GameSession> source = tracking ? Sessions : SessionsNoTracking;
 
         List<GameSession> sessions = await source.ToListAsync();
+
+        return sessions;
+    }
+
+    public async ValueTask<IReadOnlyCollection<GameSession>> GetSessionsByStatusAsync(SessionStatus status, bool tracking)
+    {
+        IQueryable<GameSession> source = tracking ? Sessions : SessionsNoTracking;
+
+        List<GameSession> sessions = await source.Where(s => s.Status == status).ToListAsync();
 
         return sessions;
     }

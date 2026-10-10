@@ -138,6 +138,7 @@ public static class Setup
             services.AddScoped<IGameSessionRealtimePublisher, GameSessionRealtimePublisher>();
             services.AddSingleton<ILobbyDisconnectCleanup, LobbyDisconnectCleanup>();
             services.AddHostedService<AbandonedSessionCleanup>();
+            services.AddHostedService<MatchTimeLimitCheck>();
         }
     }
 }

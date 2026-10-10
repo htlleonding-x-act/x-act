@@ -223,6 +223,15 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async ValueTask EndGameSession_BadRequest_WhenReasonIsTimeUp()
+    {
+        var request = new EndGameSessionRequest(GameEndReason.TimeUp);
+        var response = await ApiClient.PostAsJsonAsync($"{BaseUrl}/{SeedData.SessionTwoId}/end", request, JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     private async ValueTask<GameEndReason?> ReadEndReasonAsync(int sessionId)
     {
         GameEndReason? reason = null;

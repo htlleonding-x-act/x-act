@@ -466,8 +466,8 @@ public sealed record EndGameSessionRequest(GameEndReason Reason)
     {
         public Validator()
         {
-            // only the server decides that a session was abandoned
-            RuleFor(x => x.Reason).IsInEnum().NotEqual(GameEndReason.Abandoned);
+            // only the server decides that a session was abandoned or ran out of time
+            RuleFor(x => x.Reason).IsInEnum().NotEqual(GameEndReason.Abandoned).NotEqual(GameEndReason.TimeUp);
         }
     }
 }

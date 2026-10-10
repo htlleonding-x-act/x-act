@@ -6,4 +6,5 @@ public enum GameEndReason
     NoOpponentsLeft = 20,
     HostLeft = 30,
     Abandoned = 40,
+    TimeUp = 50,
 }
