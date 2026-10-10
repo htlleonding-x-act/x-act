@@ -175,6 +175,12 @@ public sealed class GameSessionController(
             return await updateResult.Match<ValueTask<IActionResult>>(async success =>
             {
                 await transaction.CommitAsync();
+
+                OneOf<GameSession, NotFound> sessionResult = await gameSessionService.GetGameSessionByIdAsync(sessionId, tracking: false);
+                await sessionResult.Match(
+                    gameSession => realtimePublisher.PublishGameSessionUpdatedAsync(gameSession),
+                    _ => ValueTask.CompletedTask);
+
                 logger.LogInformation("Updated game session {SessionId}", sessionId);
 
                 return NoContent();
@@ -579,6 +585,12 @@ public sealed record GameSessionDetailsDto(
     }
 }
 
+internal static class MatchDurationLimits
+{
+    public const int MinMinutes = 10;
+    public const int MaxMinutes = 180;
+}
+
 public sealed record GameSessionAddRequest(
     string HostUserId,
     string SessionName,
@@ -598,8 +610,9 @@ public sealed record GameSessionAddRequest(
             RuleFor(x => x.SessionName).NotEmpty().MaximumLength(120);
             RuleFor(x => x.JoinCode).NotEmpty().Length(6);
             RuleFor(x => x.Status).IsInEnum();
-            RuleFor(x => x.PlannedDurationMinutes).GreaterThan(0);
-            RuleFor(x => x.MrXRevealInterval).GreaterThan(0);
+            RuleFor(x => x.PlannedDurationMinutes)
+                .InclusiveBetween(MatchDurationLimits.MinMinutes, MatchDurationLimits.MaxMinutes);
+            RuleFor(x => x.MrXRevealInterval).GreaterThan(0).LessThan(x => x.PlannedDurationMinutes);
         }
     }
 }
@@ -623,8 +636,9 @@ public sealed record GameSessionUpdateRequest(
             RuleFor(x => x.SessionName).NotEmpty().MaximumLength(120);
             RuleFor(x => x.JoinCode).NotEmpty().Length(6);
             RuleFor(x => x.Status).IsInEnum();
-            RuleFor(x => x.PlannedDurationMinutes).GreaterThan(0);
-            RuleFor(x => x.MrXRevealInterval).GreaterThan(0);
+            RuleFor(x => x.PlannedDurationMinutes)
+                .InclusiveBetween(MatchDurationLimits.MinMinutes, MatchDurationLimits.MaxMinutes);
+            RuleFor(x => x.MrXRevealInterval).GreaterThan(0).LessThan(x => x.PlannedDurationMinutes);
         }
     }
 }

@@ -142,6 +142,35 @@ public sealed class GameSessionControllerTests(WebApiTestFixture fixture) : Seed
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    [Theory]
+    [InlineData(9, 5)]
+    [InlineData(181, 5)]
+    [InlineData(30, 30)]
+    public async ValueTask AddGameSession_BadRequest_WhenDurationOrRevealIntervalInvalid(int plannedDurationMinutes, int mrXRevealInterval)
+    {
+        var request = new GameSessionAddRequest(SeedData.HostUserId, "Session", "JOIN42",
+            PlannedDurationMinutes: plannedDurationMinutes, MrXRevealInterval: mrXRevealInterval);
+
+        var response = await ApiClient.PostAsJsonAsync(BaseUrl, request, JsonOptions, TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Theory]
+    [InlineData(9, 5)]
+    [InlineData(181, 5)]
+    [InlineData(30, 30)]
+    public async ValueTask UpdateGameSession_BadRequest_WhenDurationOrRevealIntervalInvalid(int plannedDurationMinutes, int mrXRevealInterval)
+    {
+        var updateRequest = new GameSessionUpdateRequest(SeedData.HostUserId, "Updated", "UPD123",
+            SessionStatus.Waiting, null, null, plannedDurationMinutes, mrXRevealInterval);
+
+        var response = await ApiClient.PutAsJsonAsync($"{BaseUrl}/{SeedData.SessionId}", updateRequest, JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public async ValueTask DeleteGameSession_NoContent()
     {

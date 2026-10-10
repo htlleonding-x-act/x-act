@@ -116,6 +116,32 @@ public sealed class RealtimeHubTests : SeededWebApiTestBase
     }
 
     [Fact]
+    public async ValueTask UpdateGameSession_PublishesUpdatedEvent()
+    {
+        await using var realtimeClient = await SignalRTestClient.ConnectAsync(_fixture, TestCancellationToken);
+        await realtimeClient.SubscribeSessionAsync(SeedData.SessionId, TestCancellationToken);
+
+        var updateRequest = new GameSessionUpdateRequest(SeedData.HostUserId, "Updated", "UPD123",
+            SessionStatus.Waiting, null, null, 45, 3);
+        HttpResponseMessage response = await ApiClient.PutAsJsonAsync(
+            $"{BaseUrl}/{SeedData.SessionId}",
+            updateRequest,
+            JsonOptions,
+            TestCancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        RealtimeEventEnvelope? realtimeEvent = await realtimeClient.TryReadEventAsync(TimeSpan.FromSeconds(3), TestCancellationToken);
+
+        realtimeEvent.Should().NotBeNull();
+        realtimeEvent!.Type.Should().Be(RealtimeEvents.GameSessionUpdated);
+        var payload = (JsonElement)realtimeEvent.Payload;
+        payload.GetProperty("sessionId").GetInt32().Should().Be(SeedData.SessionId);
+        payload.GetProperty("plannedDurationMinutes").GetInt32().Should().Be(45);
+        payload.GetProperty("mrXRevealInterval").GetInt32().Should().Be(3);
+    }
+
+    [Fact]
     public async ValueTask AddLocationLog_PublishesLocationEvent()
     {
         await ActivateSeedSessionAsync();

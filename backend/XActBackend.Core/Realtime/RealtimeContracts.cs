@@ -18,6 +18,7 @@ public static class RealtimeEvents
     public const string TeamMemberUpdated = "team_member_updated";
     public const string TeamMemberLeft = "team_member_left";
     public const string GameSessionStarted = "game_session_started";
+    public const string GameSessionUpdated = "game_session_updated";
     public const string GameSessionEnded = "game_session_ended";
     public const string GameSessionDeleted = "game_session_deleted";
     public const string LocationLogRecorded = "location_log_recorded";
@@ -164,6 +165,12 @@ public sealed record GameSessionStartedPayload(
     SessionStatus Status,
     Instant? StartTime,
     Instant? EndTime
+);
+
+public sealed record GameSessionUpdatedPayload(
+    int SessionId,
+    int PlannedDurationMinutes,
+    int MrXRevealInterval
 );
 
 public sealed record GameSessionEndedPayload(
