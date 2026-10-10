@@ -36,7 +36,7 @@ public interface IUserService
         int TotalGamesPlayed = 0
     );
 
-    public sealed record ProfileData(string Username, string? AvatarEmoji, string? AvatarColor);
+    public sealed record ProfileData(string Username, string? AvatarIcon);
 }
 
 internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserService> logger) : IUserService
@@ -196,8 +196,7 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         }
 
         user.Username = profile.Username;
-        user.AvatarEmoji = profile.AvatarEmoji;
-        user.AvatarColor = profile.AvatarColor;
+        user.AvatarIcon = profile.AvatarIcon;
 
         await uow.SaveChangesAsync();
 
