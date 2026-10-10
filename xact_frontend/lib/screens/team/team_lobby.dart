@@ -14,6 +14,7 @@ import 'package:xact_frontend/screens/team/add_team.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/game_start_transition_service.dart';
 import 'package:xact_frontend/services/geofence_store.dart';
+import 'package:xact_frontend/services/location_service.dart';
 import 'package:xact_frontend/widgets/team/add_team_button.dart';
 import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
@@ -76,6 +77,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   bool _loading = true;
   bool _working = false;
   bool _gameTransitionStarted = false;
+  bool _gameScreenOpened = false;
   bool _leaving = false;
   int _mrXRevealInterval = 5;
 
@@ -109,6 +111,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     _refreshLobby();
     _loadSessionDetails();
     _initRealtime();
+    unawaited(_startLocation());
   }
 
   @override
@@ -116,7 +119,18 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     _realtimeEventSub?.cancel();
     _realtimeSnapshotSub?.cancel();
     _realtimeRefreshDebounce?.cancel();
+    // the game screen takes over the running gps stream. stopping it would end
+    // the foreground service, which can't start again while the phone is locked
+    if (!_gameScreenOpened) {
+      LocationService.instance.stopTracking();
+    }
     super.dispose();
+  }
+
+  /// android only starts the gps foreground service while the app is visible,
+  /// so start it here. it keeps the app running while the phone is locked
+  Future<void> _startLocation() async {
+    await LocationService.instance.startWatching();
   }
 
   Future<void> _refreshLobby({bool silent = false}) async {
@@ -1006,6 +1020,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       return;
     }
 
+    _gameScreenOpened = true;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const GameScreen()),

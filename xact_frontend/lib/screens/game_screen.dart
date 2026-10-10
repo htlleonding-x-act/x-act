@@ -226,7 +226,11 @@ class _GameScreenState extends State<GameScreen> {
     _chatNotificationSub?.cancel();
     _ownRevealSub?.cancel();
     _connectionSub?.cancel();
-    LocationService.instance.stopTracking();
+    // a rematch already stopped tracking before it opened the new lobby, which
+    // starts its own gps stream that this late dispose must not end
+    if (!_rematchNavigationStarted) {
+      LocationService.instance.stopTracking();
+    }
     super.dispose();
   }
 

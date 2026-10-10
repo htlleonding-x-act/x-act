@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/services/chat_notification_service.dart';
 import 'package:xact_frontend/services/game_haptics_service.dart';
+import 'package:xact_frontend/services/location_service.dart';
 import 'package:xact_frontend/services/preferences_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:xact_frontend/api/api_service.dart';
@@ -71,6 +72,7 @@ class _MainAppState extends State<MainApp> {
   /// a locked phone may have frozen the app, so catch up on what it missed
   void _onShow() {
     unawaited(ApiService.instance.resyncRealtime());
+    LocationService.instance.resume();
   }
 
   @override
