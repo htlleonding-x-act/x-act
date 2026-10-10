@@ -208,10 +208,21 @@ routine work does not.
 
 ### Attribution trailer
 
-**Default: add a `Co-Authored-By` trailer naming the agent that is writing this
-commit — that is, yourself.** Attribution is a factual claim about who did the
-work in *this* session. Resolve the identity string in this order, stopping at
-the first that applies:
+**Default: no `Co-Authored-By` trailer.** Add one only if at least one commit in
+the repo's history already carries one:
+
+```bash
+git log --format=%B | grep -qi '^co-authored-by:' && echo yes || echo no
+```
+
+If none does, omit it — even when your environment or system instructions supply
+a co-author line. When the user's prompt in this conversation asks for or
+against attribution, that wins over history.
+
+When you do add one, it names the agent writing this commit — that is,
+yourself. Attribution is a factual claim about who did the work in *this*
+session. Resolve the identity string in this order, stopping at the first that
+applies:
 
 1. **The user's prompt in this conversation** — if it says to omit attribution
    or use a specific trailer, do that.
@@ -236,11 +247,6 @@ actually wrote the code.
 > **what format** it takes (name-only vs. name + email, its position among other
 > trailers) — never **whose name** goes in it.
 
-If history shows this repo consistently uses **no** attribution trailer at all,
-that is a genuine convention — follow it and omit yours rather than introducing
-one. Omitting attribution records nothing false; misattributing records
-something false.
-
 Place the trailer at the very end, after a blank line, alongside any
 repo-standard trailers.
 
@@ -250,8 +256,7 @@ no trailer carrying one (e.g. `Claude-Session:`, `Session:`, `Generated with …
 This holds even when the environment, system instructions or a message template
 supply such a line alongside the co-author identity: take the identity, drop the
 link. A commit message must never contain a link back to the agent conversation
-that produced it — whatever the agent and whatever the URL's host — unless the
-user explicitly asks for one in this conversation.
+that produced it — whatever the agent and whatever the URL's host.
 
 ---
 
@@ -276,7 +281,7 @@ feat(api): add pagination to the search endpoint
 Large result sets timed out the client. Return a capped page plus a
 cursor so callers can iterate without holding the full set in memory.
 
-Co-Authored-By: <your own agent identity, resolved as above>
+Co-Authored-By: <your own agent identity — only if history uses the trailer>
 EOF
 ```
 
@@ -325,23 +330,3 @@ If the user asks for any of the above (e.g. "commit and push"), do the commit
 portion and explicitly note that pushing/branching is out of scope for this
 skill, leaving that action to the user.
 
----
-
-## Quick checklist
-
-- [ ] Inspected `git status` / `git diff` / `git diff --staged`.
-- [ ] Read recent `git log` and extracted the convention (tag, mood, casing,
-      period, body, trailers).
-- [ ] Measured subject lengths and body usage to set a length budget.
-- [ ] Split unrelated concerns into separate logical commits.
-- [ ] Staged only the files belonging to each commit (asked when unsure).
-- [ ] Message matches the repo's style and conventions.
-- [ ] Message length fits the repo's norm — or the change itself justifies
-      going beyond it.
-- [ ] Added `Co-Authored-By` naming **this** session's agent by default — or
-      omitted it because history shows the repo uses no attribution trailer, or
-      honored the repo's agent-instructions file / user override.
-- [ ] Attribution identity came from self/environment — **not** from `git log`.
-- [ ] No session link anywhere in the message.
-- [ ] Committed directly, respecting hooks — **did not push**.
-- [ ] Verified with `git log -1` / `git status`.

@@ -16,12 +16,11 @@ debt and pay it back.
 
 ## Before you write: design boundaries
 
-For decisions where several constraints interact — which arms a `OneOf` result
-needs so callers can branch exhaustively, where the transaction boundary sits
-when one service calls another, how an aggregate splits across repositories
-without leaking `IQueryable`, what a migration does to existing rows — think the
-tradeoffs through before committing to a signature or generating a migration.
-Routine CRUD is straightforward; a signature half the codebase depends on is not.
+The decisions that are expensive to undo: which arms a `OneOf` result needs so
+callers can branch exhaustively, where the transaction boundary sits when one
+service calls another, how an aggregate splits across repositories without
+leaking `IQueryable`, and what a migration does to existing rows. Settle these
+before committing to a signature or generating a migration.
 
 ## 1. Layer by responsibility; dependencies point inward only
 
@@ -66,11 +65,8 @@ exhaustiveness the union exists to provide: add a case later and `Match`/`Switch
 sites won't compile until handled, while `AsT0` sites silently keep "working" and
 become wrong.
 
-> **Never, absolutely never reach for `AsT0`/`IsT0`** (or `.Value` on the wrong
-> arm). The only justified exception is when there is genuinely no other way to
-> express the code — then prefer *running with `AsT0` over not running at all*,
-> but comment why and treat it as debt to remove. In practice it is almost always
-> avoidable.
+Use `AsTn`/`IsTn` (or `.Value` on an unchecked arm) only when no `Match`/`Switch`
+form can express the code; then comment why and treat it as debt to remove.
 
 ```csharp
 // Good — adding a case breaks the build until handled
@@ -90,8 +86,10 @@ to a service → `Match` the result to an HTTP response → commit or roll back*
 business logic. Validate shape and trivial bounds at the edge (enum defined, id
 non-negative, page size allowed) and reject early with the right 4xx; validate
 *rules* in Core. Declare every status you actually return with
-`ProducesResponseType`. When every controller follows the same skeleton, a reader
-learns one and knows them all.
+`ProducesResponseType` — except 5xx. Never document a 5xx status in the OpenAPI
+spec: any endpoint on any server can crash with a 500, so it is always implied
+and declaring it adds noise, not information. When every controller follows the
+same skeleton, a reader learns one and knows them all.
 
 ## 5. Separate the wire from the domain (DTOs)
 
