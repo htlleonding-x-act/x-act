@@ -68,6 +68,9 @@ final class MapHeaderData {
   final int remainingSeconds;
   final int intervalSeconds;
 
+  /// null before the match started
+  final int? matchSecondsLeft;
+
   double get progress =>
       intervalSeconds > 0 ? 1.0 - (remainingSeconds / intervalSeconds) : 0.0;
 
@@ -75,6 +78,7 @@ final class MapHeaderData {
     required this.nextPingText,
     this.remainingSeconds = 0,
     this.intervalSeconds = 0,
+    this.matchSecondsLeft,
   });
 }
 

@@ -5,6 +5,7 @@ import '../xact_branding.dart';
 class GameLobbyHeader extends StatelessWidget {
   final String gameName;
   final int totalPlayers;
+  final int matchMinutes;
   final bool isLeader;
   final VoidCallback onBack;
   final VoidCallback? onClose;
@@ -16,6 +17,7 @@ class GameLobbyHeader extends StatelessWidget {
     super.key,
     required this.gameName,
     required this.totalPlayers,
+    required this.matchMinutes,
     required this.isLeader,
     required this.onBack,
     this.onClose,
@@ -28,6 +30,7 @@ class GameLobbyHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final subtitle =
         '$totalPlayers ${totalPlayers == 1 ? 'player' : 'players'}'
+        ' · $matchMinutes min'
         '${isLeader ? ' · Host' : ''}';
 
     return Padding(

@@ -44,7 +44,7 @@ table(Game_Sessions) {
     column(end_time) : TIMESTAMP
     column(planned_duration_minutes) : INTEGER
     column(mr_x_reveal_interval) : INTEGER
-    column(end_reason) : ENUM('HOST_ENDED', 'NO_OPPONENTS_LEFT', 'HOST_LEFT', 'ABANDONED') NULL
+    column(end_reason) : ENUM('HOST_ENDED', 'NO_OPPONENTS_LEFT', 'HOST_LEFT', 'ABANDONED', 'TIME_UP') NULL
     column(created_at) : TIMESTAMP
 }
 

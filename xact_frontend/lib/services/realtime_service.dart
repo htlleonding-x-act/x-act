@@ -424,6 +424,14 @@ final class RealtimeService {
         );
         break;
 
+      case RealtimeEvents.gameSessionUpdated:
+        final payload = GameSessionUpdatedPayload.fromJson(envelope.payload);
+        _latestSnapshot = snapshot.copyWith(
+          plannedDurationMinutes: payload.plannedDurationMinutes,
+          mrXRevealInterval: payload.mrXRevealInterval,
+        );
+        break;
+
       case RealtimeEvents.gameSessionEnded:
         final payload = GameSessionEndedPayload.fromJson(envelope.payload);
         _latestSnapshot = snapshot.copyWith(

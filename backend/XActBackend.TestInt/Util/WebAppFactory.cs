@@ -20,6 +20,8 @@ internal sealed class WebAppFactory(string connectionString) : WebApplicationFac
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("General:LobbyDisconnectGracePeriod", "00:00:01");
+        // a check every few seconds would run into the schema reset before each test and stop the host
+        builder.UseSetting("General:MatchTimeLimitCheckInterval", "01:00:00");
 
         builder.ConfigureTestServices(services =>
         {
