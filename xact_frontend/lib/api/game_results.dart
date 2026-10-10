@@ -2,7 +2,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'models.dart';
 
-enum GameEndReason { hostEnded, noOpponentsLeft, hostLeft, abandoned }
+enum GameEndReason { hostEnded, noOpponentsLeft, hostLeft, abandoned, timeUp }
 
 enum TimelineEventType {
   gameStarted,
@@ -21,6 +21,7 @@ GameEndReason? tryParseGameEndReason(String value) {
     'NoOpponentsLeft' => GameEndReason.noOpponentsLeft,
     'HostLeft' => GameEndReason.hostLeft,
     'Abandoned' => GameEndReason.abandoned,
+    'TimeUp' => GameEndReason.timeUp,
     _ => null,
   };
 }
@@ -31,6 +32,7 @@ String gameEndReasonToApi(GameEndReason reason) {
     GameEndReason.noOpponentsLeft => 'NoOpponentsLeft',
     GameEndReason.hostLeft => 'HostLeft',
     GameEndReason.abandoned => 'Abandoned',
+    GameEndReason.timeUp => 'TimeUp',
   };
 }
 

@@ -415,6 +415,16 @@ final class GameSessionDetails {
       revealIntervalSeconds: _readInt(json, ['revealIntervalSeconds']),
     );
   }
+
+  /// time left until the planned end as the server saw it when it answered,
+  /// null before the match started
+  Duration? get matchTimeLeft {
+    final start = startTime;
+    if (start == null) return null;
+    return start
+        .add(Duration(minutes: plannedDurationMinutes))
+        .difference(serverNow);
+  }
 }
 
 final class TeamInfo {

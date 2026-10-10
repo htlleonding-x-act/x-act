@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -23,6 +24,12 @@ class _MapHeaderState extends State<MapHeader> {
 
   Timer? _timer;
 
+  /// on the local clock, so the match clock stays right even when the timer
+  /// skips ticks while the phone is locked
+  DateTime? _matchEndsAt;
+
+  Timer? _clockTimer;
+
   @override
   void initState() {
     super.initState();
@@ -35,15 +42,26 @@ class _MapHeaderState extends State<MapHeader> {
   @override
   void dispose() {
     _timer?.cancel();
+    _clockTimer?.cancel();
     super.dispose();
   }
 
   void _startCountdown(MapHeaderData data) {
     if (!mounted) return;
+    final matchSecondsLeft = data.matchSecondsLeft;
     setState(() {
       _totalSeconds = data.intervalSeconds;
       _secondsRemaining = data.remainingSeconds;
+      _matchEndsAt = matchSecondsLeft == null
+          ? null
+          : DateTime.now().add(Duration(seconds: matchSecondsLeft));
     });
+
+    if (_matchEndsAt != null) {
+      _clockTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    }
 
     _timer?.cancel();
     if (_totalSeconds <= 0) return;
@@ -108,6 +126,20 @@ class _MapHeaderState extends State<MapHeader> {
     return '${m}m ${s.toString().padLeft(2, '0')}s';
   }
 
+  int get _matchSecondsLeft {
+    final endsAt = _matchEndsAt;
+    if (endsAt == null) return 0;
+    return math.max(0, endsAt.difference(DateTime.now()).inSeconds);
+  }
+
+  String get _matchClockText {
+    final left = _matchSecondsLeft;
+    final h = left ~/ 3600;
+    final m = (left % 3600) ~/ 60;
+    final s = (left % 60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$s' : '$m:$s';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Positioned(
@@ -168,6 +200,25 @@ class _MapHeaderState extends State<MapHeader> {
                       );
                     },
                   ),
+                  if (_matchEndsAt != null) ...[
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        XActBranding.buildEyebrow('Time left'),
+                        const SizedBox(height: 2),
+                        Text(
+                          _matchClockText,
+                          style: XActText.mono.copyWith(
+                            fontSize: 20,
+                            color: _matchSecondsLeft < 5 * 60
+                                ? XActColors.warning
+                                : XActColors.text1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
               if (_totalSeconds > 0) ...[
