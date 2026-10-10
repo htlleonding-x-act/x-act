@@ -20,6 +20,7 @@ import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
 import 'package:xact_frontend/widgets/team/lobby_header.dart';
 import 'package:xact_frontend/widgets/team/lobby_settings_sheet.dart';
+import 'package:xact_frontend/widgets/team/setting_slider_card.dart';
 import 'package:xact_frontend/widgets/team/share_game_code_dialog.dart';
 import 'package:xact_frontend/widgets/team/lobby_team_card.dart';
 import 'package:xact_frontend/widgets/team/spectators_card.dart';
@@ -83,6 +84,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   bool _gameScreenOpened = false;
   bool _leaving = false;
   int _mrXRevealInterval = 5;
+  int _plannedDurationMinutes = MatchLengthCard.defaultMinutes;
 
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
@@ -278,6 +280,14 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         if (snapshot.sessionId == widget.sessionId) {
           if (snapshot.status == SessionStatus.active) {
             unawaited(_openGameForAll());
+          }
+
+          // carries the host's settings changes and catches up after a reconnect
+          if (mounted) {
+            setState(() {
+              _plannedDurationMinutes = snapshot.plannedDurationMinutes;
+              _mrXRevealInterval = snapshot.mrXRevealInterval;
+            });
           }
 
           // _refreshLobby() pushes its own snapshots onto this stream. ignore
@@ -710,7 +720,12 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   Future<void> _loadSessionDetails() async {
     try {
       final details = await ApiService.instance.getGameSession(widget.sessionId);
-      if (mounted) setState(() => _mrXRevealInterval = details.mrXRevealInterval);
+      if (mounted) {
+        setState(() {
+          _plannedDurationMinutes = details.plannedDurationMinutes;
+          _mrXRevealInterval = details.mrXRevealInterval;
+        });
+      }
     } catch (_) {}
   }
 
@@ -727,10 +742,13 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
 
   Future<void> _openSettings() async {
-    final newInterval = await LobbySettingsSheet.show(
+    final settings = await LobbySettingsSheet.show(
       context: context,
       sessionId: widget.sessionId,
-      initialPingInterval: _mrXRevealInterval,
+      initialSettings: (
+        plannedDurationMinutes: _plannedDurationMinutes,
+        mrXRevealInterval: _mrXRevealInterval,
+      ),
       onEditMap: isLobbyLeader()
           ? () {
               Navigator.of(context).pop();
@@ -738,8 +756,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             }
           : null,
     );
-    if (newInterval != null && mounted) {
-      setState(() => _mrXRevealInterval = newInterval);
+    if (settings != null && mounted) {
+      setState(() {
+        _plannedDurationMinutes = settings.plannedDurationMinutes;
+        _mrXRevealInterval = settings.mrXRevealInterval;
+      });
     }
   }
 
@@ -895,6 +916,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             GameLobbyHeader(
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
+              matchMinutes: _plannedDurationMinutes,
               isLeader: leader,
               onBack: _leaveLobby,
               onViewMap: _openMapPreview,

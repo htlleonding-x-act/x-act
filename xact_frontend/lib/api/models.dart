@@ -703,6 +703,7 @@ final class RealtimeEvents {
   static const String teamMemberUpdated = 'team_member_updated';
   static const String teamMemberLeft = 'team_member_left';
   static const String gameSessionStarted = 'game_session_started';
+  static const String gameSessionUpdated = 'game_session_updated';
   static const String gameSessionEnded = 'game_session_ended';
   static const String gameSessionDeleted = 'game_session_deleted';
   static const String locationLogRecorded = 'location_log_recorded';
@@ -841,6 +842,8 @@ final class GameSessionSnapshot {
     SessionStatus? status,
     DateTime? startTime,
     DateTime? endTime,
+    int? plannedDurationMinutes,
+    int? mrXRevealInterval,
     List<SnapshotTeam>? teams,
     List<SnapshotTeamMember>? members,
     List<SnapshotLatestLocation>? latestLocations,
@@ -851,8 +854,9 @@ final class GameSessionSnapshot {
       status: status ?? this.status,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
-      plannedDurationMinutes: plannedDurationMinutes,
-      mrXRevealInterval: mrXRevealInterval,
+      plannedDurationMinutes:
+          plannedDurationMinutes ?? this.plannedDurationMinutes,
+      mrXRevealInterval: mrXRevealInterval ?? this.mrXRevealInterval,
       teams: teams ?? this.teams,
       members: members ?? this.members,
       latestLocations: latestLocations ?? this.latestLocations,
@@ -1216,6 +1220,27 @@ final class GameSessionStartedPayload {
       },
       startTime: tryParseIsoDateTime(json['startTime']),
       endTime: tryParseIsoDateTime(json['endTime']),
+    );
+  }
+}
+
+/// the host changed the match length or the ping interval in the lobby
+final class GameSessionUpdatedPayload {
+  final int sessionId;
+  final int plannedDurationMinutes;
+  final int mrXRevealInterval;
+
+  const GameSessionUpdatedPayload({
+    required this.sessionId,
+    required this.plannedDurationMinutes,
+    required this.mrXRevealInterval,
+  });
+
+  factory GameSessionUpdatedPayload.fromJson(Map<String, dynamic> json) {
+    return GameSessionUpdatedPayload(
+      sessionId: _readInt(json, ['sessionId']),
+      plannedDurationMinutes: _readInt(json, ['plannedDurationMinutes']),
+      mrXRevealInterval: _readInt(json, ['mrXRevealInterval']),
     );
   }
 }
