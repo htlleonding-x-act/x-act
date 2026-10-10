@@ -49,6 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _statsFailed = false;
   String? _version;
   bool? _locationAllowed;
+  bool? _batteryOptimizationOff;
 
   // guests get a user id too, so only a keycloak token means signed in
   bool get _isSignedIn => ApiService.instance.isAuthenticated;
@@ -61,6 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _loadVersion();
     _loadLocationPermission();
+    _loadBatteryOptimization();
     if (_isSignedIn) {
       _loadProfile();
       _loadStats();
@@ -100,6 +102,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final allowed = await LocationService.instance.hasPermission();
       if (mounted) setState(() => _locationAllowed = allowed);
     } catch (_) {}
+  }
+
+  Future<void> _loadBatteryOptimization() async {
+    final off = await LocationService.instance.isBatteryOptimizationOff();
+    if (mounted) setState(() => _batteryOptimizationOff = off);
   }
 
   @override
@@ -440,6 +447,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildLocationSection() {
     final allowed = _locationAllowed;
+    final batteryOptimizationOff = _batteryOptimizationOff;
 
     return SettingsSection(
       label: 'Location',
@@ -464,6 +472,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           subtitle: 'See how precise your position is right now',
           onTap: _checkGps,
         ),
+        if (LocationService.instance.hasBatteryOptimization) ...[
+          const SettingsDivider(),
+          SettingsTile(
+            icon: batteryOptimizationOff == false
+                ? Icons.battery_alert_rounded
+                : Icons.battery_full_rounded,
+            title: 'Battery optimisation',
+            subtitle: switch (batteryOptimizationOff) {
+              true => 'Off · X-ACT keeps running with the screen off',
+              false => 'On · tap to turn off',
+              null => '…',
+            },
+            color: batteryOptimizationOff == false ? XActColors.warning : null,
+            onTap: _turnOffBatteryOptimization,
+          ),
+        ],
       ],
     );
   }
@@ -557,6 +581,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _checkGps() async {
     await GpsCheckSheet.show(context);
     await _loadLocationPermission();
+  }
+
+  Future<void> _turnOffBatteryOptimization() async {
+    await LocationService.instance.turnOffBatteryOptimization();
+    await _loadBatteryOptimization();
   }
 
   Future<void> _rename() async {

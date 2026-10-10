@@ -74,6 +74,9 @@ class GameLobbyScreen extends StatefulWidget {
 }
 
 class _GameLobbyScreenState extends State<GameLobbyScreen> {
+  // static so a rematch lobby doesn't ask again in the same app run
+  static bool _askedForBatteryExemption = false;
+
   bool _loading = true;
   bool _working = false;
   bool _gameTransitionStarted = false;
@@ -131,6 +134,12 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   /// so start it here. it keeps the app running while the phone is locked
   Future<void> _startLocation() async {
     await LocationService.instance.startWatching();
+
+    if (!mounted || _askedForBatteryExemption) return;
+    _askedForBatteryExemption = true;
+    if (!await LocationService.instance.isBatteryOptimizationOff()) {
+      await LocationService.instance.turnOffBatteryOptimization();
+    }
   }
 
   Future<void> _refreshLobby({bool silent = false}) async {

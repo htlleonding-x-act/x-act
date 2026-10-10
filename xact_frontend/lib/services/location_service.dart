@@ -3,6 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart'
+    show
+        FuturePermissionStatusGetters,
+        Permission,
+        PermissionActions,
+        PermissionCheckShortcuts;
 
 import '../api/api_service.dart';
 
@@ -268,6 +274,32 @@ final class LocationService {
         distanceFilter: distanceFilter,
       ),
     };
+  }
+
+  /// some vendors stop even a foreground service with the screen off unless
+  /// x-act is exempt from battery optimisation. only android has it
+  bool get hasBatteryOptimization =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<bool> isBatteryOptimizationOff() async {
+    if (!hasBatteryOptimization) return true;
+
+    try {
+      return await Permission.ignoreBatteryOptimizations.isGranted;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// shows the system dialog. true when x-act is exempt afterwards
+  Future<bool> turnOffBatteryOptimization() async {
+    if (!hasBatteryOptimization) return true;
+
+    try {
+      return await Permission.ignoreBatteryOptimizations.request().isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _uploadPosition() async {
