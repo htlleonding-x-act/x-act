@@ -25,7 +25,16 @@ import 'winner_hero.dart';
 class EndMatchScreen extends StatefulWidget {
   final int sessionId;
 
-  const EndMatchScreen({super.key, required this.sessionId});
+  /// set when an old match is opened from the match history. the screen then
+  /// shows it as this member saw it and leaves out rematch and leave, which
+  /// only make sense right after the match
+  final int? reviewMemberId;
+
+  const EndMatchScreen({
+    super.key,
+    required this.sessionId,
+    this.reviewMemberId,
+  });
 
   @override
   State<EndMatchScreen> createState() => _EndMatchScreenState();
@@ -93,7 +102,7 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     super.initState();
     _tabController.addListener(_onTabChanged);
     _loadResults();
-    _initRematchListener();
+    if (!_isReview) _initRematchListener();
   }
 
   @override
@@ -373,7 +382,10 @@ class _EndMatchScreenState extends State<EndMatchScreen>
     );
   }
 
-  int? get _currentMemberId => AppSession.instance.currentMemberId;
+  bool get _isReview => widget.reviewMemberId != null;
+
+  int? get _currentMemberId =>
+      widget.reviewMemberId ?? AppSession.instance.currentMemberId;
 
   bool _isWinner(GameResults results) {
     final me = results.memberById(_currentMemberId);
@@ -403,7 +415,9 @@ class _EndMatchScreenState extends State<EndMatchScreen>
                   child: Column(
                     children: [
                       Expanded(child: _buildBody()),
-                      if (!_replayFullscreen)
+                      if (!_replayFullscreen && _isReview)
+                        _buildReviewBar()
+                      else if (!_replayFullscreen)
                         EndMatchActionBar(
                           isHost: _isHost,
                           loading: _loading,
@@ -417,6 +431,25 @@ class _EndMatchScreenState extends State<EndMatchScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        XActSpace.s5,
+        XActSpace.s3,
+        XActSpace.s5,
+        XActSpace.s5,
+      ),
+      child: SafeArea(
+        top: false,
+        child: XActBranding.buildGhostButton(
+          text: 'Back to match history',
+          icon: Icons.arrow_back_rounded,
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
     );

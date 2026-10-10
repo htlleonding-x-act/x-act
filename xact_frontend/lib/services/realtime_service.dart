@@ -30,8 +30,9 @@ final class RealtimeService {
   Stream<RealtimeEventEnvelope> get eventStream => _eventController.stream;
   Stream<GameSessionSnapshot> get snapshotStream => _snapshotController.stream;
 
-  /// false when the connection drops, true once it is back and the groups and
-  /// presence are restored
+  /// false when the connection drops. true once it is back, or once the app
+  /// returned to the foreground, and the groups and presence are restored.
+  /// screens reload on true because events sent in the meantime are lost
   Stream<bool> get connectionChanges => _connectionController.stream;
 
   GameSessionSnapshot? get latestSnapshot => _latestSnapshot;
@@ -79,7 +80,7 @@ final class RealtimeService {
 
     connection.onreconnected(({connectionId}) {
       unawaited(
-        _restoreAfterReconnect().whenComplete(
+        _restoreGroupsAndPresence().whenComplete(
           () => _connectionController.add(true),
         ),
       );
@@ -255,10 +256,23 @@ final class RealtimeService {
     }
   }
 
+  /// for when the app returns to the foreground. the os may have frozen it
+  /// while the phone was locked, which loses events even when the connection
+  /// survived, and the server may have dropped the presence
+  Future<void> resync() async {
+    // a reconnect in progress restores everything itself once it is through
+    if (!isConnected) {
+      return;
+    }
+
+    await _restoreGroupsAndPresence();
+    _connectionController.add(true);
+  }
+
   /// the server treats a reconnect as a new connection without groups or
   /// presence, so restore both. resubscribing also refetches missed state.
   /// errors are ignored because the next reconnect or refresh tries again
-  Future<void> _restoreAfterReconnect() async {
+  Future<void> _restoreGroupsAndPresence() async {
     try {
       final sessionId = _subscribedSessionId;
       if (sessionId != null) {
@@ -407,6 +421,14 @@ final class RealtimeService {
           status: payload.status,
           startTime: payload.startTime,
           endTime: payload.endTime,
+        );
+        break;
+
+      case RealtimeEvents.gameSessionUpdated:
+        final payload = GameSessionUpdatedPayload.fromJson(envelope.payload);
+        _latestSnapshot = snapshot.copyWith(
+          plannedDurationMinutes: payload.plannedDurationMinutes,
+          mrXRevealInterval: payload.mrXRevealInterval,
         );
         break;
 

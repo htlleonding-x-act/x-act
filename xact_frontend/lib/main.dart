@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/services/chat_notification_service.dart';
+import 'package:xact_frontend/services/game_haptics_service.dart';
+import 'package:xact_frontend/services/location_service.dart';
+import 'package:xact_frontend/services/preferences_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:xact_frontend/api/api_service.dart';
 import 'package:xact_frontend/auth/auth_config.dart';
@@ -12,7 +17,9 @@ import 'package:xact_frontend/widgets/xact_branding.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await PreferencesService.instance.load();
   await ChatNotificationService.instance.init();
+  GameHapticsService.instance.init();
   await ApiService.instance.restoreLogin();
   runApp(MainApp(loginCallback: await _loginCallbackThatStartedApp()));
 }
@@ -43,31 +50,29 @@ class MainApp extends StatefulWidget {
   State<MainApp> createState() => _MainAppState();
 }
 
-class _MainAppState extends State<MainApp> with WidgetsBindingObserver {
-  bool _isClosingSession = false;
+class _MainAppState extends State<MainApp> {
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   late final _snackBarCleaner = _ClearSnackBarsOnPageChange(_messengerKey);
+  late final AppLifecycleListener _lifecycleListener;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    // onShow only fires when the app comes back from the background, not when
+    // the notification shade or a dialog takes the focus for a moment
+    _lifecycleListener = AppLifecycleListener(onShow: _onShow);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _lifecycleListener.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached && !_isClosingSession) {
-      _isClosingSession = true;
-      ApiService.instance.closeCurrentSession().whenComplete(() {
-        _isClosingSession = false;
-      });
-    }
+  /// a locked phone may have frozen the app, so catch up on what it missed
+  void _onShow() {
+    unawaited(ApiService.instance.resyncRealtime());
+    LocationService.instance.resume();
   }
 
   @override

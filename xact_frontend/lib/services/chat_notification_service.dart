@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../api/api_service.dart';
 import '../api/models.dart';
 import 'app_session.dart';
+import 'preferences_service.dart';
 
 /// ids of the android system notifications, one per chat
 class _NotificationIds {
@@ -115,6 +116,13 @@ final class ChatNotificationService {
   void _setUnreadAll(ChatMessage message) {
     _hasUnreadAll = true;
     _changeController.add(null);
+
+    final preferences = PreferencesService.instance;
+    if (!preferences.chatNotifications.value ||
+        preferences.teamChatOnly.value) {
+      return;
+    }
+
     unawaited(
       _showNotification(
         id: _NotificationIds.allChat,
@@ -127,6 +135,9 @@ final class ChatNotificationService {
   void _setUnreadTeam(ChatMessage message) {
     _hasUnreadTeam = true;
     _changeController.add(null);
+
+    if (!PreferencesService.instance.chatNotifications.value) return;
+
     unawaited(
       _showNotification(
         id: _NotificationIds.teamChat,

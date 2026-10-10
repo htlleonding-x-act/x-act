@@ -6,6 +6,7 @@ import 'package:xact_frontend/screens/team/team_lobby.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/geofence_store.dart';
 import 'package:xact_frontend/services/location_service.dart';
+import 'package:xact_frontend/widgets/team/setting_slider_card.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class CreateGameScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
   final _hostNameController = TextEditingController(
     text: AppSession.instance.currentUsername ?? '',
   );
+  int _matchMinutes = MatchLengthCard.defaultMinutes;
   bool _creating = false;
   bool _finalizingLobby = false;
 
@@ -63,6 +65,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
 
       final session = await ApiService.instance.createLobby(
         lobbyName: gameName,
+        plannedDurationMinutes: _matchMinutes,
       );
       final sessionId = session.sessionId;
 
@@ -251,6 +254,11 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
                               maxLength: 50,
                             ),
                           ],
+                          const SizedBox(height: XActSpace.s2),
+                          MatchLengthCard(
+                            minutes: _matchMinutes,
+                            onChanged: (v) => setState(() => _matchMinutes = v),
+                          ),
                           const SizedBox(height: XActSpace.s4),
                           _InfoBanner(
                             icon: Icons.info_outline_rounded,

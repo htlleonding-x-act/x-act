@@ -1,6 +1,7 @@
 using XActBackend.Persistence;
 using XActBackend.Persistence.Util;
 using XActBackend.Shared;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -19,11 +20,14 @@ internal sealed class WebAppFactory(string connectionString) : WebApplicationFac
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("General:LobbyDisconnectGracePeriod", "00:00:01");
+        // a check every few seconds would run into the schema reset before each test and stop the host
+        builder.UseSetting("General:MatchTimeLimitCheckInterval", "01:00:00");
 
         builder.ConfigureTestServices(services =>
         {
             SetTestDbContext(services);
             SetTestClock(services);
+            SetTestAuthentication(services);
         });
     }
 
@@ -44,6 +48,12 @@ internal sealed class WebAppFactory(string connectionString) : WebApplicationFac
         clockMock.GetCurrentInstant().Returns(currentInstant);
 
         services.AddSingleton(clockMock);
+    }
+
+    private static void SetTestAuthentication(IServiceCollection services)
+    {
+        services.AddAuthentication(TestAuthHandler.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(TestAuthHandler.SchemeName, _ => { });
     }
 
     private static void RemoveServiceIfExists<TService>(IServiceCollection services)

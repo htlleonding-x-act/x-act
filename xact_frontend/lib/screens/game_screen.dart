@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import '../services/chat_notification_service.dart';
 import '../api/api_service.dart';
@@ -15,6 +16,8 @@ import '../widgets/map_area.dart';
 import '../widgets/xact_branding.dart';
 import '../services/app_session.dart';
 import '../services/location_service.dart';
+import '../services/match_end_notification.dart';
+import '../services/preferences_service.dart';
 
 class GameScreen extends StatefulWidget {
   const GameScreen({super.key});
@@ -24,6 +27,12 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
+  static const _matchEndWarningMinutes = [5, 1];
+
+  // a warning whose moment passed longer ago than this, e.g. for a player who
+  // rejoins late, is skipped instead of shown
+  static const _matchEndWarningGrace = Duration(seconds: 30);
+
   int _selectedIndex = 0;
   bool _isMapFullscreen = false;
   bool _trackingInitCancelled = false;
@@ -40,6 +49,10 @@ class _GameScreenState extends State<GameScreen> {
   StreamSubscription<void>? _ownRevealSub;
   StreamSubscription<bool>? _connectionSub;
   bool _connectionLost = false;
+
+  /// on the local clock, worked out from the server's start time and clock
+  DateTime? _matchEndsAt;
+  final Set<int> _shownMatchEndWarnings = {};
 
   final List<Widget> _screens = const [
     TeamScreen(),
@@ -68,12 +81,15 @@ class _GameScreenState extends State<GameScreen> {
       connected,
     ) {
       if (mounted) setState(() => _connectionLost = !connected);
+      // the match may have ended while the app was offline or frozen
+      if (connected) unawaited(_checkForFinishedSession());
     });
     _sessionStatusPollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted || _endMatchNavigationStarted) {
         return;
       }
 
+      _warnBeforeMatchEnd();
       unawaited(_checkForFinishedSession());
       unawaited(_loadSessionDetails());
     });
@@ -157,10 +173,61 @@ class _GameScreenState extends State<GameScreen> {
         return;
       }
 
-      setState(() => _sessionDetails = details);
+      _applySessionDetails(details);
     } catch (_) {
       // best effort polling, the button stays hidden until a fetch succeeds
     }
+  }
+
+  void _applySessionDetails(GameSessionDetails details) {
+    final timeLeft = details.matchTimeLeft;
+    setState(() {
+      _sessionDetails = details;
+      _matchEndsAt = timeLeft == null ? null : DateTime.now().add(timeLeft);
+    });
+  }
+
+  void _warnBeforeMatchEnd() {
+    final endsAt = _matchEndsAt;
+    if (endsAt == null) {
+      return;
+    }
+
+    final left = endsAt.difference(DateTime.now());
+    for (final minutes in _matchEndWarningMinutes) {
+      final mark = Duration(minutes: minutes);
+      if (left <= mark &&
+          _shownMatchEndWarnings.add(minutes) &&
+          mark - left < _matchEndWarningGrace) {
+        _showMatchEndWarning(minutes);
+      }
+    }
+  }
+
+  void _showMatchEndWarning(int minutes) {
+    final text = minutes == 1
+        ? '1 minute left in the match!'
+        : '$minutes minutes left in the match!';
+
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      unawaited(MatchEndNotification.show(text));
+      return;
+    }
+
+    if (PreferencesService.instance.hapticFeedback.value) {
+      unawaited(HapticFeedback.heavyImpact());
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text, style: XActText.bodySm),
+          backgroundColor: XActColors.surface2,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   void _onOwnPositionRevealed() {
@@ -224,7 +291,11 @@ class _GameScreenState extends State<GameScreen> {
     _chatNotificationSub?.cancel();
     _ownRevealSub?.cancel();
     _connectionSub?.cancel();
-    LocationService.instance.stopTracking();
+    // a rematch already stopped tracking before it opened the new lobby, which
+    // starts its own gps stream that this late dispose must not end
+    if (!_rematchNavigationStarted) {
+      LocationService.instance.stopTracking();
+    }
     super.dispose();
   }
 
@@ -244,7 +315,7 @@ class _GameScreenState extends State<GameScreen> {
         return;
       }
 
-      setState(() => _sessionDetails = details);
+      _applySessionDetails(details);
 
       if (details.status == SessionStatus.finished) {
         await _openEndMatchScreen();

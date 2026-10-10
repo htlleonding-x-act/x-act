@@ -87,6 +87,15 @@ internal sealed class GameSessionRealtimePublisher(
                 gameSession.StartTime,
                 gameSession.EndTime));
 
+    public ValueTask PublishGameSessionUpdatedAsync(GameSession gameSession) =>
+        PublishToSessionAsync(
+            gameSession.Id,
+            RealtimeEvents.GameSessionUpdated,
+            new GameSessionUpdatedPayload(
+                gameSession.Id,
+                gameSession.PlannedDurationMinutes,
+                gameSession.MrXRevealInterval));
+
     public ValueTask PublishGameSessionEndedAsync(GameSession gameSession) =>
         PublishToSessionAsync(
             gameSession.Id,

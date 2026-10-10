@@ -14,11 +14,13 @@ import 'package:xact_frontend/screens/team/add_team.dart';
 import 'package:xact_frontend/services/app_session.dart';
 import 'package:xact_frontend/services/game_start_transition_service.dart';
 import 'package:xact_frontend/services/geofence_store.dart';
+import 'package:xact_frontend/services/location_service.dart';
 import 'package:xact_frontend/widgets/team/add_team_button.dart';
 import 'package:xact_frontend/widgets/team/lobby_bottom_buttons.dart';
 import 'package:xact_frontend/widgets/team/lobby_code_card.dart';
 import 'package:xact_frontend/widgets/team/lobby_header.dart';
 import 'package:xact_frontend/widgets/team/lobby_settings_sheet.dart';
+import 'package:xact_frontend/widgets/team/setting_slider_card.dart';
 import 'package:xact_frontend/widgets/team/share_game_code_dialog.dart';
 import 'package:xact_frontend/widgets/team/lobby_team_card.dart';
 import 'package:xact_frontend/widgets/team/spectators_card.dart';
@@ -73,11 +75,16 @@ class GameLobbyScreen extends StatefulWidget {
 }
 
 class _GameLobbyScreenState extends State<GameLobbyScreen> {
+  // static so a rematch lobby doesn't ask again in the same app run
+  static bool _askedForBatteryExemption = false;
+
   bool _loading = true;
   bool _working = false;
   bool _gameTransitionStarted = false;
+  bool _gameScreenOpened = false;
   bool _leaving = false;
   int _mrXRevealInterval = 5;
+  int _plannedDurationMinutes = MatchLengthCard.defaultMinutes;
 
   StreamSubscription<RealtimeEventEnvelope>? _realtimeEventSub;
   StreamSubscription<GameSessionSnapshot>? _realtimeSnapshotSub;
@@ -109,6 +116,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     _refreshLobby();
     _loadSessionDetails();
     _initRealtime();
+    unawaited(_startLocation());
   }
 
   @override
@@ -116,7 +124,24 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
     _realtimeEventSub?.cancel();
     _realtimeSnapshotSub?.cancel();
     _realtimeRefreshDebounce?.cancel();
+    // the game screen takes over the running gps stream. stopping it would end
+    // the foreground service, which can't start again while the phone is locked
+    if (!_gameScreenOpened) {
+      LocationService.instance.stopTracking();
+    }
     super.dispose();
+  }
+
+  /// android only starts the gps foreground service while the app is visible,
+  /// so start it here. it keeps the app running while the phone is locked
+  Future<void> _startLocation() async {
+    await LocationService.instance.startWatching();
+
+    if (!mounted || _askedForBatteryExemption) return;
+    _askedForBatteryExemption = true;
+    if (!await LocationService.instance.isBatteryOptimizationOff()) {
+      await LocationService.instance.turnOffBatteryOptimization();
+    }
   }
 
   Future<void> _refreshLobby({bool silent = false}) async {
@@ -255,6 +280,14 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
         if (snapshot.sessionId == widget.sessionId) {
           if (snapshot.status == SessionStatus.active) {
             unawaited(_openGameForAll());
+          }
+
+          // carries the host's settings changes and catches up after a reconnect
+          if (mounted) {
+            setState(() {
+              _plannedDurationMinutes = snapshot.plannedDurationMinutes;
+              _mrXRevealInterval = snapshot.mrXRevealInterval;
+            });
           }
 
           // _refreshLobby() pushes its own snapshots onto this stream. ignore
@@ -687,7 +720,12 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   Future<void> _loadSessionDetails() async {
     try {
       final details = await ApiService.instance.getGameSession(widget.sessionId);
-      if (mounted) setState(() => _mrXRevealInterval = details.mrXRevealInterval);
+      if (mounted) {
+        setState(() {
+          _plannedDurationMinutes = details.plannedDurationMinutes;
+          _mrXRevealInterval = details.mrXRevealInterval;
+        });
+      }
     } catch (_) {}
   }
 
@@ -704,10 +742,13 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
   }
 
   Future<void> _openSettings() async {
-    final newInterval = await LobbySettingsSheet.show(
+    final settings = await LobbySettingsSheet.show(
       context: context,
       sessionId: widget.sessionId,
-      initialPingInterval: _mrXRevealInterval,
+      initialSettings: (
+        plannedDurationMinutes: _plannedDurationMinutes,
+        mrXRevealInterval: _mrXRevealInterval,
+      ),
       onEditMap: isLobbyLeader()
           ? () {
               Navigator.of(context).pop();
@@ -715,8 +756,11 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             }
           : null,
     );
-    if (newInterval != null && mounted) {
-      setState(() => _mrXRevealInterval = newInterval);
+    if (settings != null && mounted) {
+      setState(() {
+        _plannedDurationMinutes = settings.plannedDurationMinutes;
+        _mrXRevealInterval = settings.mrXRevealInterval;
+      });
     }
   }
 
@@ -872,6 +916,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
             GameLobbyHeader(
               gameName: widget.gameName,
               totalPlayers: _totalPlayers,
+              matchMinutes: _plannedDurationMinutes,
               isLeader: leader,
               onBack: _leaveLobby,
               onViewMap: _openMapPreview,
@@ -1006,6 +1051,7 @@ class _GameLobbyScreenState extends State<GameLobbyScreen> {
       return;
     }
 
+    _gameScreenOpened = true;
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const GameScreen()),

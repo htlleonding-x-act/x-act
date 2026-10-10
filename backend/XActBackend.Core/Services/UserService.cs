@@ -18,6 +18,9 @@ public interface IUserService
 
     public ValueTask<OneOf<Success, NotFound>> UpdateUserAsync(string userId, UserData userData, bool tracking);
 
+    /// <summary>changes what a user may edit about themselves; the username has to stay unique among registered users</summary>
+    public ValueTask<OneOf<Success, NotFound, DomainError>> UpdateProfileAsync(string userId, ProfileData profile);
+
     /// <summary>soft delete: flags the user and replaces username and email with placeholders</summary>
     public ValueTask<OneOf<Success, NotFound>> DeleteUserAsync(string userId, bool tracking);
 
@@ -32,6 +35,8 @@ public interface IUserService
         int TotalWins = 0,
         int TotalGamesPlayed = 0
     );
+
+    public sealed record ProfileData(string Username, string? AvatarIcon);
 }
 
 internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserService> logger) : IUserService
@@ -168,6 +173,30 @@ internal sealed class UserService(IUnitOfWork uow, IClock clock, ILogger<UserSer
         user.SubscriptionEndDate = userData.SubscriptionEndDate;
         user.TotalWins = userData.TotalWins;
         user.TotalGamesPlayed = userData.TotalGamesPlayed;
+
+        await uow.SaveChangesAsync();
+
+        return new Success();
+    }
+
+    public async ValueTask<OneOf<Success, NotFound, DomainError>> UpdateProfileAsync(string userId, IUserService.ProfileData profile)
+    {
+        var user = await uow.UserRepository.GetUserByIdAsync(userId, tracking: true);
+
+        if (user is null)
+        {
+            return new NotFound();
+        }
+
+        var registeredUser = await uow.UserRepository.GetRegisteredUserByUsernameAsync(profile.Username, tracking: false);
+        if (registeredUser is not null && registeredUser.Id != userId)
+        {
+            logger.LogWarning("Rejected rename of user {UserId} because username {Username} is already taken", userId, profile.Username);
+            return DomainError.UsernameTaken(profile.Username);
+        }
+
+        user.Username = profile.Username;
+        user.AvatarIcon = profile.AvatarIcon;
 
         await uow.SaveChangesAsync();
 

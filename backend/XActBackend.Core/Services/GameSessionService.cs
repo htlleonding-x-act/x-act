@@ -60,6 +60,9 @@ public interface IGameSessionService
     /// </summary>
     public ValueTask<AbandonedSessions> CleanUpAbandonedSessionsAsync(Duration minimumAge);
 
+    /// <summary>finishes running sessions whose planned duration has passed and returns them</summary>
+    public ValueTask<IReadOnlyCollection<GameSession>> EndTimedOutSessionsAsync();
+
     public sealed record MrXCaughtResult(Team NewMrXTeam, Team FormerMrXTeam);
 
     public sealed record AbandonedSessions(IReadOnlyCollection<int> DeletedSessionIds, IReadOnlyCollection<GameSession> FinishedSessions);
@@ -313,6 +316,30 @@ internal sealed class GameSessionService(IUnitOfWork uow, IClock clock, ILogger<
         }
 
         return new IGameSessionService.AbandonedSessions(deleted, finished);
+    }
+
+    public async ValueTask<IReadOnlyCollection<GameSession>> EndTimedOutSessionsAsync()
+    {
+        Instant now = clock.GetCurrentInstant();
+        IReadOnlyCollection<GameSession> running = await uow.GameSessionRepository.GetSessionsByStatusAsync(SessionStatus.Active, tracking: true);
+
+        List<GameSession> timedOut = running
+            .Where(s => s.StartTime is { } start && start + Duration.FromMinutes(s.PlannedDurationMinutes) <= now)
+            .ToList();
+        foreach (var session in timedOut)
+        {
+            session.Status = SessionStatus.Finished;
+            session.EndTime = now;
+            session.EndReason = GameEndReason.TimeUp;
+        }
+
+        if (timedOut.Count > 0)
+        {
+            await uow.SaveChangesAsync();
+            logger.LogInformation("Ended {Count} games because their planned time ran out", timedOut.Count);
+        }
+
+        return timedOut;
     }
 
     public async ValueTask<OneOf<GameSession, NotFound>> GetOpenGameSessionByHostAsync(string hostUserId)

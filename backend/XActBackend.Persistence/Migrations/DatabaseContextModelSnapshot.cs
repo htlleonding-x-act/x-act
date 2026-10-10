@@ -457,6 +457,10 @@ namespace XActBackend.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("AvatarIcon")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<Instant>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

@@ -76,6 +76,16 @@ public sealed class GameSessionServiceTests
             CreateSession(2, "Game 2", "JOIN456"),
         ];
 
+    private static GameSession CreateRunningSession(int id, Instant startTime, int plannedDurationMinutes)
+    {
+        var session = CreateSession(id);
+        session.Status = SessionStatus.Active;
+        session.StartTime = startTime;
+        session.PlannedDurationMinutes = plannedDurationMinutes;
+
+        return session;
+    }
+
     private static User CreateUser(string id = DefaultUserId, bool isDeleted = false) =>
         new()
         {
@@ -760,6 +770,46 @@ public sealed class GameSessionServiceTests
 
         result.DeletedSessionIds.Should().BeEmpty();
         result.FinishedSessions.Should().BeEmpty();
+        await _uow.DidNotReceive().SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask EndTimedOutSessionsAsync_EndsSessionsWhosePlannedTimeRanOut()
+    {
+        var now = Instant.FromUtc(2026, 10, 5, 12, 0);
+        _clock.GetCurrentInstant().Returns(now);
+        var endsNow = CreateRunningSession(1, startTime: now - Duration.FromMinutes(60), plannedDurationMinutes: 60);
+        var endedEarlier = CreateRunningSession(2, startTime: now - Duration.FromMinutes(90), plannedDurationMinutes: 60);
+        var stillRunning = CreateRunningSession(3, startTime: now - Duration.FromMinutes(59), plannedDurationMinutes: 60);
+        _gameSessionRepository.GetSessionsByStatusAsync(SessionStatus.Active, true).Returns([endsNow, endedEarlier, stillRunning]);
+
+        IReadOnlyCollection<GameSession> result = await _sut.EndTimedOutSessionsAsync();
+
+        result.Should().Equal(endsNow, endedEarlier);
+        foreach (var session in result)
+        {
+            session.Status.Should().Be(SessionStatus.Finished);
+            session.EndTime.Should().Be(now);
+            session.EndReason.Should().Be(GameEndReason.TimeUp);
+        }
+
+        stillRunning.Status.Should().Be(SessionStatus.Active);
+        stillRunning.EndReason.Should().BeNull();
+        await _uow.Received(1).SaveChangesAsync();
+    }
+
+    [Fact]
+    public async ValueTask EndTimedOutSessionsAsync_SavesNothing_WhenNoTimeRanOut()
+    {
+        var now = Instant.FromUtc(2026, 10, 5, 12, 0);
+        _clock.GetCurrentInstant().Returns(now);
+        var running = CreateRunningSession(1, startTime: now - Duration.FromMinutes(10), plannedDurationMinutes: 60);
+        _gameSessionRepository.GetSessionsByStatusAsync(SessionStatus.Active, true).Returns([running]);
+
+        IReadOnlyCollection<GameSession> result = await _sut.EndTimedOutSessionsAsync();
+
+        result.Should().BeEmpty();
+        running.Status.Should().Be(SessionStatus.Active);
         await _uow.DidNotReceive().SaveChangesAsync();
     }
 

@@ -17,6 +17,8 @@ table(Users) {
     column(is_deleted) : BOOLEAN
     column(deleted_at) : TIMESTAMP
     column(created_at) : TIMESTAMP
+    column(avatar_emoji) : VARCHAR(16) NULL
+    column(avatar_color) : VARCHAR(7) NULL
 }
 
 table(User_Auth_Identities) {
@@ -42,7 +44,7 @@ table(Game_Sessions) {
     column(end_time) : TIMESTAMP
     column(planned_duration_minutes) : INTEGER
     column(mr_x_reveal_interval) : INTEGER
-    column(end_reason) : ENUM('HOST_ENDED', 'NO_OPPONENTS_LEFT', 'HOST_LEFT', 'ABANDONED') NULL
+    column(end_reason) : ENUM('HOST_ENDED', 'NO_OPPONENTS_LEFT', 'HOST_LEFT', 'ABANDONED', 'TIME_UP') NULL
     column(created_at) : TIMESTAMP
 }
 

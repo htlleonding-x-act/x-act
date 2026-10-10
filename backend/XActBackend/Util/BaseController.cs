@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.JsonWebTokens;
 using XActBackend.Core.Services;
 
 namespace XActBackend.Util;
@@ -8,6 +9,9 @@ namespace XActBackend.Util;
 [ApiController]
 public abstract class BaseController : ControllerBase
 {
+    /// <summary>the subject claim of the bearer token, which is also the id of a registered user</summary>
+    protected string? KeycloakSubject => User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
     protected static ObjectResult DomainErrorResult(DomainError error)
     {
         int statusCode = error.Code switch

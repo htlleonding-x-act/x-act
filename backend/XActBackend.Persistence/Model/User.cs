@@ -24,6 +24,9 @@ public sealed class User
 
     public Instant CreatedAt { get; set; }
 
+    /// <summary>key of an icon in the app's avatar set, like "fox"</summary>
+    public string? AvatarIcon { get; set; }
+
 
     public ICollection<GameSession> HostedSessions { get; set; } = [];
 

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:xact_frontend/api/api_service.dart';
+import 'package:xact_frontend/api/models.dart';
 import 'package:xact_frontend/screens/auth/login_screen.dart';
 import 'package:xact_frontend/screens/game_screen.dart';
 import 'package:xact_frontend/screens/settings/profile_screen.dart';
 import 'package:xact_frontend/screens/start/playnow_screen.dart';
 import 'package:xact_frontend/services/active_game_storage.dart';
 import 'package:xact_frontend/services/app_session.dart';
+import 'package:xact_frontend/widgets/user_avatar.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
 class StartScreen extends StatefulWidget {
@@ -19,6 +21,7 @@ class _StartScreenState extends State<StartScreen> {
   bool _showHowTo = false;
   ({ActiveGame game, String sessionName})? _resumable;
   bool _resuming = false;
+  MyProfile? _profile;
 
   // guests get a user id too, so only a keycloak token means signed in
   bool get _isLoggedIn => ApiService.instance.isAuthenticated;
@@ -27,6 +30,7 @@ class _StartScreenState extends State<StartScreen> {
   void initState() {
     super.initState();
     _loadResumableGame();
+    _loadProfile();
   }
 
   Future<void> _loadResumableGame() async {
@@ -158,49 +162,49 @@ class _StartScreenState extends State<StartScreen> {
     );
   }
 
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
+    setState(() {});
+    _loadProfile();
+  }
+
+  /// only for the avatar in the corner, which falls back to the initials
+  /// until this loads or when it fails
+  Future<void> _loadProfile() async {
+    if (!_isLoggedIn) return;
+
+    try {
+      final profile = await ApiService.instance.loadMyProfile();
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {}
+  }
+
   Widget _buildTopBar() {
     final username = AppSession.instance.currentUsername;
-    if (!_isLoggedIn || username == null) return const SizedBox.shrink();
+    if (!_isLoggedIn || username == null) {
+      return Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 12, right: 16),
+          child: XActBranding.circleIconButton(
+            icon: Icons.settings_outlined,
+            onPressed: _openSettings,
+          ),
+        ),
+      );
+    }
 
-    final initial = username.trim().isEmpty
-        ? 'P'
-        : username.trim().characters.first.toUpperCase();
+    final profile = _profile;
 
     return Align(
       alignment: Alignment.topRight,
       child: Padding(
         padding: const EdgeInsets.only(top: 12, right: 16),
         child: GestureDetector(
-          onTap: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            );
-            setState(() {});
-          },
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [XActColors.primaryLight, XActColors.primaryDark],
-              ),
-              border: Border.all(color: Colors.white.withValues(alpha: .15)),
-              boxShadow: XActElevation.e1,
-            ),
-            child: Center(
-              child: Text(
-                initial,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
+          onTap: _openSettings,
+          child: UserAvatar(name: username, icon: profile?.avatarIcon),
         ),
       ),
     );

@@ -248,6 +248,118 @@ final class UserDetails {
   }
 }
 
+/// the signed-in user as they see themselves, including fields other players don't get
+final class MyProfile {
+  final String userId;
+  final String username;
+  final String? email;
+  final AccountType? accountType;
+  final DateTime? createdAt;
+
+  /// key in `avatarIcons`, see `UserAvatar`
+  final String? avatarIcon;
+
+  const MyProfile({
+    required this.userId,
+    required this.username,
+    required this.email,
+    required this.accountType,
+    required this.createdAt,
+    required this.avatarIcon,
+  });
+
+  factory MyProfile.fromJson(Map<String, dynamic> json) {
+    return MyProfile(
+      userId: json['id'] as String,
+      username: json['username'] as String,
+      email: json['email'] as String?,
+      accountType: switch (json['accountType']) {
+        final String s => tryParseAccountType(s),
+        _ => null,
+      },
+      createdAt: tryParseIsoDateTime(json['createdAt']),
+      avatarIcon: json['avatarIcon'] as String?,
+    );
+  }
+}
+
+/// totals over every finished match of the signed-in user
+final class PlayerStats {
+  final int gamesPlayed;
+  final int wins;
+  final double distanceMeters;
+  final double mrXSeconds;
+  final int catchesMade;
+  final int powerUpsUsed;
+  final double topSpeedKmh;
+
+  const PlayerStats({
+    required this.gamesPlayed,
+    required this.wins,
+    required this.distanceMeters,
+    required this.mrXSeconds,
+    required this.catchesMade,
+    required this.powerUpsUsed,
+    required this.topSpeedKmh,
+  });
+
+  factory PlayerStats.fromJson(Map<String, dynamic> json) {
+    return PlayerStats(
+      gamesPlayed: (json['gamesPlayed'] as num).toInt(),
+      wins: (json['wins'] as num).toInt(),
+      distanceMeters: (json['distanceMeters'] as num).toDouble(),
+      mrXSeconds: (json['mrXSeconds'] as num).toDouble(),
+      catchesMade: (json['catchesMade'] as num).toInt(),
+      powerUpsUsed: (json['powerUpsUsed'] as num).toInt(),
+      topSpeedKmh: (json['topSpeedKmh'] as num).toDouble(),
+    );
+  }
+}
+
+/// one finished match as the signed-in user played it
+final class MatchSummary {
+  final int sessionId;
+  final String sessionName;
+  final DateTime startTime;
+  final DateTime endTime;
+
+  /// the user's member in that match
+  final int memberId;
+  final String teamName;
+  final bool won;
+  final double distanceMeters;
+  final double mrXSeconds;
+  final int catchesMade;
+
+  const MatchSummary({
+    required this.sessionId,
+    required this.sessionName,
+    required this.startTime,
+    required this.endTime,
+    required this.memberId,
+    required this.teamName,
+    required this.won,
+    required this.distanceMeters,
+    required this.mrXSeconds,
+    required this.catchesMade,
+  });
+
+  factory MatchSummary.fromJson(Map<String, dynamic> json) {
+    return MatchSummary(
+      sessionId: (json['sessionId'] as num).toInt(),
+      sessionName: json['sessionName'] as String,
+      startTime: DateTime.parse(json['startTime'] as String),
+      endTime: DateTime.parse(json['endTime'] as String),
+      memberId: (json['memberId'] as num).toInt(),
+      teamName: json['teamName'] as String,
+      won: json['won'] as bool,
+      distanceMeters: (json['distanceMeters'] as num).toDouble(),
+      mrXSeconds: (json['mrXSeconds'] as num).toDouble(),
+      catchesMade: (json['catchesMade'] as num).toInt(),
+    );
+  }
+}
+
 final class GameSessionDetails {
   final int sessionId;
   final String hostUserId;
@@ -299,6 +411,16 @@ final class GameSessionDetails {
       revealSecondsRemaining: _readInt(json, ['revealSecondsRemaining']),
       revealIntervalSeconds: _readInt(json, ['revealIntervalSeconds']),
     );
+  }
+
+  /// time left until the planned end as the server saw it when it answered,
+  /// null before the match started
+  Duration? get matchTimeLeft {
+    final start = startTime;
+    if (start == null) return null;
+    return start
+        .add(Duration(minutes: plannedDurationMinutes))
+        .difference(serverNow);
   }
 }
 
@@ -588,6 +710,7 @@ final class RealtimeEvents {
   static const String teamMemberUpdated = 'team_member_updated';
   static const String teamMemberLeft = 'team_member_left';
   static const String gameSessionStarted = 'game_session_started';
+  static const String gameSessionUpdated = 'game_session_updated';
   static const String gameSessionEnded = 'game_session_ended';
   static const String gameSessionDeleted = 'game_session_deleted';
   static const String locationLogRecorded = 'location_log_recorded';
@@ -726,6 +849,8 @@ final class GameSessionSnapshot {
     SessionStatus? status,
     DateTime? startTime,
     DateTime? endTime,
+    int? plannedDurationMinutes,
+    int? mrXRevealInterval,
     List<SnapshotTeam>? teams,
     List<SnapshotTeamMember>? members,
     List<SnapshotLatestLocation>? latestLocations,
@@ -736,8 +861,9 @@ final class GameSessionSnapshot {
       status: status ?? this.status,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
-      plannedDurationMinutes: plannedDurationMinutes,
-      mrXRevealInterval: mrXRevealInterval,
+      plannedDurationMinutes:
+          plannedDurationMinutes ?? this.plannedDurationMinutes,
+      mrXRevealInterval: mrXRevealInterval ?? this.mrXRevealInterval,
       teams: teams ?? this.teams,
       members: members ?? this.members,
       latestLocations: latestLocations ?? this.latestLocations,
@@ -1105,6 +1231,27 @@ final class GameSessionStartedPayload {
   }
 }
 
+/// the host changed the match length or the ping interval in the lobby
+final class GameSessionUpdatedPayload {
+  final int sessionId;
+  final int plannedDurationMinutes;
+  final int mrXRevealInterval;
+
+  const GameSessionUpdatedPayload({
+    required this.sessionId,
+    required this.plannedDurationMinutes,
+    required this.mrXRevealInterval,
+  });
+
+  factory GameSessionUpdatedPayload.fromJson(Map<String, dynamic> json) {
+    return GameSessionUpdatedPayload(
+      sessionId: _readInt(json, ['sessionId']),
+      plannedDurationMinutes: _readInt(json, ['plannedDurationMinutes']),
+      mrXRevealInterval: _readInt(json, ['mrXRevealInterval']),
+    );
+  }
+}
+
 final class GameSessionEndedPayload {
   final int sessionId;
   final SessionStatus? status;
@@ -1213,6 +1360,7 @@ final class KickVote {
   final int rejectCount;
   final int eligibleVoterCount;
   final DateTime? createdAt;
+
   final DateTime? expiresAt;
   final DateTime? resolvedAt;
 

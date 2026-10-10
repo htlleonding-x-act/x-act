@@ -22,5 +22,6 @@ public static class CoreSetup
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IGameSessionSnapshotService, GameSessionSnapshotService>();
         services.AddScoped<IGameResultsService, GameResultsService>();
+        services.AddScoped<IPlayerStatsService, PlayerStatsService>();
     }
 }

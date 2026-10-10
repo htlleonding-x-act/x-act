@@ -1,19 +1,116 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:xact_frontend/api/api_service.dart';
+import 'package:xact_frontend/api/models.dart';
+import 'package:xact_frontend/auth/auth_config.dart';
+import 'package:xact_frontend/screens/auth/login_screen.dart';
+import 'package:xact_frontend/screens/end_match/end_match_format.dart';
+import 'package:xact_frontend/screens/end_match/overview/stat_tile.dart';
+import 'package:xact_frontend/screens/settings/account_dialogs.dart';
+import 'package:xact_frontend/screens/settings/avatar_picker_sheet.dart';
+import 'package:xact_frontend/screens/settings/gps_check_sheet.dart';
+import 'package:xact_frontend/screens/settings/match_history_screen.dart';
 import 'package:xact_frontend/screens/start/start_screen.dart';
 import 'package:xact_frontend/services/app_session.dart';
+import 'package:xact_frontend/services/location_service.dart';
+import 'package:xact_frontend/services/preferences_service.dart';
+import 'package:xact_frontend/widgets/settings/settings_widgets.dart';
+import 'package:xact_frontend/widgets/user_avatar.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final session = AppSession.instance;
-    final username = session.currentUsername ?? 'Player';
-    final initials = _initials(username);
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
+class _ProfileScreenState extends State<ProfileScreen> {
+  static const _months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  MyProfile? _profile;
+  bool _profileFailed = false;
+  PlayerStats? _stats;
+  bool _statsFailed = false;
+  String? _version;
+  bool? _locationAllowed;
+  bool? _batteryOptimizationOff;
+
+  // guests get a user id too, so only a keycloak token means signed in
+  bool get _isSignedIn => ApiService.instance.isAuthenticated;
+
+  String get _username =>
+      _profile?.username ?? AppSession.instance.currentUsername ?? 'Player';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+    _loadLocationPermission();
+    _loadBatteryOptimization();
+    if (_isSignedIn) {
+      _loadProfile();
+      _loadStats();
+    }
+  }
+
+  Future<void> _loadStats() async {
+    setState(() => _statsFailed = false);
+    try {
+      final stats = await ApiService.instance.loadMyStats();
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {
+      if (mounted) setState(() => _statsFailed = true);
+    }
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _profileFailed = false);
+    try {
+      final profile = await ApiService.instance.loadMyProfile();
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {
+      if (mounted) setState(() => _profileFailed = true);
+    }
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final build = info.buildNumber.isEmpty ? '' : ' (${info.buildNumber})';
+      if (mounted) setState(() => _version = '${info.version}$build');
+    } catch (_) {}
+  }
+
+  Future<void> _loadLocationPermission() async {
+    try {
+      final allowed = await LocationService.instance.hasPermission();
+      if (mounted) setState(() => _locationAllowed = allowed);
+    } catch (_) {}
+  }
+
+  Future<void> _loadBatteryOptimization() async {
+    final off = await LocationService.instance.isBatteryOptimizationOff();
+    if (mounted) setState(() => _batteryOptimizationOff = off);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: XActColors.bg,
       body: Stack(
@@ -26,7 +123,7 @@ class ProfileScreen extends StatelessWidget {
                 XActBranding.buildTopBar(
                   context: context,
                   eyebrow: 'Account',
-                  title: 'Profile',
+                  title: 'Settings',
                 ),
                 Expanded(
                   child: SingleChildScrollView(
@@ -34,62 +131,26 @@ class ProfileScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildAvatar(initials, username),
+                        _buildHeader(),
                         const SizedBox(height: 28),
-                        _buildSection(
-                          label: 'Account',
-                          children: [
-                            _buildInfoRow(
-                              icon: Icons.person_outline_rounded,
-                              title: 'Username',
-                              value: username,
-                            ),
-                            _buildDivider(),
-                            _buildInfoRow(
-                              icon: Icons.badge_outlined,
-                              title: 'Account type',
-                              value: ApiService.instance.isAuthenticated
-                                  ? 'Free'
-                                  : 'Guest',
-                            ),
-                          ],
-                        ),
+                        if (_isSignedIn) ...[
+                          _buildStatsSection(),
+                          const SizedBox(height: 16),
+                          _buildAccountSection(),
+                        ] else
+                          _buildGuestCard(),
                         const SizedBox(height: 16),
-                        _buildSection(
-                          label: 'Preferences',
-                          children: [
-                            _buildSettingsTile(
-                              icon: Icons.notifications_outlined,
-                              title: 'Notifications',
-                              subtitle: 'Coming soon',
-                            ),
-                            _buildDivider(),
-                            _buildSettingsTile(
-                              icon: Icons.palette_outlined,
-                              title: 'Appearance',
-                              subtitle: 'Coming soon',
-                            ),
-                            _buildDivider(),
-                            _buildSettingsTile(
-                              icon: Icons.lock_outline_rounded,
-                              title: 'Privacy',
-                              subtitle: 'Coming soon',
-                            ),
-                          ],
-                        ),
+                        _buildNotificationSection(),
                         const SizedBox(height: 16),
-                        _buildSection(
-                          label: 'About',
-                          children: [
-                            _buildInfoRow(
-                              icon: Icons.info_outline_rounded,
-                              title: 'Version',
-                              value: '1.0.0-dev',
-                            ),
-                          ],
-                        ),
+                        _buildLocationSection(),
+                        const SizedBox(height: 16),
+                        _buildAboutSection(),
                         const SizedBox(height: 28),
-                        _buildLogoutButton(context),
+                        _buildLogoutButton(),
+                        if (_isSignedIn) ...[
+                          const SizedBox(height: 28),
+                          _buildDangerZone(),
+                        ],
                       ],
                     ),
                   ),
@@ -102,41 +163,16 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar(String initials, String username) {
+  Widget _buildHeader() {
+    final createdAt = _profile?.createdAt;
+
     return Center(
       child: Column(
         children: [
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [XActColors.primaryLight, XActColors.primaryDark],
-              ),
-              boxShadow: XActElevation.glowRed,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: .12),
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: GoogleFonts.spaceGrotesk(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -1,
-                ),
-              ),
-            ),
-          ),
+          _buildAvatar(),
           const SizedBox(height: 14),
-          Text(username, style: XActText.title),
-          const SizedBox(height: 4),
+          Text(_username, style: XActText.title, textAlign: TextAlign.center),
+          const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
@@ -144,7 +180,7 @@ class ProfileScreen extends StatelessWidget {
               borderRadius: XActRadius.pill,
             ),
             child: Text(
-              'PLAYER',
+              _accountLabel.toUpperCase(),
               style: GoogleFonts.inter(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -153,106 +189,353 @@ class ProfileScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (createdAt != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Member since ${_months[createdAt.month - 1]} ${createdAt.year}',
+              style: XActText.caption,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildSection({
-    required String label,
-    required List<Widget> children,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildAvatar() {
+    final profile = _profile;
+    final avatar = UserAvatar(
+      name: _username,
+      icon: profile?.avatarIcon,
+      size: 88,
+      glow: true,
+    );
+
+    // only a loaded profile can be saved back, see updateMyProfile
+    if (profile == null) return avatar;
+
+    return GestureDetector(
+      onTap: _pickAvatar,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          avatar,
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: XActColors.surface2,
+                border: Border.all(color: XActColors.bg, width: 2),
+              ),
+              child: const Icon(
+                Icons.edit_rounded,
+                size: 15,
+                color: XActColors.text1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String get _accountLabel {
+    if (!_isSignedIn) return 'Guest';
+
+    return switch (_profile?.accountType) {
+      AccountType.pro => 'Pro',
+      AccountType.eventPass => 'Event Pass',
+      AccountType.free || null => 'Free',
+    };
+  }
+
+  Widget _buildStatsSection() {
+    final stats = _stats;
+
+    return SettingsSection(
+      label: 'Your stats',
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: XActBranding.buildEyebrow(label),
+          padding: const EdgeInsets.all(16),
+          child: switch (stats) {
+            _ when _statsFailed => Text(
+              'Could not load your stats.',
+              style: XActText.bodySm.copyWith(color: XActColors.text3),
+            ),
+            null => const Center(child: CircularProgressIndicator()),
+            PlayerStats(gamesPlayed: 0) => Text(
+              'No finished matches yet. Your stats show up here after your '
+              'first match.',
+              style: XActText.bodySm.copyWith(color: XActColors.text3),
+            ),
+            _ => _buildStatTiles(stats),
+          },
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: XActColors.surface,
-            borderRadius: XActRadius.lg,
-            border: Border.all(color: XActColors.hairlineSoft),
-            boxShadow: XActElevation.e1,
-          ),
-          child: Column(children: children),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: Icons.history_rounded,
+          title: 'Match history',
+          subtitle: 'Replay and results of your past matches',
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const MatchHistoryScreen())),
         ),
       ],
     );
   }
 
-  Widget _buildInfoRow({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
+  Widget _buildStatTiles(PlayerStats stats) {
+    return StatTileGrid(
+      tiles: [
+        StatTile(
+          label: 'Matches',
+          value: '${stats.gamesPlayed}',
+          icon: Icons.flag_rounded,
+          accent: XActColors.secondary,
+        ),
+        StatTile(
+          label: 'Wins',
+          value: '${stats.wins}',
+          icon: Icons.emoji_events_rounded,
+          accent: XActColors.success,
+        ),
+        StatTile(
+          label: 'Distance',
+          value: formatDistance(stats.distanceMeters),
+          icon: Icons.directions_walk_rounded,
+          accent: XActColors.warning,
+        ),
+        StatTile(
+          label: 'As Mister X',
+          value: formatShortDuration(
+            Duration(seconds: stats.mrXSeconds.round()),
+          ),
+          icon: Icons.visibility_off_rounded,
+          accent: XActColors.primary,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccountSection() {
+    final email = _profile?.email;
+
+    return SettingsSection(
+      label: 'Account',
+      children: [
+        SettingsTile(
+          icon: Icons.person_outline_rounded,
+          title: 'Username',
+          subtitle: _username,
+          trailingIcon: Icons.edit_outlined,
+          onTap: _profile == null ? null : _rename,
+        ),
+        const SettingsDivider(),
+        SettingsInfoRow(
+          icon: Icons.mail_outline_rounded,
+          title: 'Email',
+          value: email ?? (_profile == null ? '…' : 'Not set'),
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: Icons.shield_outlined,
+          title: 'Password, email & 2FA',
+          subtitle: 'Opens your X-ACT login account',
+          trailingIcon: Icons.open_in_new_rounded,
+          onTap: _openAccountConsole,
+        ),
+        if (_profileFailed) ...[
+          const SettingsDivider(),
+          SettingsTile(
+            icon: Icons.cloud_off_rounded,
+            title: 'Could not load your profile',
+            subtitle: 'Tap to try again',
+            trailingIcon: Icons.refresh_rounded,
+            onTap: _loadProfile,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGuestCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: XActColors.surface,
+        borderRadius: XActRadius.lg,
+        border: Border.all(color: XActColors.hairlineSoft),
+        boxShadow: XActElevation.e1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, size: 20, color: XActColors.text3),
-          const SizedBox(width: 14),
-          Text(title, style: XActText.bodySm),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: XActText.bodySm.copyWith(color: XActColors.text3),
+          Text('Playing as a guest', style: XActText.heading),
+          const SizedBox(height: 6),
+          Text(
+            'Create an account to keep your name, pick an avatar and see '
+            'your stats across matches.',
+            style: XActText.body.copyWith(
+              color: XActColors.text3,
+              fontSize: 14,
             ),
+          ),
+          const SizedBox(height: 16),
+          XActBranding.buildPrimaryButton(
+            text: 'Login · Register',
+            icon: Icons.login_rounded,
+            height: 52,
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSettingsTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: XActColors.text4),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: XActText.bodySm.copyWith(color: XActColors.text4),
-                ),
-                Text(subtitle, style: XActText.caption.copyWith(fontSize: 12)),
-              ],
-            ),
+  Widget _buildNotificationSection() {
+    final preferences = PreferencesService.instance;
+
+    return SettingsSection(
+      label: 'Notifications & haptics',
+      children: [
+        ValueListenableBuilder(
+          valueListenable: preferences.chatNotifications,
+          builder: (_, enabled, _) => SettingsSwitchTile(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Chat notifications',
+            subtitle: 'New messages while the app is in the background',
+            value: enabled,
+            onChanged: preferences.setChatNotifications,
           ),
-          Icon(Icons.chevron_right_rounded, size: 18, color: XActColors.text5),
+        ),
+        const SettingsDivider(),
+        ListenableBuilder(
+          listenable: Listenable.merge([
+            preferences.chatNotifications,
+            preferences.teamChatOnly,
+          ]),
+          builder: (_, _) => SettingsSwitchTile(
+            icon: Icons.groups_outlined,
+            title: 'Team chat only',
+            subtitle: 'Mute messages to everyone',
+            value: preferences.teamChatOnly.value,
+            onChanged: preferences.chatNotifications.value
+                ? preferences.setTeamChatOnly
+                : null,
+          ),
+        ),
+        const SettingsDivider(),
+        ValueListenableBuilder(
+          valueListenable: preferences.hapticFeedback,
+          builder: (_, enabled, _) => SettingsSwitchTile(
+            icon: Icons.vibration_rounded,
+            title: 'Vibrate on game events',
+            subtitle: 'Start, end, Mister X caught or revealed',
+            value: enabled,
+            onChanged: preferences.setHapticFeedback,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationSection() {
+    final allowed = _locationAllowed;
+    final batteryOptimizationOff = _batteryOptimizationOff;
+
+    return SettingsSection(
+      label: 'Location',
+      children: [
+        SettingsTile(
+          icon: allowed == false
+              ? Icons.location_disabled_rounded
+              : Icons.my_location_rounded,
+          title: 'Location access',
+          subtitle: switch (allowed) {
+            true => 'Allowed',
+            false => 'Not allowed · tap to allow',
+            null => '…',
+          },
+          color: allowed == false ? XActColors.warning : null,
+          onTap: _requestLocation,
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: Icons.satellite_alt_rounded,
+          title: 'GPS check',
+          subtitle: 'See how precise your position is right now',
+          onTap: _checkGps,
+        ),
+        if (LocationService.instance.hasBatteryOptimization) ...[
+          const SettingsDivider(),
+          SettingsTile(
+            icon: batteryOptimizationOff == false
+                ? Icons.battery_alert_rounded
+                : Icons.battery_full_rounded,
+            title: 'Battery optimisation',
+            subtitle: switch (batteryOptimizationOff) {
+              true => 'Off · X-ACT keeps running with the screen off',
+              false => 'On · tap to turn off',
+              null => '…',
+            },
+            color: batteryOptimizationOff == false ? XActColors.warning : null,
+            onTap: _turnOffBatteryOptimization,
+          ),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(
-      height: 1,
-      thickness: 1,
-      color: XActColors.hairlineFaint,
-      indent: 50,
+  Widget _buildAboutSection() {
+    return SettingsSection(
+      label: 'About',
+      children: [
+        SettingsInfoRow(
+          icon: Icons.info_outline_rounded,
+          title: 'Version',
+          value: _version ?? '…',
+        ),
+        const SettingsDivider(),
+        SettingsTile(
+          icon: Icons.description_outlined,
+          title: 'Open source licences',
+          onTap: () => showLicensePage(
+            context: context,
+            applicationName: 'X-ACT',
+            applicationVersion: _version,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildLogoutButton(BuildContext context) {
+  Widget _buildDangerZone() {
+    return SettingsSection(
+      label: 'Danger zone',
+      borderColor: XActColors.primary.withValues(alpha: .25),
+      children: [
+        SettingsTile(
+          icon: Icons.delete_forever_outlined,
+          title: 'Delete account',
+          subtitle: 'Removes your name and email from X-ACT',
+          color: XActColors.primary,
+          onTap: _deleteAccount,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLogoutButton() {
     return Material(
       color: XActColors.surface,
       borderRadius: XActRadius.lg,
       child: InkWell(
-        onTap: () => _confirmLogout(context),
+        onTap: _confirmLogout,
         borderRadius: XActRadius.lg,
         child: Ink(
           decoration: BoxDecoration(
@@ -287,14 +570,62 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _confirmLogout(BuildContext context) async {
+  Future<void> _requestLocation() async {
+    try {
+      await LocationService.instance.requestPermission();
+    } catch (_) {}
+    await _loadLocationPermission();
+  }
+
+  Future<void> _checkGps() async {
+    await GpsCheckSheet.show(context);
+    await _loadLocationPermission();
+  }
+
+  Future<void> _turnOffBatteryOptimization() async {
+    await LocationService.instance.turnOffBatteryOptimization();
+    await _loadBatteryOptimization();
+  }
+
+  Future<void> _rename() async {
+    final profile = _profile;
+    if (profile == null) return;
+
+    final renamed = await showRenameDialog(context, profile);
+    if (renamed) _loadProfile();
+  }
+
+  Future<void> _pickAvatar() async {
+    final profile = _profile;
+    if (profile == null) return;
+
+    final saved = await AvatarPickerSheet.show(context, profile);
+    if (saved) _loadProfile();
+  }
+
+  Future<void> _openAccountConsole() async {
+    final uri = Uri.parse('${AuthConfig.authority}/account');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open your login account.')),
+      );
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final deleted = await showDeleteAccountDialog(context, _username);
+    if (deleted) _returnToStart();
+  }
+
+  Future<void> _confirmLogout() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Log out?', style: XActText.heading),
         content: Text(
           // a guest can't sign back in, the guest identity is gone for good
-          ApiService.instance.isAuthenticated
+          _isSignedIn
               ? 'You\'ll need to sign in again to play.'
               : 'You\'ll leave the current game and lose your guest name.',
           style: XActText.body.copyWith(color: XActColors.text3, fontSize: 14),
@@ -321,25 +652,18 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
 
-    if (confirmed == true && context.mounted) {
+    if (confirmed == true && mounted) {
       await ApiService.instance.logout();
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const StartScreen()),
-          (_) => false,
-        );
-      }
+      _returnToStart();
     }
   }
 
-  static String _initials(String name) {
-    // characters, not code units, so a name starting with an emoji keeps it
-    // whole instead of showing half of it
-    final parts = name.trim().split(RegExp(r'\s+'));
-    if (parts.length >= 2) {
-      return '${parts.first.characters.first}${parts.last.characters.first}'
-          .toUpperCase();
-    }
-    return name.characters.take(2).toString().toUpperCase();
+  void _returnToStart() {
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const StartScreen()),
+      (_) => false,
+    );
   }
 }

@@ -4,7 +4,10 @@ const _defaultMrXTeamName = 'Team 1';
 const _defaultDetectiveTeamName = 'Team 2';
 
 extension ApiServiceSessionMethods on ApiService {
-  Future<GameSessionDetails> createLobby({required String lobbyName}) async {
+  Future<GameSessionDetails> createLobby({
+    required String lobbyName,
+    required int plannedDurationMinutes,
+  }) async {
     final hostUserId = await ensureMvpUser(
       preferredName: _session.currentUsername ?? 'Host',
     );
@@ -20,7 +23,7 @@ extension ApiServiceSessionMethods on ApiService {
           'sessionName': lobbyName,
           'joinCode': _generateJoinCode(),
           'status': 'WAITING',
-          'plannedDurationMinutes': 60,
+          'plannedDurationMinutes': plannedDurationMinutes,
           'mrXRevealInterval': 5,
         });
       } on ApiException catch (e) {
@@ -641,8 +644,9 @@ extension ApiServiceSessionMethods on ApiService {
   Future<GameSessionDetails> getGameSession(int sessionId) async =>
       _getGameSession(sessionId);
 
-  Future<void> updateSessionPingInterval({
+  Future<void> updateSessionSettings({
     required int sessionId,
+    required int plannedDurationMinutes,
     required int mrXRevealInterval,
   }) async {
     String statusString(SessionStatus? s) => switch (s) {
@@ -659,7 +663,7 @@ extension ApiServiceSessionMethods on ApiService {
       'status': statusString(details.status),
       'startTime': null,
       'endTime': null,
-      'plannedDurationMinutes': details.plannedDurationMinutes,
+      'plannedDurationMinutes': plannedDurationMinutes,
       'mrXRevealInterval': mrXRevealInterval,
     });
   }
