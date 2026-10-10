@@ -204,11 +204,7 @@ class _StartScreenState extends State<StartScreen> {
         padding: const EdgeInsets.only(top: 12, right: 16),
         child: GestureDetector(
           onTap: _openSettings,
-          child: UserAvatar(
-            name: username,
-            emoji: profile?.avatarEmoji,
-            color: profile?.avatarColor,
-          ),
+          child: UserAvatar(name: username, icon: profile?.avatarIcon),
         ),
       ),
     );

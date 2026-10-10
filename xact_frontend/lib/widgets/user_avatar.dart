@@ -2,50 +2,72 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:xact_frontend/widgets/xact_branding.dart';
 
-/// the chosen emoji on the chosen colour, or the initials of [name] when the
-/// player hasn't picked an emoji yet
+/// icons a player can pick as avatar, by the key the backend stores.
+/// single-colour so they can sit on any team colour, and part of the bundled
+/// icon font so they look the same on every device and never load late
+const Map<String, IconData> avatarIcons = {
+  'magnifier': Icons.search_rounded,
+  'fingerprint': Icons.fingerprint_rounded,
+  'eye': Icons.visibility_rounded,
+  'masks': Icons.theater_comedy_rounded,
+  'police': Icons.local_police_rounded,
+  'key': Icons.key_rounded,
+  'compass': Icons.explore_rounded,
+  'radar': Icons.radar_rounded,
+  'satellite': Icons.satellite_alt_rounded,
+  'map': Icons.map_rounded,
+  'rocket': Icons.rocket_launch_rounded,
+  'bolt': Icons.bolt_rounded,
+  'paw': Icons.pets_rounded,
+  'rabbit': Icons.cruelty_free_rounded,
+  'mouse': Icons.pest_control_rodent_rounded,
+  'bird': Icons.flutter_dash_rounded,
+  'bee': Icons.emoji_nature_rounded,
+  'bug': Icons.bug_report_rounded,
+  'flame': Icons.local_fire_department_rounded,
+  'moon': Icons.nightlight_rounded,
+  'snowflake': Icons.ac_unit_rounded,
+  'diamond': Icons.diamond_rounded,
+  'runner': Icons.directions_run_rounded,
+  'bike': Icons.directions_bike_rounded,
+};
+
+/// the chosen icon, or the initials of [name] when the player hasn't picked
+/// one or picked one this app version doesn't know
 class UserAvatar extends StatelessWidget {
   const UserAvatar({
     super.key,
     required this.name,
-    this.emoji,
-    this.color,
+    this.icon,
     this.size = 40,
     this.glow = false,
   });
 
   final String name;
-  final String? emoji;
 
-  /// hex colour like `#5B7CFA`; null keeps the red brand gradient
-  final String? color;
+  /// key in [avatarIcons]
+  final String? icon;
   final double size;
   final bool glow;
 
   @override
   Widget build(BuildContext context) {
-    final emoji = this.emoji;
-    final background = parseHexColor(color);
+    final iconData = avatarIcons[icon];
 
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: background,
-        gradient: background == null
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [XActColors.primaryLight, XActColors.primaryDark],
-              )
-            : null,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [XActColors.primaryLight, XActColors.primaryDark],
+        ),
         boxShadow: glow
             ? [
                 BoxShadow(
-                  color: (background ?? XActColors.primary).withValues(
-                    alpha: .35,
-                  ),
+                  color: XActColors.primary.withValues(alpha: .35),
                   blurRadius: 24,
                 ),
               ]
@@ -56,8 +78,8 @@ class UserAvatar extends StatelessWidget {
         ),
       ),
       child: Center(
-        child: emoji != null
-            ? Text(emoji, style: TextStyle(fontSize: size * .5))
+        child: iconData != null
+            ? Icon(iconData, size: size * .5, color: Colors.white)
             : Text(
                 initialsOf(name),
                 style: GoogleFonts.spaceGrotesk(
@@ -69,12 +91,6 @@ class UserAvatar extends StatelessWidget {
               ),
       ),
     );
-  }
-
-  static Color? parseHexColor(String? hex) {
-    if (hex == null || hex.length != 7) return null;
-    final value = int.tryParse(hex.substring(1), radix: 16);
-    return value == null ? null : Color(0xFF000000 | value);
   }
 
   static String initialsOf(String name) {

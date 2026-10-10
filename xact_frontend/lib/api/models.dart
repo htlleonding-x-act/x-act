@@ -255,10 +255,9 @@ final class MyProfile {
   final String? email;
   final AccountType? accountType;
   final DateTime? createdAt;
-  final String? avatarEmoji;
 
-  /// hex colour like `#5B7CFA`
-  final String? avatarColor;
+  /// key in `avatarIcons`, see `UserAvatar`
+  final String? avatarIcon;
 
   const MyProfile({
     required this.userId,
@@ -266,8 +265,7 @@ final class MyProfile {
     required this.email,
     required this.accountType,
     required this.createdAt,
-    required this.avatarEmoji,
-    required this.avatarColor,
+    required this.avatarIcon,
   });
 
   factory MyProfile.fromJson(Map<String, dynamic> json) {
@@ -280,8 +278,7 @@ final class MyProfile {
         _ => null,
       },
       createdAt: tryParseIsoDateTime(json['createdAt']),
-      avatarEmoji: json['avatarEmoji'] as String?,
-      avatarColor: json['avatarColor'] as String?,
+      avatarIcon: json['avatarIcon'] as String?,
     );
   }
 }
@@ -1363,6 +1360,7 @@ final class KickVote {
   final int rejectCount;
   final int eligibleVoterCount;
   final DateTime? createdAt;
+
   final DateTime? expiresAt;
   final DateTime? resolvedAt;
 
