@@ -159,4 +159,6 @@ final class ApiService {
   Stream<GameSessionSnapshot> get realtimeSnapshots => _realtime.snapshotStream;
 
   Stream<bool> get realtimeConnectionChanges => _realtime.connectionChanges;
+
+  Future<void> resyncRealtime() => _realtime.resync();
 }

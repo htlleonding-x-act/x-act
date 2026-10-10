@@ -19,6 +19,7 @@ public interface IGameSessionRealtimePublisher
     public ValueTask PublishTeamMemberUpdatedAsync(TeamMember member);
     public ValueTask PublishTeamMemberLeftAsync(int sessionId, int teamId, int memberId, string? userId, string? guestName, Instant leftAt);
     public ValueTask PublishGameSessionStartedAsync(GameSession gameSession);
+    public ValueTask PublishGameSessionUpdatedAsync(GameSession gameSession);
     public ValueTask PublishGameSessionEndedAsync(GameSession gameSession);
     public ValueTask PublishGameSessionDeletedAsync(int sessionId);
     public ValueTask PublishLocationLogRecordedAsync(Team team, LocationLog log);

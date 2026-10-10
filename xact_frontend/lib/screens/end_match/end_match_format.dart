@@ -61,6 +61,7 @@ String endReasonLabel(GameEndReason reason) {
     GameEndReason.noOpponentsLeft => 'One side ran out of players',
     GameEndReason.hostLeft => 'The host left',
     GameEndReason.abandoned => 'Abandoned',
+    GameEndReason.timeUp => 'Time ran out',
   };
 }
 

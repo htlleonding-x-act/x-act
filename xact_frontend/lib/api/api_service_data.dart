@@ -64,8 +64,12 @@ extension ApiServiceDataMethods on ApiService {
     }
 
     final details = await _getGameSession(sessionId);
+    final matchSecondsLeft = details.matchTimeLeft?.inSeconds;
     if (details.revealIntervalSeconds <= 0) {
-      return const MapHeaderData(nextPingText: 'Next ping: -');
+      return MapHeaderData(
+        nextPingText: 'Next ping: -',
+        matchSecondsLeft: matchSecondsLeft,
+      );
     }
 
     final remainingSeconds = _resolveRemainingRevealSeconds(details);
@@ -74,6 +78,7 @@ extension ApiServiceDataMethods on ApiService {
       nextPingText: 'Next ping: $display',
       remainingSeconds: remainingSeconds,
       intervalSeconds: details.revealIntervalSeconds,
+      matchSecondsLeft: matchSecondsLeft,
     );
   }
 

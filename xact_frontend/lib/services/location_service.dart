@@ -1,12 +1,21 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart'
+    show
+        FuturePermissionStatusGetters,
+        Permission,
+        PermissionActions,
+        PermissionCheckShortcuts;
 
 import '../api/api_service.dart';
 
-/// call [requestPermission] once, e.g. when joining a lobby, then
-/// [startTracking] when the game begins and [stopTracking] when leaving the
-/// game screen. the ui listens to [positionStream]
+/// call [startWatching] when entering a lobby, [startTracking] when the game
+/// begins and [stopTracking] when the player leaves or the match ends. on
+/// android the position stream runs as a foreground service, so it keeps
+/// going while the phone is locked. the ui listens to [positionStream]
 final class LocationService {
   LocationService._();
   static final LocationService instance = LocationService._();
@@ -21,6 +30,9 @@ final class LocationService {
   // the last known position sees the change and gives up, so it never leaves a
   // gps stream or upload timer running that nothing would cancel
   int _generation = 0;
+  // set while a lobby or match needs positions, so [resume] knows whether to
+  // start a stream that could not start in the background
+  bool _wanted = false;
 
   final _positionController = StreamController<Position>.broadcast();
 
@@ -116,9 +128,10 @@ final class LocationService {
     final generation = _generation;
 
     final granted = await requestPermission();
-    if (!granted) {
+    if (!granted || generation != _generation) {
       return;
     }
+    _wanted = true;
 
     // send the last known location right away so the ui doesn't wait for a fresh fix
     try {
@@ -138,14 +151,14 @@ final class LocationService {
   }
 
   /// [memberId] and [teamId] must match the player's `TeamMember` in the
-  /// backend
+  /// backend. a stream started in the lobby keeps running, because android
+  /// refuses to start the foreground service again while the phone is locked
   Future<void> startTracking({
     required int sessionId,
     required int memberId,
     required int teamId,
     Duration uploadInterval = const Duration(seconds: 5),
   }) async {
-    stopTracking();
     final generation = _generation;
 
     _memberId = memberId;
@@ -153,9 +166,10 @@ final class LocationService {
     _teamId = teamId;
 
     final granted = await requestPermission();
-    if (!granted) {
+    if (!granted || generation != _generation) {
       return;
     }
+    _wanted = true;
 
     // send the last known location right away so the ui doesn't wait for a fresh fix
     try {
@@ -174,12 +188,23 @@ final class LocationService {
     _listenToPositions();
 
     // upload on a fixed interval so the backend stays current even while the
-    // player stands still, which the distanceFilter would skip
+    // player stands still, which the distanceFilter would skip. cancel first
+    // so two overlapping calls don't leave a timer running
+    _uploadTimer?.cancel();
     _uploadTimer = Timer.periodic(uploadInterval, (_) => _uploadPosition());
+  }
+
+  /// starts the stream again if it could not start while the app was in the
+  /// background. call it when the app becomes visible
+  void resume() {
+    if (_wanted) {
+      _listenToPositions();
+    }
   }
 
   void stopTracking() {
     _generation++;
+    _wanted = false;
     _positionSub?.cancel();
     _uploadTimer?.cancel();
     _positionSub = null;
@@ -192,20 +217,89 @@ final class LocationService {
   }
 
   void _listenToPositions() {
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      // in meters
-      distanceFilter: 5,
-    );
+    // android only starts a foreground service while the app is visible. a
+    // refused start fails silently and leaves a stream that never delivers,
+    // so wait for [resume] instead
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      return;
+    }
 
     _positionSub ??=
-        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
-          (position) {
-            lastKnownPosition = position;
-            _positionController.add(position);
-          },
-          onError: (_) {},
-        );
+        Geolocator.getPositionStream(
+          locationSettings: _streamSettings(),
+        ).listen((position) {
+          lastKnownPosition = position;
+          _positionController.add(position);
+        }, onError: (_) {});
+  }
+
+  LocationSettings _streamSettings() {
+    // in meters
+    const distanceFilter = 5;
+
+    if (kIsWeb) {
+      return const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: distanceFilter,
+      );
+    }
+
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: distanceFilter,
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'X-ACT is running',
+          notificationText:
+              'Your position stays shared while the screen is off',
+          notificationChannelName: 'Game tracking',
+          // keeps the cpu awake so the upload timer still fires with the
+          // screen off, otherwise the pings stop while the player stands still
+          enableWakeLock: true,
+          setOngoing: true,
+        ),
+      ),
+      TargetPlatform.iOS => AppleSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: distanceFilter,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        allowBackgroundLocationUpdates: true,
+        showBackgroundLocationIndicator: true,
+      ),
+      _ => const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: distanceFilter,
+      ),
+    };
+  }
+
+  /// some vendors stop even a foreground service with the screen off unless
+  /// x-act is exempt from battery optimisation. only android has it
+  bool get hasBatteryOptimization =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  Future<bool> isBatteryOptimizationOff() async {
+    if (!hasBatteryOptimization) return true;
+
+    try {
+      return await Permission.ignoreBatteryOptimizations.isGranted;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// shows the system dialog. true when x-act is exempt afterwards
+  Future<bool> turnOffBatteryOptimization() async {
+    if (!hasBatteryOptimization) return true;
+
+    try {
+      return await Permission.ignoreBatteryOptimizations.request().isGranted;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _uploadPosition() async {
